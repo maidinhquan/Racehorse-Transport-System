@@ -26,7 +26,6 @@
 .spc-file-row { display: flex; gap: 8px; align-items: center; }
 .spc-file-row .spc-input { flex: 1; }
 .spc-lines { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
-.spc-line { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr 1.2fr 1.6fr auto; gap: 6px; align-items: center; }
-.spc-line .spc-select, .spc-line .spc-input { width: 100%; min-width: 0; font-size: 12px; padding: 0 8px; }
+.spc-line { display: flex; gap: 8px; align-items: center; }
+.spc-line .spc-select { flex: 1; min-width: 0; font-size: 13px; height: 38px; }
 .spc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-@media (max-width: 760px) { .spc-line { grid-template-columns: 1fr 1fr; } }

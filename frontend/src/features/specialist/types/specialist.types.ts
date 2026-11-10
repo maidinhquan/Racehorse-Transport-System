@@ -3,14 +3,14 @@
 // Ngày giờ: 'YYYY-MM-DD' hoặc 'YYYY-MM-DD HH:mm' (giờ Việt Nam)
 // ============================================================================
 
-export type CountryCode = 'VN' | 'JP' | 'TH' | 'KH' | 'SG' | 'UK' | 'AE';
+export type CountryCode = 'VN' | 'JP' | 'TH' | 'KH' | 'SG' | 'UK' | 'AE' | string;
 export type Direction = 'EXPORT' | 'IMPORT' | 'DOMESTIC';
 export type TransportMode = 'ROAD' | 'AIR';
 
 // ---------------------------------------------------------------------------
 // Quy định & thiết lập
 // ---------------------------------------------------------------------------
-export type DocGroup = 'IDENTITY' | 'MEDICAL' | 'QUARANTINE' | 'CUSTOMS' | 'OTHER';
+export type DocGroup = 'IDENTITY' | 'MEDICAL' | 'QUARANTINE' | 'CUSTOMS' | 'OTHER' | string;
 export type DocScope = 'PER_HORSE' | 'PER_TRIP';
 export type Provider = 'CUSTOMER' | 'CBN';
 export type RequirementLevel = 'REQUIRED' | 'CONDITIONAL' | 'OPTIONAL';
@@ -27,6 +27,7 @@ export interface DocType {
   /** Hiệu lực mặc định (ngày); null = theo hạn ghi trên giấy tờ */
   validityDays: number | null;
   status: ConfigStatus;
+  note?: string;
 }
 
 /** Một dòng yêu cầu: cần giấy tờ gì, ai cung cấp, từng ngựa hay toàn chuyến, mức độ, giai đoạn */
@@ -120,6 +121,7 @@ export interface SpecTrip {
   mode: TransportMode;
   status: TripStatus;
   deployment: DeploymentStatus;
+  specialistId?: string;
   plannedDepart: string;
   eta: string;
   horses: SpecHorse[];

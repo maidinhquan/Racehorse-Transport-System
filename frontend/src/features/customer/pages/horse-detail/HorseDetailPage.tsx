@@ -13,6 +13,7 @@ import {
   fmtDate,
   horseIssues,
   horseRequests,
+  activeHorseRequests,
   passportStatus,
 } from '../../hooks/customerRules';
 import './HorseDetailPage.css';
@@ -28,7 +29,8 @@ export const HorseDetailPage: React.FC = () => {
   if (!h) {
     return <CustomerLayout title="Ngựa của tôi"><Note tone="grey" title="Không tìm thấy ngựa">Ngựa {horseId} không có trong thư viện của bạn.</Note></CustomerLayout>;
   }
-  const used = horseRequests(h, requests);
+  const history = horseRequests(h, requests);
+  const active = activeHorseRequests(h, requests);
   const issues = horseIssues(h), ps = passportStatus(h);
   const fileRow = (label: string, file?: FileRef) => (
     <div className="cus-hd__file">
@@ -52,7 +54,7 @@ export const HorseDetailPage: React.FC = () => {
           <AuthImage framed src={h.photo?.url} alt={h.name} fallback={<Icon name="horse" />} />
         </div>
         <div style={{ flex: 1, minWidth: 200 }}>
-          <h2 className="cus-title cus-detail__title">{h.name} <TripStatusBadge label={used.length ? 'Đã dùng trong yêu cầu' : 'Chưa dùng'} tone={used.length ? 'info' : 'muted'} /></h2>
+          <h2 className="cus-title cus-detail__title">{h.name} <TripStatusBadge label={active.length ? 'Đã dùng trong yêu cầu' : 'Chưa dùng'} tone={active.length ? 'info' : 'muted'} /></h2>
           <p className="cus-subtitle">{h.id}</p>
         </div>
         <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(`/customer/horses/${h.id}/edit`)}>Chỉnh sửa hồ sơ</button>
@@ -63,7 +65,7 @@ export const HorseDetailPage: React.FC = () => {
 
       <div className="cus-tabs">
         <button type="button" className={tab !== 'history' ? 'on' : ''} onClick={() => navigate(`/customer/horses/${h.id}`)}>Hồ sơ ngựa</button>
-        <button type="button" className={tab === 'history' ? 'on' : ''} onClick={() => navigate(`/customer/horses/${h.id}/history`)}>Lịch sử vận chuyển ({used.length})</button>
+        <button type="button" className={tab === 'history' ? 'on' : ''} onClick={() => navigate(`/customer/horses/${h.id}/history`)}>Lịch sử vận chuyển ({history.length})</button>
       </div>
 
       {tab !== 'history' ? (
@@ -113,12 +115,12 @@ export const HorseDetailPage: React.FC = () => {
             <table className="cus-table">
               <thead><tr><th>Mã yêu cầu</th><th>Tuyến</th><th>Ngày vận chuyển</th><th>Trạng thái</th></tr></thead>
               <tbody>
-                {used.map((r) => (
+                {history.map((r) => (
                   <tr key={r.id} className="clickable" onClick={() => navigate(`/customer/requests/${r.id}`)}>
                     <td className="cus-id">{displayRequestId(r.id)}</td><td><RouteText r={r} /></td><td>{fmtDate(r.date)}</td><td><TripStatusBadge status={r.status} /></td>
                   </tr>
                 ))}
-                {!used.length && <tr><td colSpan={4} className="cus-empty">Ngựa chưa tham gia chuyến vận chuyển nào.</td></tr>}
+                {!history.length && <tr><td colSpan={4} className="cus-empty">Ngựa chưa tham gia chuyến vận chuyển nào.</td></tr>}
               </tbody>
             </table>
           </div>

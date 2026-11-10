@@ -265,6 +265,7 @@ export const CustomerTrackingPage: React.FC = () => {
 
           <div className="cus-card">
             <h3 className="cus-card__title">Các điểm dừng & cửa khẩu theo kế hoạch</h3>
+            <div className="cus-track__stops-list">
             {t.stops.map((x, i) => {
               const st = stopState(i), at = confirmedAt(i);
               return (
@@ -276,6 +277,7 @@ export const CustomerTrackingPage: React.FC = () => {
                 </div>
               );
             })}
+            </div>
           </div>
         </div>
 

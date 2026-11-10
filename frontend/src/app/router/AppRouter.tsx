@@ -28,6 +28,7 @@ import {
   CustomerTrackingPage,
   CustomerHistoryPage,
   CustomerProfilePage,
+  CustomerNotificationsPage,
 } from "../../features/customer";
 
 // ==================== CONTRACT & PAYMENT ====================
@@ -186,6 +187,7 @@ function AppRouter() {
         <Route path="/customer/home" element={<RequireAuth allowedRoles={['CUSTOMER']}><CustomerHomePage /></RequireAuth>} />
         <Route path="/customer/dashboard" element={<RequireAuth allowedRoles={['CUSTOMER']}><CustomerHomePage /></RequireAuth>} />
         <Route path="/customer/profile" element={<RequireAuth allowedRoles={['CUSTOMER']}><CustomerProfilePage /></RequireAuth>} />
+        <Route path="/customer/notifications" element={<RequireAuth allowedRoles={['CUSTOMER']}><CustomerNotificationsPage /></RequireAuth>} />
 
         {/* Requests & Wizard Flow */}
         <Route path="/customer/requests" element={<RequireAuth allowedRoles={['CUSTOMER']}><CustomerRequestsPage /></RequireAuth>} />

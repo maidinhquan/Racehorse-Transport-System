@@ -13,7 +13,7 @@ export type BadgeTone = 'ok' | 'info' | 'warn' | 'bad' | 'muted' | 'brand';
 
 const TONE: Record<string, BadgeTone> = {
   // trip
-  PLANNING: 'info', READY_TO_DEPART: 'ok', IN_TRANSIT: 'brand', COMPLETED: 'muted',
+  PLANNING: 'info', READY_TO_DEPART: 'ok', IN_TRANSIT: 'brand', COMPLETED: 'ok',
   // clearance
   PASSED: 'ok', HELD: 'warn', REJECTED: 'bad',
   // horse condition

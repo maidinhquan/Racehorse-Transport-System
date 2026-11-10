@@ -13,6 +13,7 @@ import type {
   SpecTrip,
 } from '../types';
 import { specialistApi } from '../api/specialistApi';
+import { getSharedIncidents } from '../../../shared/utils/sharedIncidents';
 import {
   SPECIALIST_NAME,
   mockAudit,
@@ -56,6 +57,7 @@ import {
 interface SpecialistState extends SpecialistData {
   loading: boolean;
   loaded: boolean;
+  loadedFor?: string;
   toast: { id: number; message: string } | null;
 }
 
@@ -67,6 +69,44 @@ import { createSyncController } from '../../../shared/utils/syncChannel';
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const cleanId = (x?: string | null) => (x || '').replace(/-/g, '_');
 
+
+export const tokenUser = (): string => {
+  try {
+    const token = sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken');
+    if (!token) {
+      const u = sessionStorage.getItem('user');
+      if (u) {
+        try {
+          const parsed = JSON.parse(u);
+          if (parsed.id || parsed.userId) return parsed.id || parsed.userId;
+        } catch {}
+      }
+      return '';
+    }
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return (
+      (typeof payload.sub === 'string' && payload.sub) ||
+      (typeof payload.nameid === 'string' && payload.nameid) ||
+      (typeof payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] === 'string' && payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']) ||
+      ''
+    );
+  } catch {
+    return '';
+  }
+};
+
+const emptyData = (): SpecialistData => ({
+  trips: [],
+  docTypes: [],
+  regulations: [],
+  packages: [],
+  customerDocs: [],
+  documents: [],
+  requests: [],
+  bookings: [],
+  audit: [],
+});
+
 let state: SpecialistState;
 
 export function autoApplyMatchingPackages(trips: SpecTrip[], packages: RegPackage[], dataContext?: SpecialistData): boolean {
@@ -77,7 +117,7 @@ export function autoApplyMatchingPackages(trips: SpecTrip[], packages: RegPackag
       if (match) {
         const dummyData: SpecialistData = dataContext ?? {
           trips,
-          docTypes: (state && state.docTypes) ? state.docTypes : (getDemoMode('specialist') ? clone(mockDocTypes) : []),
+          docTypes: (state && state.docTypes) ? state.docTypes.filter((d: any) => d.provider !== 'CUSTOMER' && !['DT-1', 'DT-2', 'DT-3'].includes(d.id)) : (getDemoMode('specialist') ? clone(mockDocTypes) : []),
           regulations: (state && state.regulations) ? state.regulations : (getDemoMode('specialist') ? clone(mockRegulations) : []),
           packages,
           customerDocs: (state && state.customerDocs) ? state.customerDocs : [],
@@ -94,12 +134,19 @@ export function autoApplyMatchingPackages(trips: SpecTrip[], packages: RegPackag
   return changed;
 }
 
-function sharedTripsAndDocs(): { trips: SpecTrip[]; customerDocs: CustomerDoc[] } {
+function sharedTripsAndDocs(forUser?: string): { trips: SpecTrip[]; customerDocs: CustomerDoc[] } {
+  const currentUserId = forUser !== undefined ? forUser : tokenUser();
   const shared = getSharedRequests();
   const trips: SpecTrip[] = [];
   const customerDocs: CustomerDoc[] = [];
 
   for (const r of shared) {
+    const reqSpecId = (r as any).specialistId || (r as any).assignedSpecialistId;
+    if (!getDemoMode('specialist')) {
+      if (!reqSpecId || cleanId(reqSpecId) !== cleanId(currentUserId)) {
+        continue;
+      }
+    }
     const isAir = (r.origin && r.destination && (r.origin.includes('Tokyo') || r.destination.includes('Sapporo') || r.destination.includes('Japan') || r.destination.includes('Osaka')));
     const tripId = `TRP-${(r.id || '').replace(/^TRN[_-]/, '')}`;
     const horseList = (r.horses && r.horses.length > 0 ? r.horses : ['HOR-1029']).map((h: string) => ({
@@ -119,6 +166,7 @@ function sharedTripsAndDocs(): { trips: SpecTrip[]; customerDocs: CustomerDoc[] 
       mode: isAir ? 'AIR' : 'ROAD',
       status: 'PLANNING',
       deployment: 'CONFIRMED',
+      specialistId: reqSpecId,
       plannedDepart: `${r.date || '2026-12-26'} 06:00`,
       eta: `${r.date || '2026-12-26'} 22:00`,
       horses: horseList,
@@ -128,37 +176,41 @@ function sharedTripsAndDocs(): { trips: SpecTrip[]; customerDocs: CustomerDoc[] 
       ] : [],
     });
 
-    // `docs` có khóa giấy tờ thật và giữ trạng thái mới nhất sau khi Specialist duyệt / yêu cầu bổ sung
-    const submittedDocs = Array.isArray(r.docs) ? r.docs.filter((d: any) => ['SUBMITTED', 'PENDING_REVIEW', 'RESUBMITTED', 'APPROVED', 'ACTION_REQUIRED'].includes(d.status)) : [];
-    if (submittedDocs.length > 0) {
-      for (const d of submittedDocs) {
+    const STANDARD_CUSTOMER_DOCS: Array<{ key: CustomerDocKey; optional: boolean; defaultNote: string }> = [
+      { key: 'passport', optional: false, defaultNote: 'Hộ chiếu ngựa' },
+      { key: 'ownership', optional: false, defaultNote: 'Chứng nhận sở hữu ngựa' },
+      { key: 'bio', optional: false, defaultNote: 'Thông tin sinh học' },
+      { key: 'valueProof', optional: false, defaultNote: 'Giá trị thương mại' },
+      { key: 'flu', optional: false, defaultNote: 'Tiêm vắc xin cúm định kỳ' },
+      { key: 'health', optional: false, defaultNote: 'Chứng nhận kiểm dịch thú y đủ điều kiện di chuyển' },
+    ];
+
+    for (const h of horseList) {
+      for (const std of STANDARD_CUSTOMER_DOCS) {
+        const found = (Array.isArray(r.docs) ? r.docs : []).find(
+          (d: any) => (d.key === std.key || (std.key === 'flu' && d.key === 'vaccine')) && (cleanId(d.scope) === cleanId(h.id) || !d.scope)
+        ) || (Array.isArray(r.dossier) ? r.dossier : []).find(
+          (d: any) => {
+            const k = d.name?.toLowerCase().includes('tiêm') ? 'flu' : d.name?.toLowerCase().includes('hộ chiếu') ? 'passport' : d.name?.toLowerCase().includes('sở hữu') ? 'ownership' : d.name?.toLowerCase().includes('sinh học') ? 'bio' : d.name?.toLowerCase().includes('giá trị') ? 'valueProof' : d.name?.toLowerCase().includes('sức khỏe') ? 'health' : '';
+            return k === std.key && (cleanId(d.scope) === cleanId(h.id) || !d.scope);
+          }
+        );
+
+        const isCompletedReq = r.status === 'COMPLETED' || r.status === 'DELIVERED';
+        const status = isCompletedReq ? 'APPROVED' : (found?.status === 'APPROVED' ? 'APPROVED' : found?.status === 'ACTION_REQUIRED' ? 'ACTION_REQUIRED' : (found?.status === 'OPTIONAL' ? 'SUBMITTED' : (found?.status || 'SUBMITTED')));
+
         customerDocs.push({
           tripId,
-          key: d.key,
-          scope: d.scope || (r.horses && r.horses[0]) || 'request',
-          status: d.status === 'APPROVED' ? 'APPROVED' : d.status === 'ACTION_REQUIRED' ? 'ACTION_REQUIRED' : 'SUBMITTED',
-          optional: false,
-          file: typeof d.file === 'object' && d.file ? d.file.name : (d.file || ''),
-          reviewedAt: d.reviewedAt,
-          reviewedBy: d.reviewedBy,
-          note: d.note || '',
-          issue: d.issue,
-        });
-      }
-    } else if (Array.isArray(r.dossier)) {
-      for (const d of r.dossier) {
-        const key = d.name?.toLowerCase().includes('tiêm') ? 'flu' : d.name?.toLowerCase().includes('hộ chiếu') ? 'passport' : 'health';
-        customerDocs.push({
-          tripId,
-          key: key as any,
-          scope: d.scope || (r.horses && r.horses[0]) || 'request',
-          status: d.status === 'APPROVED' ? 'APPROVED' : d.status === 'ACTION_REQUIRED' ? 'ACTION_REQUIRED' : 'SUBMITTED',
-          optional: false,
-          file: typeof d.file === 'object' && d.file ? d.file.name : (d.file || ''),
-          reviewedAt: d.reviewedAt,
-          reviewedBy: d.reviewedBy,
-          note: d.note || '',
-          issue: d.issue,
+          key: std.key,
+          scope: h.id,
+          status,
+          optional: std.optional,
+          file: found?.file?.url || found?.file?.name || found?.file || (status === 'MISSING' ? null : `https://storage.cbntransport.com/docs/${tripId}_${h.id}_${std.key}.pdf`),
+          reviewedAt: found?.reviewedAt,
+          reviewedBy: found?.reviewedBy,
+          note: found?.note || (std.key === 'bio' ? `Màu: Nâu hạt dẻ, Giống: Thoroughbred, Vi mạch: ${h.microchip || '985112004571029'}` : std.defaultNote),
+          issue: found?.issue,
+          expiry: found?.expiry,
         });
       }
     }
@@ -167,14 +219,20 @@ function sharedTripsAndDocs(): { trips: SpecTrip[]; customerDocs: CustomerDoc[] 
   // Tích hợp từ sharedTrips do Quản lý phân công hoặc Điều phối lập
   const sharedTripsMap = getSharedTrips();
   Object.values(sharedTripsMap).forEach((st) => {
+    const specId = st.specialistId || (typeof st.deployment === 'object' ? st.deployment?.specialistId : undefined);
+    if (!getDemoMode('specialist')) {
+      if (!specId || cleanId(specId) !== cleanId(currentUserId)) {
+        return;
+      }
+    }
     const existing = trips.find((t) => cleanId(t.id) === cleanId(st.id) || (st.requestId && cleanId(t.requestId) === cleanId(st.requestId)));
-    const depStatus = (typeof st.deployment === 'object' ? st.deployment?.status : st.deployment) || (st.specialistId ? 'CONFIRMED' : 'NOT_CONFIRMED');
+    const depStatus = (typeof st.deployment === 'object' ? st.deployment?.status : st.deployment) || (specId ? 'CONFIRMED' : 'NOT_CONFIRMED');
     if (existing) {
       if (st.status) existing.status = st.status as any;
       if (st.plannedDepart) existing.plannedDepart = st.plannedDepart;
       if (st.eta) existing.eta = st.eta;
       if (depStatus) existing.deployment = depStatus as any;
-      (existing as any).specialistId = st.specialistId || (typeof st.deployment === 'object' ? st.deployment?.specialistId : undefined);
+      existing.specialistId = specId;
       (existing as any).coordinatorId = st.coordinatorId || (typeof st.deployment === 'object' ? st.deployment?.coordinatorId : undefined);
       if (st.updatedAt) (existing as any).updatedAt = st.updatedAt;
     } else {
@@ -190,12 +248,12 @@ function sharedTripsAndDocs(): { trips: SpecTrip[]; customerDocs: CustomerDoc[] 
         mode: (st.mode as any) || (isAir ? 'AIR' : 'ROAD'),
         status: (st.status as any) || 'PLANNING',
         deployment: depStatus as any,
+        specialistId: specId,
         plannedDepart: st.plannedDepart || `${today()} 06:00`,
         eta: st.eta || `${today()} 22:00`,
         horses: Array.isArray(st.horses) && st.horses.length > 0 ? st.horses : [{ id: 'HOR-1029', name: 'Thunderbolt', microchip: '985112004571029', passportNo: 'VN-EQ-2020-1029' }],
         checkpoints: Array.isArray(st.checkpoints) ? st.checkpoints : [],
         ...({
-          specialistId: st.specialistId || (typeof st.deployment === 'object' ? st.deployment?.specialistId : undefined),
           coordinatorId: st.coordinatorId || (typeof st.deployment === 'object' ? st.deployment?.coordinatorId : undefined),
           updatedAt: st.updatedAt,
         } as any),
@@ -207,14 +265,73 @@ function sharedTripsAndDocs(): { trips: SpecTrip[]; customerDocs: CustomerDoc[] 
   return { trips, customerDocs };
 }
 
+function normalizeCustomerDocs(docs: CustomerDoc[], trips: SpecTrip[]): CustomerDoc[] {
+  const cleanId = (x?: string | null) => (x || '').replace(/-/g, '_');
+  const STANDARD_KEYS: CustomerDocKey[] = ['passport', 'ownership', 'bio', 'valueProof', 'flu', 'health'];
+  const STANDARD_TITLES: Partial<Record<CustomerDocKey, string>> = {
+    passport: 'Hộ chiếu ngựa',
+    ownership: 'Chứng nhận sở hữu ngựa',
+    bio: 'Thông tin sinh học',
+    valueProof: 'Giá trị thương mại',
+    flu: 'Sổ tiêm ngừa',
+    health: 'Giấy chứng nhận sức khỏe',
+    conditions: 'Ghi chú sức khỏe đặc biệt'
+  };
+
+  const isTripCompleted = (tripId: string) => {
+    const t = trips.find((x) => cleanId(x.id) === cleanId(tripId) || (x.requestId && cleanId(x.requestId) === cleanId(tripId)));
+    return t?.status === 'COMPLETED';
+  };
+
+  const normalized: CustomerDoc[] = docs.map((d) => ({
+    ...d,
+    optional: false,
+    status: isTripCompleted(d.tripId) ? 'APPROVED' : (d.status === 'OPTIONAL' ? 'SUBMITTED' : d.status),
+  }));
+
+  for (const t of trips) {
+    const isCompleted = t.status === 'COMPLETED';
+    const horses = t.horses && t.horses.length > 0 ? t.horses : [{ id: 'HOR-1029', name: 'Thunderbolt' }];
+    const tTrips = [t.id, cleanId(t.id), t.requestId, cleanId(t.requestId)].filter(Boolean);
+    for (const h of horses) {
+      for (const k of STANDARD_KEYS) {
+        const found = normalized.find(
+          (d) =>
+            tTrips.some((tid) => tid === d.tripId || cleanId(d.tripId) === tid) &&
+            d.key === k &&
+            (cleanId(d.scope) === cleanId(h.id) || !d.scope)
+        );
+        if (found) {
+          if (isCompleted) found.status = 'APPROVED';
+        } else {
+          normalized.push({
+            tripId: t.id,
+            key: k,
+            scope: h.id,
+            status: isCompleted ? 'APPROVED' : 'SUBMITTED',
+            optional: false,
+            file: `${h.id.toLowerCase()}-${k}.pdf`,
+            note: STANDARD_TITLES[k] || '',
+          });
+        }
+      }
+    }
+  }
+
+  return normalized;
+}
+
 const initialDemo = getDemoMode('specialist');
 const initialShared = sharedTripsAndDocs();
 const initialTrips = initialDemo
   ? [...initialShared.trips, ...clone(mockTrips).filter((m) => !initialShared.trips.some((s) => cleanId(s.id) === cleanId(m.id)))]
-  : initialShared.trips;
-const initialCustomerDocs = initialDemo
-  ? [...initialShared.customerDocs, ...clone(mockCustomerDocs).filter((m) => !initialShared.customerDocs.some((s) => cleanId(s.tripId) === cleanId(m.tripId) && s.key === m.key))]
-  : initialShared.customerDocs;
+  : [];
+const initialCustomerDocs = normalizeCustomerDocs(
+  initialDemo
+    ? [...initialShared.customerDocs, ...clone(mockCustomerDocs).filter((m) => !initialShared.customerDocs.some((s) => cleanId(s.tripId) === cleanId(m.tripId) && s.key === m.key))]
+    : [],
+  initialTrips
+);
 
 state = {
   trips: initialTrips,
@@ -264,8 +381,8 @@ async function refreshCustomerDocs() {
     const [customerDocs, requests] = await Promise.all([specialistApi.getCustomerDocs(), specialistApi.getRequests()]);
     if (!customerDocs || customerDocs.length === 0) return;
     setState((s) => ({
-      customerDocs: mergeBackendDocs(customerDocs, s.customerDocs),
-      ...(requests && requests.length > 0 ? { requests } : {}),
+      customerDocs: normalizeCustomerDocs(mergeBackendDocs(customerDocs.filter((d) => s.trips.some((t) => cleanId(t.id) === cleanId(d.tripId))), s.customerDocs), s.trips),
+      ...(requests && requests.length > 0 ? { requests: requests.filter((r) => s.trips.some((t) => cleanId(t.id) === cleanId(r.tripId))) } : {}),
     }));
   } catch {
     // giữ dữ liệu hiện tại, lần làm mới sau sẽ thử lại
@@ -283,10 +400,10 @@ if (typeof window !== 'undefined') {
       for (const t of sh.trips) {
         const idx = newTrips.findIndex((x) => cleanId(x.id) === cleanId(t.id));
         if (idx >= 0) newTrips[idx] = { ...newTrips[idx], ...definedOnly(t), insurance: newTrips[idx].insurance ?? (t as any).insurance, horses: newTrips[idx].horses?.length ? newTrips[idx].horses : (t as any).horses };
-        else newTrips.unshift(t);
       }
       const newDocs = [...s.customerDocs];
       for (const d of sh.customerDocs) {
+        if (!newTrips.some((t) => cleanId(t.id) === cleanId(d.tripId))) continue;
         if (backendDocTrips.has(cleanId(d.tripId)) && !getDemoMode('specialist')) continue;
         const idx = newDocs.findIndex((x) => cleanId(x.tripId) === cleanId(d.tripId) && x.key === d.key && cleanId(x.scope) === cleanId(d.scope));
         if (idx >= 0) newDocs[idx] = { ...newDocs[idx], ...d };
@@ -357,7 +474,7 @@ const nextId = (prefix: string, ids: string[]) => `${prefix}-${Math.max(0, ...id
 const tripOf = (d: SpecialistData, id: string) => {
   const found = d.trips.find((t) => t.id === id || cleanId(t.id) === cleanId(id) || cleanId(t.requestId) === cleanId(id));
   if (found) return found;
-  const mock = mockTrips.find((m) => m.id === id || cleanId(m.id) === cleanId(id) || cleanId(m.requestId) === cleanId(id));
+  const mock = getDemoMode('specialist') && mockTrips.find((m) => m.id === id || cleanId(m.id) === cleanId(id) || cleanId(m.requestId) === cleanId(id));
   if (mock) {
     const copy = clone(mock);
     d.trips.push(copy);
@@ -365,33 +482,58 @@ const tripOf = (d: SpecialistData, id: string) => {
   }
   return undefined;
 };
-/** Hồ sơ đổi sau khi đã xác nhận Docs READY thì xác nhận hết hiệu lực */
-const invalidateReady = (t: SpecTrip) => { if (t.status === 'PLANNING' && t.docsReady) t.docsReady = undefined; };
+/** Kiểm tra xem hồ sơ chuyến có đang bị khoá sau khi Docs READY không (chỉ mở khi có sự cố) */
+const checkDocsLocked = (tripId: string): string | null => {
+  const t = tripOf(state, tripId);
+  if (!t || !t.docsReady) return null;
+  const incs = getSharedIncidents(tripId);
+  const hasIncident = (t.status as string) === 'INCIDENT' || incs.length > 0;
+  if (!hasIncident) {
+    return 'Hồ sơ chuyến đã được xác nhận Docs READY và đã khoá. Chỉ được phép chỉnh sửa khi có sự cố vận chuyển phát sinh.';
+  }
+  return null;
+};
 
-async function loadAll() {
-  if (state.loading || state.loaded) return;
-  setState({ loading: true });
+const invalidateReady = (_t: SpecTrip) => {
+  // Không tự động huỷ xác nhận Docs READY khi sửa đổi trong bối cảnh xử lý sự cố
+};
+
+let loadVersion = 0;
+async function loadAll(targetUser?: string) {
+  const currentUser = targetUser !== undefined ? targetUser : tokenUser();
+  if (state.loading) return;
+  if (state.loaded && state.loadedFor === currentUser) return;
+  const version = ++loadVersion;
+  setState({ loading: true, loadedFor: currentUser });
   try {
     const [trips, customerDocs, documents, requests, bookings, docTypes, regulations, packages, auditLog] = await Promise.all([
       specialistApi.getTrips(), specialistApi.getCustomerDocs(), specialistApi.getDocuments(), specialistApi.getRequests(), specialistApi.getBookings(),
       specialistApi.getDocTypes(), specialistApi.getRegulations(), specialistApi.getPackages(), specialistApi.getAudit(),
     ]);
-    const sh = sharedTripsAndDocs();
-    const baseTrips = trips && trips.length > 0 ? trips : [];
-    // Dữ liệu backend (bảo hiểm, xác nhận hồ sơ, ngựa…) là bản đúng; bản dùng chung chỉ bổ sung tuyến/chuyến bay và các chuyến backend chưa có
-    const mergedTrips = [
-      ...sh.trips.map((st) => { const bt = baseTrips.find((b: any) => cleanId(b.id) === cleanId(st.id)); return bt ? { ...st, ...definedOnly(bt) } : st; }),
-      ...baseTrips.filter((bt: any) => !sh.trips.some((s) => cleanId(s.id) === cleanId(bt.id))),
-    ];
-    const baseDocs = customerDocs && customerDocs.length > 0 ? customerDocs : [];
-    // Dữ liệu từ backend là bản đúng; bản lưu cục bộ chỉ bổ sung những giấy tờ backend chưa có
-    const mergedDocs = mergeBackendDocs(baseDocs, sh.customerDocs);
+    if (version !== loadVersion) return;
+    const sh = sharedTripsAndDocs(currentUser);
+    let baseTrips = trips && trips.length > 0 ? trips : [];
+    if (!getDemoMode('specialist')) {
+      baseTrips = baseTrips.filter((bt) => !!currentUser && cleanId(bt.specialistId) === cleanId(currentUser));
+    }
+    const mergedTrips = getDemoMode('specialist')
+      ? [...sh.trips, ...baseTrips.filter((bt) => !sh.trips.some((st) => cleanId(st.id) === cleanId(bt.id)))]
+      : baseTrips.map((bt) => {
+          const st = sh.trips.find((trip) => cleanId(trip.id) === cleanId(bt.id));
+          return st ? { ...st, ...definedOnly(bt) } : bt;
+        });
+    const visibleTrips = new Set(mergedTrips.map((t) => cleanId(t.id)));
+    const baseDocs = (customerDocs || []).filter((d) => visibleTrips.has(cleanId(d.tripId)));
+    const mergedDocs = normalizeCustomerDocs(mergeBackendDocs(baseDocs, sh.customerDocs.filter((d) => visibleTrips.has(cleanId(d.tripId)))), mergedTrips);
 
     const activePackages = (packages && packages.length > 0) ? packages : (getDemoMode('specialist') ? clone(mockPackages) : []);
-    const activeRegs = (regulations && regulations.length > 0) ? regulations : (getDemoMode('specialist') ? clone(mockRegulations) : []);
+    const activeRegs = ((regulations && regulations.length > 0) ? regulations : (getDemoMode('specialist') ? clone(mockRegulations) : []))
+      .map((g) => ({ ...g, lines: (g.lines || []).filter((l: any) => l.provider !== 'CUSTOMER') }));
+    const rawDocTypes = (docTypes && docTypes.length > 0) ? docTypes : (getDemoMode('specialist') ? clone(mockDocTypes) : []);
+    const activeDocTypes = rawDocTypes.filter((d: any) => d.provider !== 'CUSTOMER' && !['DT-1', 'DT-2', 'DT-3'].includes(d.id));
     const dummyCtx: SpecialistData = {
       trips: mergedTrips,
-      docTypes: docTypes || [],
+      docTypes: activeDocTypes,
       regulations: activeRegs,
       packages: activePackages,
       customerDocs: mergedDocs,
@@ -403,16 +545,43 @@ async function loadAll() {
     autoApplyMatchingPackages(mergedTrips, activePackages, dummyCtx);
 
     if (!getDemoMode('specialist')) {
-      setState({ trips: mergedTrips, customerDocs: mergedDocs, documents: documents || [], requests: requests || [], bookings: bookings || [], docTypes, regulations, packages, audit: auditLog || [], loading: false, loaded: true });
+      setState({
+        trips: mergedTrips,
+        customerDocs: mergedDocs,
+        documents: ((documents && documents.length > 0) ? documents : clone(mockDocuments)).filter((d) => visibleTrips.has(cleanId(d.tripId))),
+        requests: (requests || []).filter((r) => visibleTrips.has(cleanId(r.tripId))),
+        bookings: (bookings || []).filter((b) => visibleTrips.has(cleanId(b.tripId))),
+        docTypes: activeDocTypes,
+        regulations: activeRegs,
+        packages,
+        audit: auditLog || [],
+        loading: false,
+        loaded: true,
+        loadedFor: currentUser,
+      });
       return;
     }
     const allDemoTrips = [...mergedTrips, ...clone(mockTrips).filter((m) => !mergedTrips.some((t) => cleanId(t.id) === cleanId(m.id)))];
     const allDemoDocs = [...mergedDocs, ...clone(mockCustomerDocs).filter((m) => !mergedDocs.some((d) => cleanId(d.tripId) === cleanId(m.tripId) && d.key === m.key))];
-    setState({ trips: allDemoTrips, customerDocs: allDemoDocs, documents: documents?.length ? documents : clone(mockDocuments), requests: requests?.length ? requests : clone(mockRequests), bookings: bookings?.length ? bookings : clone(mockBookings), docTypes, regulations, packages, audit: auditLog?.length ? auditLog : clone(mockAudit), loading: false, loaded: true });
+    setState({
+      trips: allDemoTrips,
+      customerDocs: allDemoDocs,
+      documents: documents?.length ? documents : clone(mockDocuments),
+      requests: requests?.length ? requests : clone(mockRequests),
+      bookings: bookings?.length ? bookings : clone(mockBookings),
+      docTypes: activeDocTypes,
+      regulations: activeRegs,
+      packages,
+      audit: auditLog?.length ? auditLog : clone(mockAudit),
+      loading: false,
+      loaded: true,
+      loadedFor: currentUser,
+    });
   } catch {
-    const sh = sharedTripsAndDocs();
+    if (version !== loadVersion) return;
+    const sh = sharedTripsAndDocs(currentUser);
     if (!getDemoMode('specialist')) {
-      setState({ trips: sh.trips, customerDocs: sh.customerDocs, documents: [], requests: [], bookings: [], loading: false, loaded: true });
+      setState({ ...emptyData(), loading: false, loaded: true, loadedFor: currentUser });
     } else {
       setState({
         trips: [...sh.trips, ...clone(mockTrips).filter((m) => !sh.trips.some((s) => cleanId(s.id) === cleanId(m.id)))],
@@ -422,22 +591,22 @@ async function loadAll() {
         bookings: clone(mockBookings),
         loading: false,
         loaded: true,
+        loadedFor: currentUser,
       });
     }
   }
 }
 
-// ============================================================================
-// Hành động của Transport Specialist
-// ============================================================================
 const specialistActions = {
-  reload: () => { setState({ loaded: false }); void loadAll(); },
+  reload: () => { loadVersion++; setState({ ...emptyData(), loaded: false, loadedFor: '', loading: false }); void loadAll(); },
   clearToast: () => setState({ toast: null }),
   showToast: (m: string) => toast(m),
 
   // ----- Bộ yêu cầu hồ sơ -----
   applyRequirementSet(tripId: string, pkgId: string): ActionResult {
     const t = tripOf(state, tripId), p = state.packages.find((x) => x.id === pkgId);
+    if (!t || !p) return fail('Không tìm thấy chuyến hoặc bộ yêu cầu.');
+    if (t.docsReady) return fail('Chuyến đã xác nhận Docs READY — bộ yêu cầu theo tuyến đã chốt cố định và không thể thay đổi.');
     if (!t || !p) return fail('Không tìm thấy chuyến hoặc bộ yêu cầu.');
     if (opsBlock(t)) return fail(opsBlock(t));
     if (t.status !== 'PLANNING') return fail('Chuyến đã khởi hành – bộ yêu cầu được khóa.');
@@ -454,6 +623,8 @@ const specialistActions = {
 
   // ----- Giấy tờ khách hàng cung cấp -----
   approveCustomerDoc(tripId: string, key: CustomerDocKey, scope: string): ActionResult {
+    const lockedMsg = checkDocsLocked(tripId);
+    if (lockedMsg) return fail(lockedMsg);
     const t = tripOf(state, tripId), cd = customerDoc(state, tripId, key, scope);
     if (!t || !cd) return fail('Không tìm thấy giấy tờ.');
     if (opsBlock(t)) return fail(opsBlock(t));
@@ -477,7 +648,7 @@ const specialistActions = {
       if (req) {
         if (Array.isArray(req.dossier)) {
           req.dossier.forEach((doc: any) => {
-            const docKey = doc.name?.toLowerCase().includes('tiêm') ? 'flu' : doc.name?.toLowerCase().includes('hộ chiếu') ? 'passport' : 'health';
+            const docKey = doc.name?.toLowerCase().includes('tiêm') ? 'flu' : doc.name?.toLowerCase().includes('hộ chiếu') ? 'passport' : doc.name?.toLowerCase().includes('sở hữu') ? 'ownership' : doc.name?.toLowerCase().includes('sinh học') ? 'bio' : doc.name?.toLowerCase().includes('giá trị') ? 'valueProof' : doc.name?.toLowerCase().includes('sức khỏe') ? 'health' : '';
             if (docKey === key && (doc.scope === scope || cleanId(doc.scope) === cleanId(scope))) {
               doc.status = 'APPROVED';
               doc.reviewedAt = nowStamp();
@@ -537,7 +708,7 @@ const specialistActions = {
       if (req) {
         if (Array.isArray(req.dossier)) {
           req.dossier.forEach((doc: any) => {
-            const docKey = doc.name?.toLowerCase().includes('tiêm') ? 'flu' : doc.name?.toLowerCase().includes('hộ chiếu') ? 'passport' : 'health';
+            const docKey = doc.name?.toLowerCase().includes('tiêm') ? 'flu' : doc.name?.toLowerCase().includes('hộ chiếu') ? 'passport' : doc.name?.toLowerCase().includes('sở hữu') ? 'ownership' : doc.name?.toLowerCase().includes('sinh học') ? 'bio' : doc.name?.toLowerCase().includes('giá trị') ? 'valueProof' : doc.name?.toLowerCase().includes('sức khỏe') ? 'health' : '';
             if (docKey === key && (doc.scope === scope || cleanId(doc.scope) === cleanId(scope))) {
               doc.status = 'ACTION_REQUIRED';
               doc.note = reason.trim();
@@ -608,6 +779,8 @@ const specialistActions = {
 
   // ----- Chứng từ CBN Transport -----
   recordDocument(input: RecordDocInput): ActionResult {
+    const lockedMsg = checkDocsLocked(input.tripId);
+    if (lockedMsg) return fail(lockedMsg);
     const t = tripOf(state, input.tripId);
     if (!t) return fail('Không tìm thấy chuyến.');
     if (opsBlock(t)) return fail(opsBlock(t));
@@ -652,8 +825,12 @@ const specialistActions = {
   },
   /** requestedVersion = 0: duyệt phiên bản mới nhất của chứng từ */
   reviewDocument(docId: string, requestedVersion: number, decision: 'APPROVED' | 'REJECTED', remark: string): ActionResult {
-    const version = requestedVersion > 0 ? requestedVersion : (state.documents.find((x) => x.id === docId)?.versions.length ?? 0);
     const doc = state.documents.find((x) => x.id === docId);
+    if (doc) {
+      const lockedMsg = checkDocsLocked(doc.tripId);
+      if (lockedMsg) return fail(lockedMsg);
+    }
+    const version = requestedVersion > 0 ? requestedVersion : (doc?.versions.length ?? 0);
     const t = doc && tripOf(state, doc.tripId);
     if (!doc || !t) return fail('Không tìm thấy chứng từ.');
     if (opsBlock(t)) return fail(opsBlock(t));
@@ -673,7 +850,12 @@ const specialistActions = {
     void pending.then(() => specialistApi.reviewDocument(serverDocId.get(docId) ?? docId, { version, decision, remark }));
     return ok(decision === 'APPROVED' ? `Đã duyệt ${docId} v${version}.` : `Đã từ chối ${docId} v${version}.`);
   },
-  togglePhysicalCopy(docId: string, force?: boolean) {
+  togglePhysicalCopy(docId: string, force?: boolean): ActionResult | void {
+    const doc = state.documents.find((x) => x.id === docId);
+    if (doc) {
+      const lockedMsg = checkDocsLocked(doc.tripId);
+      if (lockedMsg) return fail(lockedMsg);
+    }
     let collected: boolean | undefined;
     mutate((d) => { const x = d.documents.find((y) => y.id === docId); if (x) { x.physicalCopy = force ?? !x.physicalCopy; collected = x.physicalCopy; audit(d, x.physicalCopy ? 'Đã nhận bản cứng gốc' : 'Bỏ đánh dấu bản cứng', x.tripId, docId); } });
     if (collected === undefined) return;
@@ -683,6 +865,8 @@ const specialistActions = {
 
   // ----- Bảo hiểm -----
   saveInsurance(tripId: string, ins: Omit<Insurance, 'status'>): ActionResult {
+    const lockedMsg = checkDocsLocked(tripId);
+    if (lockedMsg) return fail(lockedMsg);
     const t = tripOf(state, tripId);
     if (!t) return fail('Không tìm thấy chuyến.');
     if (opsBlock(t)) return fail(opsBlock(t));
@@ -693,6 +877,8 @@ const specialistActions = {
     return ok('Đã lưu hợp đồng bảo hiểm, chờ xác minh.');
   },
   verifyInsurance(tripId: string): ActionResult {
+    const lockedMsg = checkDocsLocked(tripId);
+    if (lockedMsg) return fail(lockedMsg);
     const t = tripOf(state, tripId), ins = t?.insurance;
     if (!t || !ins) return fail('Chưa có hợp đồng bảo hiểm.');
     if (opsBlock(t)) return fail(opsBlock(t));
@@ -764,7 +950,8 @@ const specialistActions = {
     const old = state.regulations.find((x) => x.id === id);
     const used = state.trips.some((t) => t.reqSet?.rules.some((r) => r.regId === id));
     mutate((d) => {
-      const next: Regulation = { ...reg, id, v: old ? (used ? old.v + 1 : old.v) : 1, effectiveFrom: old && !used ? old.effectiveFrom : today() };
+      const cleanedLines = reg.lines.filter((l) => l.provider !== 'CUSTOMER').map((l) => ({ ...l, provider: 'CBN' as const }));
+      const next: Regulation = { ...reg, lines: cleanedLines, id, v: old ? (used ? old.v + 1 : old.v) : 1, effectiveFrom: old && !used ? old.effectiveFrom : today() };
       const i = d.regulations.findIndex((x) => x.id === id);
       if (i >= 0) d.regulations[i] = next; else d.regulations.unshift(next);
       audit(d, old ? 'Sửa yêu cầu theo quốc gia/tuyến' : 'Thêm yêu cầu theo quốc gia/tuyến', id, `v${next.v}`);
@@ -870,6 +1057,11 @@ const demoActions = {
 
 export type SpecialistActions = typeof specialistActions & { demo: typeof demoActions };
 const actions: SpecialistActions = { ...specialistActions, demo: demoActions };
+if (typeof window !== 'undefined') {
+  window.addEventListener('rts_trips_updated', () => {
+    if (!getDemoMode('specialist')) actions.reload();
+  });
+}
 
 // ============================================================================
 // Hook
@@ -893,7 +1085,15 @@ export function sortTripsNewestFirst(list: SpecTrip[]): SpecTrip[] {
 
 export function useSpecialist() {
   const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-  useEffect(() => { void loadAll(); }, []);
+  const currentUser = tokenUser();
+
+  useEffect(() => {
+    if ((state.loaded || state.loading) && !getDemoMode('specialist') && state.loadedFor !== currentUser) {
+      loadVersion++;
+      setState({ ...emptyData(), loaded: false, loadedFor: '', loading: false });
+    }
+    if (!state.loaded) void loadAll(currentUser);
+  }, [currentUser]);
 
   const sortedTrips = useMemo(() => {
     const list = sortTripsNewestFirst(snap.trips);
@@ -935,3 +1135,5 @@ export function useSpecialist() {
 }
 
 export default useSpecialist;
+
+

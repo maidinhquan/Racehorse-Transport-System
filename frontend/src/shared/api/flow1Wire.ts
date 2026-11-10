@@ -12,7 +12,7 @@ export interface WireContract {
   contractStatus: string; versionStatus: string; currentDeadline?: string | null;
   issuedAt?: string | null; signedAt?: string | null; termsAcceptedAt?: string | null;
   items?: Array<{ desc: string; amount: number; required?: boolean }> | null;
-  total?: number | null; depositPct?: number | null; depositAmount?: number | null;
+  total?: number | null; depositPct?: number | null; depositAmount?: number | null; budget?: Record<string, number> | null;
   note?: string | null; terms?: Array<{ title: string; text: string }> | null;
   mode?: 'ROAD' | 'AIR' | null; departAt?: string | null; arriveAt?: string | null;
   modeDeferred?: boolean;
@@ -84,6 +84,7 @@ export const contractFromWire = (v: WireContract) => ({
   issuedAt: contractLocalStamp(v.issuedAt), signedAt: contractLocalStamp(v.signedAt) || undefined,
   termsAcceptedAt: contractLocalStamp(v.termsAcceptedAt) || undefined, items: v.items ?? [], terms: v.terms ?? [],
   total: v.total ?? 0, depositPct: v.depositPct ?? 0, depositAmount: v.depositAmount ?? undefined,
+  budget: v.budget ?? undefined,
   note: v.note ?? '', mode: v.mode ?? undefined, departAt: v.departAt ?? '', arriveAt: v.arriveAt ?? '',
   deadlineHistory: [], extensions: [],
   snapshot: snapshotFromWire(v.snapshot),

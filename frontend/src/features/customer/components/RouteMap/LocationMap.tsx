@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { addGeoapifyTiles } from './GeoapifyTiles';
 import { drawIncidentPins } from '../../../../shared/maps/incidentPinLayer';
 import type { IncidentPin } from '../../../../shared/utils/sharedIncidentPins';
+import { fetchRoadRoute } from '../../../../shared/maps/roadRouting';
 
 export interface MapPoint {
   latitude?: number;
@@ -48,6 +49,7 @@ export function LocationMap({ points, current = -1, height = 240, center, route 
   useEffect(() => {
     if (!container.current) return;
     setFailed(false);
+    let isCancelled = false;
     const mapPoints: MapPoint[] = JSON.parse(pointsKey);
     const map = L.map(container.current, { scrollWheelZoom: true }).setView(
       center ? [center.latitude, center.longitude] : [16, 106], center ? 11 : 5);
@@ -60,10 +62,19 @@ export function LocationMap({ points, current = -1, height = 240, center, route 
         const previous = located[i - 1], next = located[i];
         if (next.index !== previous.index + 1) continue;
         const confirmed = next.index <= current;
-        L.polyline([previous.position, next.position], {
+        const poly = L.polyline([previous.position, next.position], {
           color: confirmed ? '#f57c00' : '#2563eb', weight: 4,
           dashArray: confirmed ? undefined : '6 8',
         }).addTo(map);
+
+        void fetchRoadRoute([
+          { lat: previous.position[0], lng: previous.position[1] },
+          { lat: next.position[0], lng: next.position[1] },
+        ]).then((roadCoords) => {
+          if (!isCancelled && roadCoords && roadCoords.length > 1) {
+            (poly as any).setLatLngs?.(roadCoords);
+          }
+        });
       }
     }
     located.forEach(({ point, index, position }) => {
@@ -78,7 +89,13 @@ export function LocationMap({ points, current = -1, height = 240, center, route 
     if (located.length) map.fitBounds(L.latLngBounds(located.map(p => p.position)), { padding: [30, 30], maxZoom: 15 });
     const observer = new ResizeObserver(() => map.invalidateSize({ pan: false }));
     observer.observe(container.current);
-    return () => { observer.disconnect(); cancelTiles(); map.remove(); mapRef.current = null; };
+    return () => {
+      isCancelled = true;
+      observer.disconnect();
+      cancelTiles();
+      map.remove();
+      mapRef.current = null;
+    };
   }, [pointsKey, pinsKey, current, center?.latitude, center?.longitude, route]);
 
   return (

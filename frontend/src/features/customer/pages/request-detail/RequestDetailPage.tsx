@@ -61,7 +61,7 @@ function statusBanner(r: TransportRequest): [Tone, string, string] {
         : ['green', 'Yêu cầu đã được kích hoạt', 'Hợp đồng có hiệu lực. CBN Transport đang lập kế hoạch và chuẩn bị chuyến đi.'];
     case 'SCHEDULED': return ['green', 'Đã lên lịch vận chuyển', r.trip ? `Dự kiến xuất phát ${fmtDateTime(r.trip.plannedDepart)}.` : ''];
     case 'IN_TRANSIT': return ['blue', 'Ngựa của bạn đang trên đường', r.trip ? `Dự kiến đến ${fmtDateTime(r.trip.eta)}.` : ''];
-    case 'DELIVERED': return ['green', 'Đã giao – yêu cầu chưa đóng', 'Nghiệm thu, thanh toán số dư và đóng yêu cầu được xử lý riêng.'];
+    case 'DELIVERED': return ['green', 'Đã giao hàng thành công', ''];
     case 'CLOSED': return ['green', 'Yêu cầu đã đóng', `Đủ mọi điều kiện đóng${r.closedAt ? ` • ${fmtDateTime(r.closedAt)}` : ''}.`];
     case 'CANCELLED': return ['grey', 'Yêu cầu đã hủy', r.reason ?? ''];
   }

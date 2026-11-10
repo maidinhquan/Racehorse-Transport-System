@@ -20,6 +20,7 @@ public static class ContractMapper
             termsAcceptedAt = Format(version.TermsAcceptedAtUtc),
             currentDeadline = Format(contract.CompletionDeadline), currency = "VND",
             items = Field(commercial, "items"), total = legacy ? Field(snapshot, "TotalQuotedPrice") : Field(commercial, "totalPrice"),
+            budget = Field(commercial, "budget"),
             depositPct = legacy ? Field(snapshot, "DepositRateStandard") : Field(commercial, "depositPercent"), depositAmount = legacy ? Field(snapshot, "DepositAmount") : Field(commercial, "depositAmount"),
             note = legacy ? Field(snapshot, "CommercialNotes") : Field(commercial, "notes"), terms = MapTerms(legacy ? Field(snapshot, "Clauses") : Field(snapshot, "terms")), mode = Field(route, "mode"),
             departAt = Format(ReadDate(route, "departureAtUtc")), arriveAt = Format(ReadDate(route, "deliveryAtUtc")),

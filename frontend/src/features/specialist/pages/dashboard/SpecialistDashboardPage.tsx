@@ -70,7 +70,7 @@ export const SpecialistDashboardPage: React.FC = () => {
           </h3>
           <div className="spc-table-wrap">
             <table className="spc-table">
-              <thead><tr><th>Chuyến</th><th>Tuyến</th><th>Khởi hành</th><th>Tổng giấy tờ</th><th>Giao việc</th></tr></thead>
+              <thead><tr><th>Chuyến</th><th>Tuyến</th><th>Khởi hành</th><th>Tổng giấy tờ</th><th>Trạng thái</th></tr></thead>
               <tbody>
                 {active.map((t) => {
                   const x = tripTotals(data, t);
@@ -80,7 +80,7 @@ export const SpecialistDashboardPage: React.FC = () => {
                       <td>{shortName(t.origin)} → {shortName(t.destination)}</td>
                       <td>{fmtDateTime(t.plannedDepart)}</td>
                       <td><MiniProgress done={x.done} total={x.total} /></td>
-                      <td><TripStatusBadge kind="deployment" status={t.deployment} /></td>
+                      <td><TripStatusBadge kind="trip" status={t.status} /></td>
                     </tr>
                   );
                 })}

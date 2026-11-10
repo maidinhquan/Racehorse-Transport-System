@@ -24,8 +24,16 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         var ids = requests.Select(x => x.RequestID).ToArray();
         var links = await data.ListAsync<RequestHorse>(x => ids.Contains(x.RequestID), ct);
         var contracts = (await data.ListAsync<Contract>(c => ids.Contains(c.RequestID), ct)).ToDictionary(c => c.RequestID);
-        return requests.OrderByDescending(x => x.ExpectedDate).Select(x => RequestMapper.View(x,
-            links.Where(l => l.RequestID == x.RequestID).ToArray(), contracts.GetValueOrDefault(x.RequestID))).ToArray();
+        var contractIds = contracts.Values.Select(c => c.ContractID).ToArray();
+        var versions = (await data.ListAsync<ContractVersion>(v => contractIds.Contains(v.ContractID) && (manager || v.PublishedAtUtc != null), ct))
+            .GroupBy(v => v.ContractID)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<ContractVersion>)g.OrderBy(v => v.VersionNo).ToList());
+        return requests.OrderByDescending(x => x.ExpectedDate).Select(x => {
+            var c = contracts.GetValueOrDefault(x.RequestID);
+            var vList = c is not null && versions.TryGetValue(c.ContractID, out var list) ? list : null;
+            return RequestMapper.View(x, links.Where(l => l.RequestID == x.RequestID).ToArray(), c, vList);
+        }).ToArray();
+
     }
     public async Task<object> CreateAsync(string actor, string key, RequestUpdateInput input, CancellationToken ct)
     {

@@ -47,9 +47,14 @@
 .cus-check-list .cus-i { width: 16px; height: 16px; margin-top: 1px; }
 .cus-photo-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
 .cus-photo-strip span { border: 1px solid #e5e7eb; border-radius: 8px; padding: 18px 12px; font-size: 11px; color: #64748b; background: #f8fafc; }
-.cus-complaint-list { list-style: none; margin: 0; padding: 0; }
-.cus-complaint-list li { display: flex; justify-content: space-between; gap: 10px; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
-.cus-complaint-list li:last-child { border-bottom: 0; }
-.cus-complaint-list b { display: block; }
-.cus-complaint-list p { margin: 4px 0 0; font-size: 13px; color: #334155; }
-.cus-complaint-list small { color: #64748b; font-size: 12px; }
+.cus-complaint-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.cus-complaint-list li { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; transition: all 0.2s ease; }
+.cus-complaint-list li:hover { background: #ffffff; border-color: #cbd5e1; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); }
+.cus-complaint-item__body { flex: 1; min-width: 0; }
+.cus-complaint-item__header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.cus-complaint-item__id { font-family: monospace; font-size: 12px; font-weight: 700; color: #ea580c; background: #fff7ed; padding: 2px 8px; border-radius: 4px; border: 1px solid #fed7aa; }
+.cus-complaint-item__subject { font-size: 15px; font-weight: 600; color: #0f172a; }
+.cus-complaint-item__meta { font-size: 12px; color: #64748b; margin-bottom: 8px; }
+.cus-complaint-item__desc { font-size: 13.5px; line-height: 1.5; color: #334155; background: #ffffff; padding: 10px 12px; border-radius: 6px; border: 1px solid #f1f5f9; white-space: pre-wrap; word-break: break-word; }
+.cus-complaint-item__resolution { margin-top: 8px; padding: 10px 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; font-size: 13px; color: #166534; }
+.cus-complaint-item__resolution b { color: #15803d; font-weight: 600; }

@@ -8,6 +8,8 @@ import { MANAGER_NAME } from '../../data/mockData';
 import { PAYER_LABEL, costRows, fmtDate, fmtMoney, today } from '../../hooks/managerRules';
 import './ReportsPage.css';
 
+const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
+
 /** Chi phí vận hành & lợi nhuận: dự toán nội bộ trong hợp đồng so với chi phí thực tế */
 export const ReportsPage: React.FC = () => {
   const { data, actualCosts, actions } = useManager();
@@ -21,7 +23,7 @@ export const ReportsPage: React.FC = () => {
 
   const table = (print = false) => (
     <table className="mgr-table">
-      <thead><tr><th>Chuyến</th><th>Trạng thái</th><th className="num">Doanh thu</th><th className="num">Dự toán</th><th className="num">Thực tế</th><th className="num">Chênh lệch</th>{!print && <th>Khoản phát sinh</th>}{!print && <th />}</tr></thead>
+      <thead><tr><th>Chuyến</th><th>Trạng thái</th><th className="num">Doanh thu</th><th className="num">Dự toán</th><th className="num">Thực tế</th><th className="num">Chênh lệch</th>{!print && <th>Khoản phát sinh</th>}{!print && <th>Chi phí thực tế</th>}</tr></thead>
       <tbody>
         {rows.map((x) => (
           <tr key={x.trip.id}>
@@ -32,7 +34,7 @@ export const ReportsPage: React.FC = () => {
             <td className="num">{x.entered ? fmtMoney(x.actual) : <span className="mgr-orange">Chưa nhập</span>}</td>
             <td className={`num ${x.variance > 0 ? 'mgr-bad' : 'mgr-ok'}`}>{x.entered ? `${x.variance > 0 ? '+' : ''}${fmtMoney(x.variance)}` : '—'}</td>
             {!print && <td className="mgr-muted">{x.extra.length ? x.extra.map((e) => `${e.label}: ${fmtMoney(e.amount)} (${PAYER_LABEL[e.payer]})`).join('; ') : '—'}</td>}
-            {!print && <td><button type="button" className="mgr-btn mgr-btn--sm" onClick={() => setEdit(x.trip.id)}>{x.entered ? 'Sửa' : 'Nhập'}</button></td>}
+            {!print && <td><button type="button" className="mgr-btn mgr-btn--sm" title="Cập nhật chi phí phát sinh thực tế (nhiên liệu, trạm dừng, ăn nghỉ tài xế). Không thay đổi giá hợp đồng." onClick={() => setEdit(x.trip.id)}>{x.entered ? 'Sửa chi phí' : 'Nhập chi phí'}</button></td>}
           </tr>
         ))}
         {!rows.length && <tr><td colSpan={8} className="mgr-empty">Chưa có chuyến nào hoàn thành hoặc có chi phí thực tế.</td></tr>}
@@ -58,7 +60,7 @@ export const ReportsPage: React.FC = () => {
       </div>
       <p className="mgr-hint">Tiền bồi thường bảo hiểm được ghi nhận riêng và chỉ tính khi tiền đã về. Khoản phát sinh do khách hàng hoặc bảo hiểm chi trả không cộng vào chi phí công ty. <Link className="mgr-link" to="/manager/trips">Danh sách chuyến</Link></p>
 
-      <ActualCostModal open={!!edit} tripId={edit} current={actualCosts.find((a) => a.tripId === edit)} onClose={() => setEdit('')}
+      <ActualCostModal open={!!edit} tripId={edit} current={actualCosts.find((a) => a.tripId === edit || cleanId(a.tripId) === cleanId(edit))} onClose={() => setEdit('')}
         onSubmit={(c, e) => actions.saveActualCosts(edit, c, e).ok} />
       <Modal open={preview} title="Xem trước báo cáo" wide cancelText="Đóng" okText="In / lưu PDF" onClose={() => setPreview(false)} onOk={() => window.print()}>
         <div className="mgr-report mgr-printable">
