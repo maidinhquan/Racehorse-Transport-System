@@ -6,7 +6,7 @@ import { DocTypeModal, DocGroupModal, PackageModal, RegulationModal } from '../.
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { useSpecialistFilter } from '../../hooks/useSpecialistFilter';
 import type { ConfigStatus, DocType, RegPackage, Regulation, SetupTab } from '../../types';
-import { COUNTRY_VI, DIRECTION_VI, GROUP_VI, LEVEL_VI, MODE_VI, PROVIDER_VI, SCOPE_VI, fmtDate, regFor, ruleLabel } from '../../hooks/specialistRules';
+import { COUNTRY_VI, DIRECTION_VI, GROUP_VI, LEVEL_VI, MODE_VI, fmtDate, regFor, ruleLabel } from '../../hooks/specialistRules';
 import './RegulationsPage.css';
 
 const StatusBadge: React.FC<{ s: ConfigStatus }> = ({ s }) => <TripStatusBadge label={s === 'ACTIVE' ? 'Đang áp dụng' : 'Ngừng áp dụng'} tone={s === 'ACTIVE' ? 'ok' : 'muted'} />;
@@ -77,14 +77,14 @@ export const RegulationsPage: React.FC = () => {
           <div className="spc-card" style={{ padding: 0 }}>
             <div className="spc-table-wrap">
               <table className="spc-table">
-                <thead><tr><th>Loại giấy tờ</th><th>Nhóm</th><th>Hiệu lực mặc định</th><th>Mặc định khi thêm vào yêu cầu</th><th>Dùng trong yêu cầu</th><th>Trạng thái</th><th /></tr></thead>
+                <thead><tr><th>Loại giấy tờ</th><th>Nhóm</th><th>Hiệu lực mặc định</th><th>Dùng trong yêu cầu</th><th>Trạng thái</th><th /></tr></thead>
                 <tbody>
                   {typeFilter.rows.map((d) => (
                     <tr key={d.id}>
                       <td><b>{d.name}</b><div className="spc-muted">{d.id}</div></td>
                       <td>{GROUP_VI[d.group]}</td>
                       <td>{d.validityDays ? `${d.validityDays} ngày` : 'Theo hạn trên giấy tờ'}</td>
-                      <td>{PROVIDER_VI[d.provider]} • {SCOPE_VI[d.scope]}</td>
+
                       <td>{usedByType(d.id).join(', ') || <span className="spc-muted">—</span>}</td>
                       <td><StatusBadge s={d.status} /></td>
                       <td>{actionsCell('type', d.id, d.status, () => setEditType(d), usedByType(d.id).length)}</td>
