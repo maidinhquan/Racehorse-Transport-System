@@ -157,13 +157,21 @@ public class RecoveryContextDto
 
 public class RecoveryInputDto
 {
-    public string PlanType { get; set; } = "REPLACE_VEHICLE"; // REPLACE_VEHICLE, REROUTE, REBOOK_FLIGHT, EMERGENCY_REST
+    public string PlanType { get; set; } = "REPLACE_VEHICLE"; // REPLACE_VEHICLE, REROUTE, REBOOK_FLIGHT, EMERGENCY_REST, HORSE_SPLIT
     public string Summary { get; set; } = null!;
     public string? NewVehicleId { get; set; }
     public string? NewDriverUserId { get; set; }
     public string? NewRouteSummary { get; set; }
     public double EstimatedDelayHours { get; set; }
     public long CostEstimate { get; set; }
+    public string? ScenarioKey { get; set; }
+    public string? ScenarioTitle { get; set; }
+    public string? ReliefDriverUserId { get; set; }
+    public string? ThirdPartyService { get; set; }
+    public string? ThirdPartyContact { get; set; }
+    public string? SplitHorseId { get; set; }
+    public string? TargetVetHospital { get; set; }
+    public List<string>? SubTasks { get; set; }
 }
 
 public class RecoveryValidateResultDto
@@ -202,6 +210,14 @@ public class RecoveryPlanDto
     public string Status { get; set; } = "DRAFT"; // DRAFT, SUBMITTED, APPROVED, REJECTED, WITHDRAWN, APPLIED
     public string? ManagerDecision { get; set; }
     public string? ManagerNotes { get; set; }
+    public string? ScenarioKey { get; set; }
+    public string? ScenarioTitle { get; set; }
+    public string? ReliefDriverUserId { get; set; }
+    public string? ThirdPartyService { get; set; }
+    public string? ThirdPartyContact { get; set; }
+    public string? SplitHorseId { get; set; }
+    public string? TargetVetHospital { get; set; }
+    public List<string>? SubTasks { get; set; }
     public string CreatedByUserId { get; set; } = null!;
     public DateTime CreatedAt { get; set; }
     public DateTime? DecidedAt { get; set; }

@@ -139,6 +139,11 @@ if (typeof window !== 'undefined') {
               merged.unshift(loc);
             }
           });
+          merged.sort((a, b) => {
+            const tA = new Date((a as any).updatedAt || a.at || 0).getTime() || 0;
+            const tB = new Date((b as any).updatedAt || b.at || 0).getTime() || 0;
+            return tB - tA;
+          });
           return { incidents: merged };
         });
       }
@@ -367,6 +372,7 @@ const actions = {
       severity: body.severity,
       status: 'NEW',
       at: nowStamp(),
+      updatedAt: nowStamp(),
       by: state.userId,
       location,
       lat: point?.lat,

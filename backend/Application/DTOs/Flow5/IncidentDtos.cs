@@ -65,4 +65,5 @@ public class IncidentResponseDto
     public string? VetStatus { get; set; }
     public string? TargetVetStation { get; set; }
     public string? VetResolutionNote { get; set; }
+    public DateTime? UpdatedAt { get; set; }
 }

@@ -67,10 +67,18 @@ export function Inp({ name, type = 'text', ...rest }: InputProps) {
   const f = useForm();
   return <input id={name} type={type} value={f.v[name] ?? ''} onChange={(e) => f.set(name, e.target.value)} {...rest} />;
 }
-export function Sel({ name, options, ...rest }: { name: string; options: Array<string | [string, ReactNode]>; disabled?: boolean; style?: CSSProperties }) {
+export function Sel({ name, options, onChange, ...rest }: { name: string; options: Array<string | [string, ReactNode]>; disabled?: boolean; style?: CSSProperties; onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void }) {
   const f = useForm();
   return (
-    <select id={name} value={f.v[name] ?? ''} onChange={(e) => f.set(name, e.target.value)} {...rest}>
+    <select
+      id={name}
+      value={f.v[name] ?? ''}
+      onChange={(e) => {
+        f.set(name, e.target.value);
+        if (onChange) onChange(e);
+      }}
+      {...rest}
+    >
       {options.map((o) => { const [v, l] = Array.isArray(o) ? o : [o, o]; return <option key={String(v)} value={String(v)}>{l}</option>; })}
     </select>
   );

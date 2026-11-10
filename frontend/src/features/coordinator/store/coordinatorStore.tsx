@@ -492,6 +492,54 @@ const DELETED_SPAM_IDS = new Set([
   'INC_20261108_C40695', 'INC_20261107_D190C1',
 ]);
 
+export function toLocalTimeString(val?: string | null): string {
+  if (!val) return '';
+  const str = String(val).trim();
+  const d = new Date(str);
+  if (!isNaN(d.getTime()) && (str.includes('T') || str.endsWith('Z') || str.includes('+'))) {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+  return str.replace('T', ' ').slice(0, 19);
+}
+
+export function parseIncidentTime(val?: string | number | null): number {
+  if (!val) return 0;
+  if (typeof val === 'number') return val;
+  const t = new Date(val).getTime();
+  if (!isNaN(t) && t > 0) return t;
+  const parts = String(val).split(/[ T]/);
+  if (parts.length >= 2) {
+    const dParts = parts[0].split(/[-/]/);
+    const tParts = parts[1].split(':');
+    if (dParts.length === 3 && tParts.length >= 2) {
+      const y = dParts[0].length === 4 ? Number(dParts[0]) : Number(dParts[2]);
+      const m = (dParts[0].length === 4 ? Number(dParts[1]) : Number(dParts[1])) - 1;
+      const day = dParts[0].length === 4 ? Number(dParts[2]) : Number(dParts[0]);
+      const hr = Number(tParts[0]);
+      const min = Number(tParts[1]);
+      const sec = tParts[2] ? Number(tParts[2]) : 0;
+      const parsed = new Date(y, m, day, hr, min, sec).getTime();
+      if (!isNaN(parsed)) return parsed;
+    }
+  }
+  return 0;
+}
+
+export function sortIncidentsLatestFirst<T extends { id?: string; at?: string; updatedAt?: string; vetStatus?: string; status?: string }>(list: T[]): T[] {
+  return [...list].sort((a, b) => {
+    const timeA = Math.max(parseIncidentTime(a.updatedAt), parseIncidentTime(a.at));
+    const timeB = Math.max(parseIncidentTime(b.updatedAt), parseIncidentTime(b.at));
+    if (timeB !== timeA) return timeB - timeA;
+
+    const urgentA = a.vetStatus === 'REFERRAL_REQUESTED' ? 2 : (a.status === 'REPORTED' || a.status === 'NEW' ? 1 : 0);
+    const urgentB = b.vetStatus === 'REFERRAL_REQUESTED' ? 2 : (b.status === 'REPORTED' || b.status === 'NEW' ? 1 : 0);
+    if (urgentB !== urgentA) return urgentB - urgentA;
+
+    return String(b.id || '').localeCompare(String(a.id || ''));
+  });
+}
+
 export async function syncCoordinatorIncidents(): Promise<void> {
   try {
     const res = await apiClient.get<Any>('/incidents');
@@ -508,19 +556,23 @@ export async function syncCoordinatorIncidents(): Promise<void> {
       if (!id || DELETED_SPAM_IDS.has(cleanId(id)) || DELETED_SPAM_IDS.has(id)) continue;
       const isApplied = bi.status === 'RECOVERY_APPLIED' || bi.status === 'EXECUTING';
       const existing = db.incidents.find((x: Any) => cleanId(x.id) === cleanId(id));
+      const biUpdatedAt = bi.updatedAt ? toLocalTimeString(bi.updatedAt) : (bi.reportedAt ? toLocalTimeString(bi.reportedAt) : undefined);
+
       if (existing) {
         if (bi.status && existing.status !== bi.status) {
           existing.status = isApplied ? 'EXECUTING' : bi.status;
+          existing.updatedAt = biUpdatedAt || nowStamp();
           hasChange = true;
         }
         if (bi.status && bi.status !== 'REPORTED' && !existing.ackAt) {
-          existing.ackAt = bi.reportedAt ? bi.reportedAt.replace('T', ' ').slice(0, 16) : nowStamp();
+          existing.ackAt = bi.reportedAt ? toLocalTimeString(bi.reportedAt).slice(0, 16) : nowStamp();
           hasChange = true;
         }
         if (bi.approvedPlan && !existing.approvedPlan) {
           existing.approvedPlan = bi.approvedPlan;
           existing.resolutionNotes = bi.resolutionNotes || bi.approvedPlan;
           existing.resolutionType = bi.resolutionType;
+          existing.updatedAt = biUpdatedAt || nowStamp();
           hasChange = true;
         }
         if (existing.approvedPlan && (!existing.plans || existing.plans.length === 0)) {
@@ -576,6 +628,7 @@ export async function syncCoordinatorIncidents(): Promise<void> {
         }
         if (bi.vetStatus && existing.vetStatus !== bi.vetStatus) {
           existing.vetStatus = bi.vetStatus;
+          existing.updatedAt = biUpdatedAt || nowStamp();
           hasChange = true;
         }
         if (bi.targetVetStation && !existing.targetVetStation) {
@@ -586,19 +639,25 @@ export async function syncCoordinatorIncidents(): Promise<void> {
           existing.vetResolutionNote = bi.vetResolutionNote;
           hasChange = true;
         }
+        if (biUpdatedAt && (!existing.updatedAt || parseIncidentTime(biUpdatedAt) > parseIncidentTime(existing.updatedAt))) {
+          existing.updatedAt = biUpdatedAt;
+          hasChange = true;
+        }
       } else {
         const isPastReported = bi.status && bi.status !== 'REPORTED';
+        const atTime = bi.reportedAt ? toLocalTimeString(bi.reportedAt) : nowStamp();
         const newInc: Any = {
           id,
           tripId: bi.tripId,
           type: bi.category || bi.incidentType || 'OTHER',
           severity: bi.severity || 'HIGH',
           status: isApplied ? 'EXECUTING' : (bi.status || 'REPORTED'),
-          ackAt: isPastReported ? (bi.reportedAt ? bi.reportedAt.replace('T', ' ').slice(0, 16) : nowStamp()) : undefined,
+          ackAt: isPastReported ? (bi.reportedAt ? toLocalTimeString(bi.reportedAt).slice(0, 16) : nowStamp()) : undefined,
           approvedPlan: bi.approvedPlan,
           resolutionNotes: bi.resolutionNotes,
           resolutionType: bi.resolutionType,
-          at: bi.reportedAt ? bi.reportedAt.replace('T', ' ').slice(0, 16) : nowStamp(),
+          at: atTime,
+          updatedAt: biUpdatedAt || atTime,
           by: bi.reportedByUserName || bi.reportedByUserId || 'Tài xế / Áp tải',
           reporterName: bi.reportedByUserName || '',
           reporterRole: bi.reportedByUserRole || (bi.category === 'HORSE_HEALTH' ? 'VETERINARIAN' : 'MAIN_DRIVER'),
@@ -630,6 +689,7 @@ export async function syncCoordinatorIncidents(): Promise<void> {
         hasChange = true;
       }
     }
+    db.incidents = sortIncidentsLatestFirst(db.incidents);
     if (hasChange) commit();
   } catch (err) {
     console.error('[coordinator] Failed to sync incidents from API:', err);

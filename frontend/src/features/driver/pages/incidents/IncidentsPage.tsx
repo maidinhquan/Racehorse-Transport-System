@@ -110,8 +110,8 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
   }, [me]);
 
   const allowedTypes = React.useMemo(() => {
-    return TYPES;
-  }, []);
+    return isVet ? (['HORSE_HEALTH'] as IncidentType[]) : TYPES.filter((t) => t !== 'HORSE_HEALTH');
+  }, [isVet]);
 
   const tripHorseIds = trip.horses || [];
 
@@ -396,13 +396,31 @@ export const IncidentsPage: React.FC = () => {
 
   const actorRoleLabel = isVetUser ? 'Bác sĩ thú y' : 'Tài xế';
 
-  // Hiển thị toàn bộ sự cố thuộc chuyến xe để Tài xế & Bác sĩ thú y cùng phối hợp xử lý
-  const roleFilteredList = list;
+  // Phân quyền độc lập: Bác sĩ chỉ xem sự cố y tế của ngựa; Tài xế chỉ xem sự cố kỹ thuật xe cộ / giao thông
+  const roleFilteredList = React.useMemo(() => {
+    return list.filter((i) => {
+      const isHorseHealth =
+        i.type === 'HORSE_HEALTH' ||
+        (i as any).reporterRole === 'VETERINARIAN' ||
+        Boolean(i.horseId) ||
+        Boolean(i.healthIssueType);
+      if (isVetUser) {
+        return isHorseHealth;
+      }
+      return !isHorseHealth;
+    });
+  }, [list, isVetUser]);
 
-  // Sắp xếp sự cố mới nhất lên trên đầu
+  // Sắp xếp sự cố mới nhất lên trên đầu (theo updatedAt hoặc at)
   const sortedList = [...roleFilteredList].sort((a, b) => {
-    const tA = new Date(a.at || 0).getTime() || 0;
-    const tB = new Date(b.at || 0).getTime() || 0;
+    const parseTime = (val?: string | number | null) => {
+      if (!val) return 0;
+      if (typeof val === 'number') return val;
+      const t = new Date(val).getTime();
+      return isNaN(t) ? 0 : t;
+    };
+    const tA = Math.max(parseTime((a as any).updatedAt), parseTime(a.at));
+    const tB = Math.max(parseTime((b as any).updatedAt), parseTime(b.at));
     if (tB !== tA) return tB - tA;
     return b.id.localeCompare(a.id);
   });
@@ -494,12 +512,12 @@ export const IncidentsPage: React.FC = () => {
       });
       window.dispatchEvent(
         new CustomEvent('rts_incident_scene_ready', {
-          detail: { id: incId, at: nowStamp(), role: actorRole, by: actorRoleLabel },
+          detail: { id: incId, at: nowStamp(), updatedAt: nowStamp(), role: actorRole, by: actorRoleLabel },
         })
       );
       window.dispatchEvent(
         new CustomEvent('rts_incident_scene_ready', {
-          detail: { id: cleanIncId, at: nowStamp(), role: actorRole, by: actorRoleLabel },
+          detail: { id: cleanIncId, at: nowStamp(), updatedAt: nowStamp(), role: actorRole, by: actorRoleLabel },
         })
       );
       try {
@@ -550,14 +568,15 @@ export const IncidentsPage: React.FC = () => {
     }
 
     if (typeof window !== 'undefined') {
+      const now = nowStamp();
       window.dispatchEvent(
         new CustomEvent('rts_vet_status_changed', {
-          detail: { id: incId, status: 'STABILIZED', note: noteText },
+          detail: { id: incId, status: 'STABILIZED', note: noteText, at: now, updatedAt: now },
         })
       );
       window.dispatchEvent(
         new CustomEvent('rts_vet_status_changed', {
-          detail: { id: cleanIncId, status: 'STABILIZED', note: noteText },
+          detail: { id: cleanIncId, status: 'STABILIZED', note: noteText, at: now, updatedAt: now },
         })
       );
       notifySync('requests_updated');
@@ -621,14 +640,15 @@ export const IncidentsPage: React.FC = () => {
     }
 
     if (typeof window !== 'undefined') {
+      const now = nowStamp();
       window.dispatchEvent(
         new CustomEvent('rts_vet_status_changed', {
-          detail: { id: incId, status: 'REFERRAL_REQUESTED', station: stationName, reason },
+          detail: { id: incId, status: 'REFERRAL_REQUESTED', station: stationName, reason, at: now, updatedAt: now },
         })
       );
       window.dispatchEvent(
         new CustomEvent('rts_vet_status_changed', {
-          detail: { id: cleanIncId, status: 'REFERRAL_REQUESTED', station: stationName, reason },
+          detail: { id: cleanIncId, status: 'REFERRAL_REQUESTED', station: stationName, reason, at: now, updatedAt: now },
         })
       );
       notifySync('requests_updated');
@@ -667,7 +687,9 @@ export const IncidentsPage: React.FC = () => {
             <ReportForm key={trip.id} trip={trip} />
             <div className="drv-card">
               <div className="between" style={{ marginBottom: 12 }}>
-                <h3 className="drv-card__title" style={{ margin: 0 }}>Lịch sử sự cố của chuyến ({sortedList.length})</h3>
+                <h3 className="drv-card__title" style={{ margin: 0 }}>
+                  {isVetUser ? 'Lịch sử sự cố sức khỏe ngựa' : 'Lịch sử sự cố vận hành'} ({sortedList.length})
+                </h3>
                 <span className="drv-hint" style={{ margin: 0 }}>Mới nhất lên đầu</span>
               </div>
               {sortedList.length ? sortedList.map((i) => {
@@ -921,7 +943,11 @@ export const IncidentsPage: React.FC = () => {
                     )}
                   </div>
                 );
-              }) : <p className="drv-hint">Chưa có sự cố nào được báo.</p>}
+              }) : (
+                <p className="drv-hint">
+                  {isVetUser ? 'Chưa có sự cố sức khỏe ngựa nào được ghi nhận.' : 'Chưa có sự cố vận hành nào được ghi nhận.'}
+                </p>
+              )}
             </div>
           </div>
         </>

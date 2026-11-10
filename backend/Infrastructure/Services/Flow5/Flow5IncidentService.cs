@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Application.DTOs.Flow5;
 using Application.Interfaces.Flow5;
 using Domain.Entities;
@@ -35,6 +35,7 @@ public class Flow5IncidentService : IFlow5IncidentService
         public string? TargetVetStation { get; set; }
         public string? VetResolutionNote { get; set; }
         public string? ImmediateCare { get; set; }
+        public DateTime? UpdatedAt { get; set; }
     }
 
     public Flow5IncidentService(HorseTransportDbContext context)
@@ -254,6 +255,13 @@ public class Flow5IncidentService : IFlow5IncidentService
 
             var vMeta = _vetMetaStore.TryGetValue(i.IncidentId, out var vm) ? vm : null;
 
+            DateTime? latestUpdate = vMeta?.UpdatedAt;
+            if (upds != null && upds.Count > 0)
+            {
+                var maxUpd = upds.Max(u => u.CreatedAt);
+                if (latestUpdate == null || maxUpd > latestUpdate) latestUpdate = maxUpd;
+            }
+
             return new IncidentResponseDto
             {
                 IncidentId = i.IncidentId,
@@ -278,9 +286,10 @@ public class Flow5IncidentService : IFlow5IncidentService
                 HealthIssueType = vMeta?.HealthIssueType,
                 VetStatus = vMeta?.VetStatus,
                 TargetVetStation = vMeta?.TargetVetStation,
-                VetResolutionNote = vMeta?.VetResolutionNote
+                VetResolutionNote = vMeta?.VetResolutionNote,
+                UpdatedAt = latestUpdate
             };
-        }).ToList();
+        }).OrderByDescending(dto => dto.UpdatedAt ?? dto.ReportedAt).ToList();
     }
 
     public async Task<IncidentResponseDto> GetIncidentByIdAsync(string incidentId)
@@ -450,26 +459,27 @@ public class Flow5IncidentService : IFlow5IncidentService
 
         _updateStore.AddOrUpdate(incidentId, new List<IncidentUpdateDto> { update }, (_, list) => { list.Insert(0, update); return list; });
 
+        var updateMeta = _vetMetaStore.GetOrAdd(incidentId, _ => new VetIncidentMeta());
+        updateMeta.UpdatedAt = update.CreatedAt;
+
         // Tự động nhận diện cập nhật từ Bác sĩ thú y
         if (!string.IsNullOrWhiteSpace(dto.Notes))
         {
             if (dto.Notes.Contains("Sự cố đã được xử lý", StringComparison.OrdinalIgnoreCase) ||
                 dto.Notes.Contains("đã ổn định", StringComparison.OrdinalIgnoreCase))
             {
-                var meta = _vetMetaStore.GetOrAdd(incidentId, _ => new VetIncidentMeta());
-                meta.VetStatus = "STABILIZED";
-                meta.VetResolutionNote = dto.Notes;
+                updateMeta.VetStatus = "STABILIZED";
+                updateMeta.VetResolutionNote = dto.Notes;
             }
             else if (dto.Notes.Contains("Không thể xử lý tại chỗ", StringComparison.OrdinalIgnoreCase) ||
                      dto.Notes.Contains("Đề xuất chuyển viện", StringComparison.OrdinalIgnoreCase) ||
                      dto.Notes.Contains("chuyển trạm y tế", StringComparison.OrdinalIgnoreCase))
             {
-                var meta = _vetMetaStore.GetOrAdd(incidentId, _ => new VetIncidentMeta());
-                meta.VetStatus = "REFERRAL_REQUESTED";
-                meta.VetResolutionNote = dto.Notes;
+                updateMeta.VetStatus = "REFERRAL_REQUESTED";
+                updateMeta.VetResolutionNote = dto.Notes;
                 if (!string.IsNullOrWhiteSpace(dto.ImmediateCare))
                 {
-                    meta.TargetVetStation = dto.ImmediateCare;
+                    updateMeta.TargetVetStation = dto.ImmediateCare;
                 }
             }
         }
@@ -595,6 +605,14 @@ public class Flow5IncidentService : IFlow5IncidentService
             NewRouteSummary = dto.NewRouteSummary,
             EstimatedDelayHours = dto.EstimatedDelayHours,
             CostEstimate = dto.CostEstimate,
+            ScenarioKey = dto.ScenarioKey,
+            ScenarioTitle = dto.ScenarioTitle,
+            ReliefDriverUserId = dto.ReliefDriverUserId,
+            ThirdPartyService = dto.ThirdPartyService,
+            ThirdPartyContact = dto.ThirdPartyContact,
+            SplitHorseId = dto.SplitHorseId,
+            TargetVetHospital = dto.TargetVetHospital,
+            SubTasks = dto.SubTasks,
             Status = "DRAFT",
             CreatedByUserId = userId,
             CreatedAt = DateTime.UtcNow

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '../../../../shared/components';
 import { useDriver } from '../../hooks/useDriver';
@@ -68,7 +68,19 @@ export const DriverLayout: React.FC<DriverLayoutProps> = ({ title, children }) =
     window.location.href = '/login';
   };
 
-  const openIncidents = incidents.filter((i) => activeTrips.some((t) => t.id === i.tripId) && !['RESOLVED', 'CLOSED'].includes(i.status)).length;
+  const isVet = useMemo(() => {
+    if (me?.role === 'VETERINARIAN') return true;
+    const fn = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : '') || me?.name || '';
+    const em = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userEmail') : '') || '';
+    return /BS\.|Bác sĩ|thú y|escort|vet/i.test(fn) || /escort|vet/i.test(em);
+  }, [me]);
+
+  const openIncidents = incidents.filter((i) => {
+    if (!activeTrips.some((t) => t.id === i.tripId) || ['RESOLVED', 'CLOSED'].includes(i.status)) return false;
+    const isHorseIssue = i.type === 'HORSE_HEALTH' || (i as any).reporterRole === 'VETERINARIAN' || Boolean(i.horseId) || Boolean((i as any).healthIssueType);
+    return isVet ? isHorseIssue : !isHorseIssue;
+  }).length;
+
   const NAV: Array<[string, string, string, number?]> = [
     ['/driver/journey', 'Hành trình', 'map', activeTrips.length],
     ['/driver/trips', 'Chuyến đi', 'truck'],

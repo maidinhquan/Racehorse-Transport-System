@@ -10,6 +10,7 @@ import { dt, human, incTypeVi, usd } from '../../utils/format';
 import {
   F5_DONE,
   F5_PLAN,
+  F5_SCENARIOS,
   F5_TYPES,
   PAYER_VI,
   ROLE_VI,
@@ -452,24 +453,115 @@ function PlanCard({ i }: { i: Any }) {
   const t = trip(i.tripId), p = curPlan(i);
   if (!p) return <div className="card pad"><h3 className="card-title">Phương án xử lý</h3><p className="subtitle">Chưa có phương án.</p></div>;
   const conds = f5Conditions(i);
+  const scenarioObj = p.scenario ? F5_SCENARIOS[p.scenario] : null;
+  const scenarioTitle = scenarioObj?.title || p.scenarioTitle;
+  const scenarioDesc = scenarioObj?.desc || p.scenarioDesc;
+
   return (
     <div className="card pad">
-      <div className="between"><h3 className="card-title">Phương án v{p.v} {p.status === 'DRAFT' ? '(nháp)' : ''}</h3><Pill v={p.status === 'NOT_REQUIRED' ? 'APPLIED' : p.status} label={PLAN_ST[p.status]} /></div>
-      <p style={{ margin: '8px 0 0', lineHeight: 1.6 }}>{p.desc}</p>{p.reason ? <p className="hint">Lý do: {p.reason}</p> : null}
-      <div className="kv2" style={{ marginTop: 10 }}>
-        <Cell label="Loại">{F5_PLAN[p.kind] || p.kind}</Cell>
-        {p.vehicleId ? <Cell label="Xe">{vehicle(p.vehicleId) ? vehicle(p.vehicleId).plate + ' • ' + vehicle(p.vehicleId).model : p.vehicleId}</Cell> : null}
+      <div className="between">
+        <h3 className="card-title">Phương án v{p.v} {p.status === 'DRAFT' ? '(nháp)' : ''}</h3>
+        <Pill v={p.status === 'NOT_REQUIRED' ? 'APPLIED' : p.status} label={PLAN_ST[p.status]} />
+      </div>
+
+      {scenarioTitle && (
+        <div style={{ margin: '12px 0 10px', padding: '12px 14px', background: 'var(--bg-page, #f8fafc)', borderRadius: 8, border: '1px solid var(--border-color, #e2e8f0)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 700, color: 'var(--accent-primary, #1e40af)', fontSize: 13.5 }}>
+              {scenarioTitle}
+            </span>
+            <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#e0e7ff', color: '#3730a3', fontWeight: 600 }}>
+              {F5_PLAN[p.kind] || p.kind}
+            </span>
+          </div>
+          {scenarioDesc && (
+            <p style={{ margin: '6px 0 0', fontSize: 12.5, lineHeight: 1.55, color: 'var(--text-secondary, #475569)' }}>
+              {scenarioDesc}
+            </p>
+          )}
+        </div>
+      )}
+
+      <p style={{ margin: '8px 0 0', lineHeight: 1.6 }}>{p.desc}</p>
+      {p.reason ? <p className="hint">Lý do: {p.reason}</p> : null}
+
+      <div className="eyebrow" style={{ marginTop: 14 }}>Phân công nhiệm vụ &amp; Điều phối tài nguyên</div>
+      <div className="kv2" style={{ marginTop: 8 }}>
+        <Cell label="Nhóm phương án">{F5_PLAN[p.kind] || p.kind}</Cell>
+        <Cell label="Thời gian giao">{p.etaTo && p.etaTo !== p.etaBase ? <>{dt(p.etaBase)} → <b>{dt(p.etaTo)}</b></> : 'Giữ nguyên ' + dt(p.etaBase)}</Cell>
+
+        {p.vehicleId ? (
+          <Cell label="Phương tiện thay thế">
+            <b>{vehicle(p.vehicleId) ? vehicle(p.vehicleId).plate + ' • ' + vehicle(p.vehicleId).model : p.vehicleId}</b>
+            {p.reliefDriverId && (
+              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                Tài xế trung chuyển: <b>{emp(p.reliefDriverId)?.name || p.reliefDriverId}</b> (hỗ trợ sang ngựa &amp; ở lại hiện trường)
+              </div>
+            )}
+          </Cell>
+        ) : null}
+
         {p.newCrew && Object.keys(p.newCrew).length ? (
           <Cell label="Nhân sự thay thế">
             {Object.entries(p.newCrew).map(([r, cid]) => `${human(r)}: ${emp(cid as string)?.name || cid}`).join('; ')}
           </Cell>
         ) : p.crewId ? (
-          <Cell label="Nhân sự">{human(p.crewRole)}: {emp(p.crewId)?.name || p.crewId}</Cell>
+          <Cell label="Nhân sự thay thế">
+            {human(p.crewRole || 'MAIN_DRIVER')}: <b>{emp(p.crewId)?.name || p.crewId}</b>
+            {p.crewSwapMode === '2.1_QUICK_SWAP' && <div className="muted" style={{ fontSize: 12 }}>Phụ lái đủ điều kiện đổi lên lái chính</div>}
+            {p.companyCarPlate && <div className="muted" style={{ fontSize: 12 }}>Xe con công ty hỗ trợ: {p.companyCarPlate}</div>}
+            {p.taxiVendor && <div className="muted" style={{ fontSize: 12 }}>Đối tác di chuyển: {p.taxiVendor} ({usd(p.taxiCost || 0)})</div>}
+          </Cell>
         ) : null}
-        <Cell label="Thời gian giao">{p.etaTo && p.etaTo !== p.etaBase ? <>{dt(p.etaBase)} → <b>{dt(p.etaTo)}</b></> : 'Giữ nguyên ' + dt(p.etaBase)}</Cell>
-        <Cell label="Chi phí phát sinh">{Number(p.cost) ? `${usd(p.cost)} • ${PAYER_VI[p.payer] || human(p.payer)}` : 'Không'}</Cell>
+
+        {(p.towingPartner || p.ambulancePartner || p.specialistId) ? (
+          <Cell label="Đối tác cứu hộ ngoài">
+            {p.towingPartner && (
+              <div>Xe kéo: <b>{p.towingPartner}</b> {p.towingPhone ? `(SĐT: ${p.towingPhone})` : ''} • {p.towingCost ? usd(p.towingCost) : 'Nội bộ'}</div>
+            )}
+            {p.ambulancePartner && (
+              <div>Cứu thương 115: <b>{p.ambulancePartner}</b> {p.ambulancePhone ? `(SĐT: ${p.ambulancePhone})` : ''}</div>
+            )}
+            {p.specialistId && (
+              <div>Chuyên viên hiện trường: <b>{emp(p.specialistId)?.name || p.specialistId}</b></div>
+            )}
+          </Cell>
+        ) : null}
+
+        {p.splitHorseId ? (
+          <Cell label="Tách đàn &amp; Chuyển viện">
+            <div>Ngựa tách chuyến: <b>{horse(p.splitHorseId)?.name || p.splitHorseId}</b></div>
+            {p.horseAmbulancePartner && <div className="muted" style={{ fontSize: 12 }}>Đơn vị cấp cứu dã chiến: {p.horseAmbulancePartner}</div>}
+            {p.targetVetHospital && <div className="muted" style={{ fontSize: 12 }}>Bệnh viện thú y tiếp nhận: {p.targetVetHospital}</div>}
+            {p.vetEscortName && <div className="muted" style={{ fontSize: 12 }}>Nhân sự áp tải hộ tống: {p.vetEscortName}</div>}
+            <div className="muted" style={{ fontSize: 11.5, color: 'var(--accent-primary, #1d4ed8)', marginTop: 2 }}>
+              Vận đơn và giấy kiểm dịch cá thể này được tách riêng.
+            </div>
+          </Cell>
+        ) : null}
       </div>
-      <p className="hint">Điều phối viên toàn quyền quyết định phương án và áp dụng trực tiếp cho chuyến đi. Chi phí phát sinh không tự cộng vào số tiền khách phải trả.</p>
+
+      <div className="eyebrow" style={{ marginTop: 14 }}>Hạch toán chi phí sự cố nội bộ</div>
+      <div style={{ marginTop: 6, padding: '10px 14px', background: 'var(--bg-surface-alt, #f1f5f9)', borderRadius: 6, border: '1px solid var(--border-color, #cbd5e1)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-secondary, #475569)' }}>Chi phí cứu hộ &amp; điều chuyển phát sinh:</span>
+          <b style={{ fontSize: 14 }}>{Number(p.cost) ? usd(p.cost) : '0 VNĐ'}</b>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-secondary, #475569)' }}>Đối tượng chịu phí:</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#047857' }}>
+            {PAYER_VI[p.payer] || 'CBN Transport (Nội bộ) & Bảo hiểm'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTop: '1px dashed var(--border-color, #cbd5e1)' }}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>Khách hàng thanh toán:</span>
+          <b style={{ fontSize: 15, color: '#047857' }}>0 VNĐ</b>
+        </div>
+      </div>
+      <p className="hint" style={{ marginTop: 6 }}>
+        Điều phối viên toàn quyền quyết định và áp dụng phương án cho chuyến đi. Mọi chi phí phát sinh do sự cố kỹ thuật/nhân sự được hạch toán vào chi phí vận hành nội bộ, cam kết không thu thêm của khách hàng.
+      </p>
+
       {['CONTINUE_ALLOWED', 'RESULT_REPORTED', 'CLOSED', 'HALTED'].includes(i.status) ? null : <>
         <div className="eyebrow" style={{ marginTop: 14 }}>Điều kiện tiếp tục chặng</div>
         <ul className="check-list f5-conds">{conds.map((c, k) => <li key={k} className={c.ok ? 'ok' : ''}><Icon name={c.ok ? 'check' : 'clock'} /><span>{c.label} <small>• {byVi(c.by)}</small></span></li>)}</ul>
