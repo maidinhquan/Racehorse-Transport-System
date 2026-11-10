@@ -144,7 +144,7 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
     {
         foreach (var manager in (await data.ListAsync<Account>(a => a.IsActive, ct)).Where(a => UserRoles.NormalizeRole(a.Role) == UserRoles.LogisticsManager))
             data.Add(new Notification { UserID = manager.UserID, ReferenceID = row.RequestID, Type = "REQUEST_SUBMITTED", Channel = "IN_APP",
-                Title = "Request pending review", Message = $"Request {row.RequestID} is ready for review.", SentAt = clock.GetUtcNow().UtcDateTime });
+                Title = "Yêu cầu mới chờ xét duyệt", Message = $"Yêu cầu {row.RequestID} đã sẵn sàng để xét duyệt.", SentAt = clock.GetUtcNow().UtcDateTime });
     }
     private async Task ValidateReadyAsync(string actor, TransportRequest row, IReadOnlyList<string> selected, CancellationToken token)
     {

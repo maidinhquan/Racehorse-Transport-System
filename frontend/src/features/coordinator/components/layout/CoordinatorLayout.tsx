@@ -8,6 +8,7 @@ import '../../styles/coordinator.css';
 import { coordNavCount } from '../../workflows/incidentOperations';
 import { ModalHost } from '../common/ModalHost';
 import { Icon, IconSprite } from '../common/ui';
+import { formatNotification } from '../../../../shared/utils/notificationFormat';
 
 const NAV: Array<[string, string, string]> = [
   ['/coordinator/dashboard', 'Tổng quan', 'home'],
@@ -73,11 +74,14 @@ export function CoordinatorLayout({ title, children, active }: { title: string; 
             </button>
             <div className={`menu ${menu === 'notif' ? 'open' : ''}`}>
               <h4>Thông báo</h4>
-              {notes.length ? notes.slice(0, 6).map((n: Any) => (
-                <button type="button" key={n.id} className={n.read ? '' : 'unread'} onClick={() => { n.read = true; setMenu(''); if (n.go) go(n.go); else commit(); }}>
+              {notes.length ? notes.slice(0, 6).map((raw: Any) => {
+                const n = formatNotification({ id: raw.id, title: raw.title, body: raw.body, at: raw.at, read: raw.read, link: raw.go });
+                return (
+                <button type="button" key={raw.id} className={raw.read ? '' : 'unread'} onClick={() => { raw.read = true; setMenu(''); if (raw.go) go(raw.go); else commit(); }}>
                   <b>{n.title}</b><span>{n.body}</span>
                 </button>
-              )) : <small>Bạn đã xem hết thông báo.</small>}
+                );
+              }) : <small>Bạn đã xem hết thông báo.</small>}
               <hr />
               <button type="button" className="menu-foot" onClick={() => { setMenu(''); go('f/notifications'); }}>Xem tất cả thông báo</button>
             </div>
