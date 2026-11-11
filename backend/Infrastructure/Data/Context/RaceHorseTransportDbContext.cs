@@ -16,7 +16,7 @@ namespace Infrastructure.Data.Context
         public DbSet<StaffDocument> StaffDocuments { get; set; } = null!;
         public DbSet<Notification> Notifications { get; set; } = null!;
         public DbSet<PolicyAndTerm> PoliciesAndTerms { get; set; } = null!;
-        public DbSet<Domain.Flow1.Entities.BusinessPolicy> BusinessPolicies { get; set; } = null!;
+        public DbSet<BusinessPolicy> BusinessPolicies { get; set; } = null!;
 
         // 2. Phân vùng Đối tác & Trạm dừng / Y tế
         public DbSet<PartnerFacility> PartnerFacilities { get; set; } = null!;
@@ -83,10 +83,12 @@ namespace Infrastructure.Data.Context
             modelBuilder.Entity<RequestHorseMapping>()
                 .HasKey(r => new { r.RequestId, r.HorseId });
 
-            modelBuilder.Entity<Domain.Flow1.Entities.BusinessPolicy>(b =>
+            modelBuilder.Entity<BusinessPolicy>(b =>
             {
                 b.ToTable("BUSINESS_POLICY");
-                b.HasKey(x => x.PolicyID);
+                b.HasKey(x => x.PolicyId);
+                b.Property(x => x.PolicyId).HasColumnName("PolicyID");
+                b.Property(x => x.ScopeId).HasColumnName("ScopeID");
                 b.Property(x => x.NumberValue).HasColumnType("decimal(18,2)");
             });
 

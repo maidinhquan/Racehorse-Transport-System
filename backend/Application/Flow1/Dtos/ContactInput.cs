@@ -5,4 +5,4 @@ namespace Application.Flow1.Dtos;
 public sealed record ContactInput([MaxLength(100)] string Name, [MaxLength(255)] string Address,
     [MaxLength(20)] string Postal, [MaxLength(100)] string Contact, [MaxLength(20)] string Phone,
     [MaxLength(1000)] string Notes, decimal? Latitude = null, decimal? Longitude = null,
-    [Required, MaxLength(1024)] string? CityId = null);
+    [Required, MaxLength(1024)] string? CityId = null, [MaxLength(254)] string? Email = null);

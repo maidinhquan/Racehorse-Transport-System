@@ -55,6 +55,10 @@ namespace Domain.Entities
         public string? OwnershipCertificateFileUrl { get; set; }
         [Column("ValuationDocumentFileUrl", TypeName = "nvarchar(500)")]
         public string? ValuationDocumentFileUrl { get; set; }
+        [Column("VaccinationFileUrl", TypeName = "nvarchar(500)")]
+        public string? VaccinationFileUrl { get; set; }
+        [Column("HealthCertificateFileUrl", TypeName = "nvarchar(500)")]
+        public string? HealthCertificateFileUrl { get; set; }
         [Column("DeclaredValueVnd", TypeName = "decimal(18,2)")]
         public decimal? DeclaredValueVnd { get; set; }
         [Column("SpecialHealthNotes", TypeName = "nvarchar(2000)")]

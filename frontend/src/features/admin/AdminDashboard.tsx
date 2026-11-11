@@ -80,6 +80,7 @@ const POLICY_FRIENDLY_NAMES: Record<string, string> = {
   MIN_PREPARATION_DAYS: "Số ngày chuẩn bị tối thiểu mặc định",
   FLOW1_PREPARATION_DAYS: "Số ngày chuẩn bị theo phương thức vận chuyển",
   MIN_TRANSIT_DAYS: "Thời gian di chuyển tối thiểu của hành trình",
+  MAX_HORSES_PER_REQUEST: "Số lượng ngựa tối đa trong một yêu cầu",
   DEFAULT_DEPOSIT_PERCENT: "Tỷ lệ tiền cọc hợp đồng mặc định",
   CONTRACT_DEADLINE_HOURS: "Thời hạn hiệu lực cọc & ký hợp đồng",
   FLOW1_REVIEW_BUFFER_DAYS: "Thời gian dự trù xét duyệt yêu cầu",
@@ -106,6 +107,8 @@ const formatPolicyUnit = (unit: string | null): string => {
       return "%";
     case "ATTEMPT":
       return "lần";
+    case "HORSE":
+      return "ngựa / con";
     default:
       return unit.toLowerCase();
   }

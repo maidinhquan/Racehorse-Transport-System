@@ -29,6 +29,8 @@ public static class HorseMapper
             photo = File(horse, "photo", horse.PhotoUrl),
             ownership = File(horse, "ownership", horse.OwnershipCertificateFileUrl),
             valueProof = File(horse, "value-proof", horse.ValuationDocumentFileUrl),
+            flu = File(horse, "flu", horse.VaccinationFileUrl),
+            health = File(horse, "health", horse.HealthCertificateFileUrl),
         };
 
     private static object? File(Horse horse, string kind, string? key) =>

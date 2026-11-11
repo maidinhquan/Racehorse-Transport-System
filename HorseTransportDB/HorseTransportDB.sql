@@ -82,6 +82,8 @@ CREATE TABLE HORSE (
     PassportExpiryDate DATE NULL,
     OwnershipCertificateFileUrl NVARCHAR(500) NULL,
     ValuationDocumentFileUrl NVARCHAR(500) NULL,
+    VaccinationFileUrl NVARCHAR(500) NULL,
+    HealthCertificateFileUrl NVARCHAR(500) NULL,
     DeclaredValueVnd DECIMAL(18,2) NULL,
     SpecialHealthNotes NVARCHAR(2000) NULL,
     HorseID VARCHAR(50) NOT NULL,
@@ -103,6 +105,8 @@ CREATE TABLE HORSE (
     CONSTRAINT CK_F1S_HORSE_PassportScanUrl CHECK ([PassportScanUrl] IS NULL OR [PassportScanUrl] like 'private/%' AND len([PassportScanUrl])>(8)),
     CONSTRAINT CK_F1W_HORSE_OwnershipCertificateFileUrl CHECK ([OwnershipCertificateFileUrl] IS NULL OR ([OwnershipCertificateFileUrl] LIKE 'private/%' AND LEN([OwnershipCertificateFileUrl])>8)),
     CONSTRAINT CK_F1W_HORSE_ValuationDocumentFileUrl CHECK ([ValuationDocumentFileUrl] IS NULL OR ([ValuationDocumentFileUrl] LIKE 'private/%' AND LEN([ValuationDocumentFileUrl])>8)),
+    CONSTRAINT CK_F1W_HORSE_VaccinationFileUrl CHECK ([VaccinationFileUrl] IS NULL OR ([VaccinationFileUrl] LIKE 'private/%' AND LEN([VaccinationFileUrl])>8)),
+    CONSTRAINT CK_F1W_HORSE_HealthCertificateFileUrl CHECK ([HealthCertificateFileUrl] IS NULL OR ([HealthCertificateFileUrl] LIKE 'private/%' AND LEN([HealthCertificateFileUrl])>8)),
     CONSTRAINT CK_F1W_HORSE_DeclaredValueVnd CHECK ([DeclaredValueVnd] IS NULL OR ([DeclaredValueVnd]>0 AND [DeclaredValueVnd]<=9999999999 AND [DeclaredValueVnd]=ROUND([DeclaredValueVnd],0))),
     CONSTRAINT CK_F1W_HORSE_PassportDates CHECK ([PassportIssuedDate] IS NULL OR [PassportExpiryDate] IS NULL OR [PassportExpiryDate]>[PassportIssuedDate])
 );
@@ -240,6 +244,7 @@ CREATE TABLE TRANSPORT_REQUEST (
     CommittedDeadline DATETIME NULL,
     DesignatedReceiverName NVARCHAR(100) NULL,
     DesignatedReceiverPhone VARCHAR(20) NULL,
+    DesignatedReceiverEmail VARCHAR(254) NULL,
     BaseCost DECIMAL(12, 2) NULL,
     Status VARCHAR(50) NOT NULL,
     -- Flow 1
@@ -1399,7 +1404,8 @@ INSERT INTO BUSINESS_POLICY (PolicyID, Code, ValueType, NumberValue, TextValue, 
 ('BUSINESS_POLICY_015', 'FLOW1_PREPARATION_DAYS', 'NUMBER', 7, NULL, NULL, 'DAY', 'TRANSPORT_MODE', 'AIR', N'Flow 1: số ngày chuẩn bị vận chuyển đường hàng không.', 'USER_004'),
 ('BUSINESS_POLICY_016', 'FLOW1_REVIEW_BUFFER_DAYS', 'NUMBER', 3, NULL, NULL, 'DAY', 'GLOBAL', NULL, N'Số ngày dự trù xét duyệt yêu cầu.', 'USER_004'),
 ('BUSINESS_POLICY_017', 'FLOW1_SIGNING_BUFFER_DAYS', 'NUMBER', 2, NULL, NULL, 'DAY', 'GLOBAL', NULL, N'Số ngày dự trù hoàn thành hợp đồng khi chọn ngày nhận ngựa.', 'USER_004'),
-('BUSINESS_POLICY_018', 'FLOW1_CUSTOMER_RESPONSE_HOURS', 'NUMBER', 24, NULL, NULL, 'HOUR', 'GLOBAL', NULL, N'Hạn phản hồi chỉnh sửa hoặc xác nhận lịch trước hợp đồng.', 'USER_004');
+('BUSINESS_POLICY_018', 'FLOW1_CUSTOMER_RESPONSE_HOURS', 'NUMBER', 24, NULL, NULL, 'HOUR', 'GLOBAL', NULL, N'Hạn phản hồi chỉnh sửa hoặc xác nhận lịch trước hợp đồng.', 'USER_004'),
+('BUSINESS_POLICY_019', 'MAX_HORSES_PER_REQUEST', 'NUMBER', 6, NULL, NULL, 'HORSE', 'GLOBAL', NULL, N'Số lượng ngựa tối đa cho phép trong một yêu cầu vận chuyển.', 'USER_004');
 
 -- 2. Bảng HORSE: Đa dạng cá thể (Ngựa đực Stallion, Ngựa cái Mare, Ngựa thiến Gelding)
 INSERT INTO HORSE (HorseID, OwnerID, Microchip_ISO, FEI_Passport_No, Name, Breed, Sex, ReproductiveStatus, Weight, DOB, PhotoUrl, PassportScanUrl) VALUES
@@ -1679,7 +1685,7 @@ GO
 -- Imports must synchronize the allocators without reducing previously issued high-water marks.
 GO
 CREATE SEQUENCE dbo.[SEQ_USER_ID] AS BIGINT
-    START WITH 20 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+    START WITH 25 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[USER] ADD CONSTRAINT [DF_USER_ID]
     DEFAULT ('USER_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_USER_ID], '000', 'en-US')) FOR [UserID];
 
@@ -1689,7 +1695,7 @@ ALTER TABLE dbo.[HORSE] ADD CONSTRAINT [DF_HORSE_ID]
     DEFAULT ('HORSE_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_HORSE_ID], '000', 'en-US')) FOR [HorseID];
 
 CREATE SEQUENCE dbo.[SEQ_STAFF_DOCUMENT_ID] AS BIGINT
-    START WITH 6 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+    START WITH 12 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[STAFF_DOCUMENT] ADD CONSTRAINT [DF_STAFF_DOCUMENT_ID]
     DEFAULT ('STAFF_DOCUMENT_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_STAFF_DOCUMENT_ID], '000', 'en-US')) FOR [DocumentID];
 
@@ -1774,7 +1780,7 @@ ALTER TABLE dbo.[HANDOVER] ADD CONSTRAINT [DF_HANDOVER_ID]
     DEFAULT ('HANDOVER_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_HANDOVER_ID], '000', 'en-US')) FOR [HandoverID];
 
 CREATE SEQUENCE dbo.[SEQ_HANDOVER_ITEM_ID] AS BIGINT
-    START WITH 6 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+    START WITH 7 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[HANDOVER_ITEM] ADD CONSTRAINT [DF_HANDOVER_ITEM_ID]
     DEFAULT ('HANDOVER_ITEM_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_HANDOVER_ITEM_ID], '000', 'en-US')) FOR [HandoverItemID];
 
@@ -1784,7 +1790,7 @@ ALTER TABLE dbo.[CONTRACT_TEMPLATE] ADD CONSTRAINT [DF_CONTRACT_TEMPLATE_ID]
     DEFAULT ('CONTRACT_TEMPLATE_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_CONTRACT_TEMPLATE_ID], '000', 'en-US')) FOR [TemplateID];
 
 CREATE SEQUENCE dbo.[SEQ_CONTRACT_ID] AS BIGINT
-    START WITH 4 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+    START WITH 5 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[CONTRACT] ADD CONSTRAINT [DF_CONTRACT_ID]
     DEFAULT ('CONTRACT_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_CONTRACT_ID], '000', 'en-US')) FOR [ContractID];
 
@@ -1814,7 +1820,7 @@ ALTER TABLE dbo.[SUPPORTED_ROUTE] ADD CONSTRAINT [DF_SUPPORTED_ROUTE_ID]
     DEFAULT ('ROUTE_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_SUPPORTED_ROUTE_ID], '000', 'en-US')) FOR [RouteID];
 
 CREATE SEQUENCE dbo.[SEQ_BUSINESS_POLICY_ID] AS BIGINT
-    START WITH 19 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+    START WITH 20 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[BUSINESS_POLICY] ADD CONSTRAINT [DF_BUSINESS_POLICY_ID]
     DEFAULT ('BUSINESS_POLICY_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_BUSINESS_POLICY_ID], '000', 'en-US')) FOR [PolicyID];
 

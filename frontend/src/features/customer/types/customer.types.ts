@@ -46,6 +46,7 @@ export interface Place {
   postal: string;
   contact: string;
   phone: string;
+  email?: string;
   notes: string;
   latitude?: number;
   longitude?: number;

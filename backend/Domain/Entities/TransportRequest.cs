@@ -45,6 +45,10 @@ namespace Domain.Entities
         [StringLength(20)]
         public string? DesignatedReceiverPhone { get; set; }
 
+        [Column("DesignatedReceiverEmail")]
+        [StringLength(254)]
+        public string? DesignatedReceiverEmail { get; set; }
+
         [Column("BaseCost", TypeName = "decimal(12, 2)")]
         public decimal? BaseCost { get; set; }
 

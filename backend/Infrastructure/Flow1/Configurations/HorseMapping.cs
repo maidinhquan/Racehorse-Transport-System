@@ -15,6 +15,8 @@ public sealed class HorseMapping : IEntityTypeConfiguration<Horse>
         entity.Property(row => row.PassportExpiryDate).HasColumnType("date");
         entity.Property(row => row.OwnershipCertificateFileUrl).HasColumnType("nvarchar(500)");
         entity.Property(row => row.ValuationDocumentFileUrl).HasColumnType("nvarchar(500)");
+        entity.Property(row => row.VaccinationFileUrl).HasColumnType("nvarchar(500)");
+        entity.Property(row => row.HealthCertificateFileUrl).HasColumnType("nvarchar(500)");
         entity.Property(row => row.DeclaredValueVnd).HasColumnType("decimal(18,2)");
         entity.Property(row => row.SpecialHealthNotes).HasColumnType("nvarchar(2000)");
         entity.Property(row => row.HorseID).HasColumnType("varchar(50)").IsRequired();

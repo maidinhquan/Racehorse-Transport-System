@@ -4,7 +4,7 @@ import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { useCustomer } from '../../hooks/useCustomer';
 import { useHorseFilter } from '../../hooks/useCustomerFilter';
-import { PROFILE_LABEL, fmtDate, horseRequests, profileStatus, shortCity } from '../../hooks/customerRules';
+import { PROFILE_LABEL, horseRequests, profileStatus, shortCity } from '../../hooks/customerRules';
 import './MyHorsesPage.css';
 import { AuthImage } from '../../../../shared/components/AuthImage';
 
@@ -50,7 +50,7 @@ export const MyHorsesPage: React.FC = () => {
                   <div><span>Microchip</span><b>{h.microchip || 'Chưa có'}</b></div>
                   <div><span>Hồ sơ</span><TripStatusBadge label={PROFILE_LABEL[ps]} tone={ps === 'COMPLETE' ? 'ok' : ps === 'NEEDS_ATTENTION' ? 'bad' : 'warn'} /></div>
                   <div><span>Bản scan hộ chiếu</span><b>{h.passport.scan ? 'Đã tải lên' : 'Chưa có'}</b></div>
-                  <div><span>Tiêm cúm gần nhất</span><b>{h.fluDate ? fmtDate(h.fluDate) : 'Chưa có'}</b></div>
+                  <div><span>Sổ tiêm ngừa</span><b>{h.flu ? 'Đã tải lên' : 'Chưa có'}</b></div>
                 </div>
                 <div className="cus-horse-card__usage">
                   <b>{used.length ? `Đã dùng trong ${used.length} yêu cầu` : 'Chưa dùng trong yêu cầu nào'}</b>

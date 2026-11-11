@@ -10,12 +10,13 @@ namespace Application.Flow1.Services;
 public sealed class RequestAssessmentChecklist(IDataSession data, IPrivateFiles files)
 {
     public sealed record Source(string Id, string HorseId, string HorseName, string Type, string Stage,
-        string? FileKey, DateOnly? Expiry, bool Usable, string? SourceRevision)
+        string? FileKey, DateOnly? Expiry, bool Usable, string? SourceRevision, string? HealthNotes = null)
     {
         public object View() => new
         {
             checklistItemId = Id, horseId = HorseId, HorseName, documentType = Type, Stage,
             fileAvailable = !string.IsNullOrWhiteSpace(FileKey), expiryDate = Expiry, Usable,
+            healthNotes = HealthNotes,
         };
     }
 
@@ -29,30 +30,28 @@ public sealed class RequestAssessmentChecklist(IDataSession data, IPrivateFiles 
         var requiredThrough = DateOnly.FromDateTime(delivery);
         foreach (var horse in horses.OrderBy(x => x.HorseID, StringComparer.Ordinal))
         {
-            void Add(string type, string stage, string? key, DateTime? expiry = null, bool complete = true, string? revision = null)
+            void Add(string type, string stage, string? key, DateTime? expiry = null, bool complete = true, string? revision = null, string? healthNotes = null)
             {
                 DateOnly? expiryDate = expiry is null ? null : DateOnly.FromDateTime(expiry.Value);
                 sources.Add(new(horse.HorseID + ":" + type, horse.HorseID, horse.Name, type, stage,
                     key, expiryDate, complete && !string.IsNullOrWhiteSpace(key)
-                        && (expiryDate is null || expiryDate >= requiredThrough), revision));
+                        && (expiryDate is null || expiryDate >= requiredThrough), revision, healthNotes));
             }
             Add("PASSPORT", "BEFORE_CONTRACT", horse.PassportScanUrl, horse.PassportExpiryDate,
                 !string.IsNullOrWhiteSpace(horse.FEI_Passport_No) && horse.PassportExpiryDate is not null,
                 horse.FEI_Passport_No);
             Add("PHOTO", "BEFORE_CONTRACT", horse.PhotoUrl);
             Add("OWNERSHIP", "BEFORE_CONTRACT", horse.OwnershipCertificateFileUrl);
+            var vaxCandidates = records.Where(r => r.HorseID == horse.HorseID && Normalize(r.DocumentType) == "VACCINATION")
+                .OrderBy(r => r.RecordID, StringComparer.Ordinal).ToArray();
+            // Historical rows can repeat the same upload under legacy aliases.
+            var vaxUploads = vaxCandidates.Where(r => !string.IsNullOrWhiteSpace(r.UploadedFileUrl))
+                .GroupBy(r => new { r.UploadedFileUrl, r.ExpiryDate }).ToArray();
+            var vaxRecord = vaxUploads.Length == 1 ? vaxUploads[0].First() : null;
+            var vaxUrl = vaxRecord?.UploadedFileUrl ?? horse.VaccinationFileUrl;
+            Add("VACCINATION", "BEFORE_CONTRACT", vaxUrl, vaxRecord?.ExpiryDate,
+                !string.IsNullOrWhiteSpace(vaxUrl), JsonSerializer.Serialize(vaxCandidates), horse.SpecialHealthNotes);
             Add("VALUATION", "OPTIONAL", horse.ValuationDocumentFileUrl);
-            foreach (var type in new[] { "HEALTH_CERTIFICATE", "VACCINATION" })
-            {
-                var candidates = records.Where(r => r.HorseID == horse.HorseID && Normalize(r.DocumentType) == type)
-                    .OrderBy(r => r.RecordID, StringComparer.Ordinal).ToArray();
-                // Historical rows can repeat the same upload under legacy aliases.
-                var uploads = candidates.Where(r => !string.IsNullOrWhiteSpace(r.UploadedFileUrl))
-                    .GroupBy(r => new { r.UploadedFileUrl, r.ExpiryDate }).ToArray();
-                var record = uploads.Length == 1 ? uploads[0].First() : null;
-                Add(type, "BEFORE_DEPARTURE", record?.UploadedFileUrl, record?.ExpiryDate,
-                    record?.ExpiryDate is not null, JsonSerializer.Serialize(candidates));
-            }
         }
         return sources.ToArray();
     }
@@ -82,7 +81,7 @@ public sealed class RequestAssessmentChecklist(IDataSession data, IPrivateFiles 
                 "OWNERSHIP" => "Giấy chứng nhận sở hữu",
                 "VALUATION" => "Chứng từ giá trị",
                 "HEALTH_CERTIFICATE" => "Giấy kiểm dịch / sức khỏe",
-                "VACCINATION" => "Sổ tiêm chủng",
+                "VACCINATION" => "Sổ tiêm ngừa",
                 _ => source.Type,
             };
             var label = $"{source.HorseName} ({source.HorseId}) · {document}";

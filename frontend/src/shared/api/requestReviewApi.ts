@@ -17,7 +17,7 @@ export interface Schedule {
 export interface ChecklistSource {
   checklistItemId: string; horseId: string; horseName: string; documentType: string;
   stage: 'BEFORE_CONTRACT' | 'BEFORE_DEPARTURE' | 'OPTIONAL'; fileAvailable: boolean;
-  expiryDate: string | null; usable: boolean;
+  expiryDate: string | null; usable: boolean; healthNotes?: string | null;
 }
 export interface ChecklistAssessment {
   checklistItemId: string; status: ItemStatus; reason: string | null;

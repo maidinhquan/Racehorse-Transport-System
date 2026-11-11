@@ -32,6 +32,7 @@ public sealed class TransportRequestMapping : IEntityTypeConfiguration<Transport
         entity.Property(row => row.CommittedDeadline).HasColumnType("datetime");
         entity.Property(row => row.DesignatedReceiverName).HasColumnType("nvarchar(100)");
         entity.Property(row => row.DesignatedReceiverPhone).HasColumnType("varchar(20)");
+        entity.Property(row => row.DesignatedReceiverEmail).HasColumnType("varchar(254)");
         entity.Property(row => row.BaseCost).HasColumnType("decimal(12, 2)");
         entity.Property(row => row.Status).HasColumnType("varchar(50)").IsRequired();
         entity.Property(row => row.PickupLatitude).HasColumnType("decimal(9,6)");

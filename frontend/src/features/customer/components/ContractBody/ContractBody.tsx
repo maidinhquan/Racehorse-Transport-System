@@ -172,7 +172,6 @@ export const ContractBody: React.FC<{ request: TransportRequest; v: ContractVers
         const horseBreed = full?.breed || h.breed || '—';
         const horseSex = full?.sex ? (SEX_LABEL[full.sex] ?? full.sex) : '—';
         const horseDob = full?.dob ? fmtDate(full.dob) : '—';
-        const horseColor = full?.color || '—';
         const horseMicrochip = full?.microchip || h.microchip || '—';
 
         const passportNo = full?.passport?.number || h.passportNo || '—';
@@ -187,10 +186,7 @@ export const ContractBody: React.FC<{ request: TransportRequest; v: ContractVers
         const declaredValue = full?.value ? `${Number(full.value).toLocaleString('en-US')} ${full.currency || 'VND'}` : '—';
         const valueProof = full?.valueProof;
 
-        const fluDate = full?.fluDate ? fmtDate(full.fluDate) : '—';
         const conditions = full?.conditions || 'Không khai báo';
-        const flu = full?.flu;
-        const health = full?.health;
 
         const fileRow = (label: string, file?: FileRef) => (
           <div className="cus-hd__file">
@@ -229,7 +225,6 @@ export const ContractBody: React.FC<{ request: TransportRequest; v: ContractVers
                   <div><span>Giống</span><b>{horseBreed}</b></div>
                   <div><span>Giới tính</span><b>{horseSex}</b></div>
                   <div><span>Ngày sinh</span><b>{horseDob}</b></div>
-                  <div><span>Màu lông</span><b>{horseColor}</b></div>
                   <div><span>Microchip</span><b>{horseMicrochip}</b></div>
                 </div>
               </div>
@@ -263,11 +258,9 @@ export const ContractBody: React.FC<{ request: TransportRequest; v: ContractVers
               <div className="cus-card" style={{ margin: 0 }}>
                 <h3 className="cus-card__title">Tiêm ngừa & sức khỏe</h3>
                 <div className="cus-kv">
-                  <div><span>Tiêm cúm gần nhất</span><b>{fluDate}</b></div>
                   <div><span>Ghi chú sức khỏe</span><b>{conditions}</b></div>
                 </div>
-                {fileRow('Sổ tiêm ngừa', flu)}
-                {fileRow('Giấy chứng nhận sức khỏe', health)}
+                {fileRow('Sổ tiêm ngừa', full?.flu)}
               </div>
             </div>
           </Modal>
