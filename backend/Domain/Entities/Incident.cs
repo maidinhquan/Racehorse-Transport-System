@@ -57,6 +57,9 @@ namespace Domain.Entities
         [Column("ResolutionNotes")]
         public string? ResolutionNotes { get; set; }
 
+        [Column("CreatedAt")]
+        public DateTime? CreatedAt { get; set; }
+
         // Navigation properties
         [ForeignKey(nameof(TripId))]
         [InverseProperty(nameof(TripPlan.Incidents))]

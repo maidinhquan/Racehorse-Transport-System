@@ -149,6 +149,20 @@ namespace WebApi.Middlewares
                     blockers.Add(new BlockerDto { Code = "UNAUTHENTICATED", Field = "auth", Message = message });
                     break;
 
+                case System.Security.SecurityException sec:
+                    statusCode = (int)HttpStatusCode.Forbidden;
+                    errorCode = "FORBIDDEN";
+                    message = sec.Message;
+                    blockers.Add(new BlockerDto { Code = "FORBIDDEN", Field = "auth", Message = sec.Message });
+                    break;
+
+                case ArgumentException arg:
+                    statusCode = (int)HttpStatusCode.BadRequest;
+                    errorCode = "BAD_REQUEST";
+                    message = arg.Message;
+                    blockers.Add(new BlockerDto { Code = "BAD_REQUEST", Field = "argument", Message = arg.Message });
+                    break;
+
                 case BusinessRuleException bre:
                     statusCode = bre.StatusCode;
                     errorCode = !string.IsNullOrWhiteSpace(bre.ErrorCode) ? bre.ErrorCode : "BUSINESS_RULE_VIOLATION";

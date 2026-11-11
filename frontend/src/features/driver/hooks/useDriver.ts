@@ -153,6 +153,33 @@ if (typeof window !== 'undefined') {
   };
   window.addEventListener('rts_incident_created', reloadIncidents);
   window.addEventListener('rts_incident_pins_changed', reloadIncidents);
+
+  const handlePickupResolution = (event: Event) => {
+    const detail = (event as CustomEvent<any>).detail;
+    if (!detail || !detail.tripId) return;
+    const cleanId = (detail.tripId || '').replace(/[-_]/g, '').toUpperCase();
+    setState((s) => ({
+      trips: s.trips.map((t) => {
+        const tClean = t.id.replace(/[-_]/g, '').toUpperCase();
+        if (tClean === cleanId || t.id === detail.tripId || (t.status === 'IN_TRANSIT' && s.trips.length === 1)) {
+          return {
+            ...t,
+            pickupAccessStatus: detail.resolutionType,
+            relocationMeetingPointName: detail.meetingPointName,
+            relocationLatitude: detail.meetingLatitude,
+            relocationLongitude: detail.meetingLongitude,
+            relocationDistanceMeters: detail.distanceMeters,
+            shuttleVehicleId: detail.shuttleVehicleId,
+            shuttleDriverId: detail.shuttleDriverId,
+            shuttleCostVnd: detail.shuttleCostVnd,
+            customerApprovalStatus: detail.customerApprovalStatus,
+          };
+        }
+        return t;
+      }),
+    }));
+  };
+  window.addEventListener('rts_pickup_resolution_updated', handlePickupResolution);
 }
 
 const findTrip = (tripId: string) => state.trips.find((t) => t.id === tripId);
@@ -181,6 +208,30 @@ async function buildLiveTrip(id: string, f6?: { tripId: string; requestId: strin
   if (trackingRes.status === 'fulfilled') {
     const mapped = tripFromTracking(trackingRes.value, extras);
     mapped.trip.health = health;
+    const cleanId = id.replace(/-/g, '_');
+    const rawRes = typeof localStorage !== 'undefined'
+      ? (localStorage.getItem(`rts_pickup_resolution_${cleanId}`) || localStorage.getItem(`rts_pickup_resolution_${id}`))
+      : null;
+    if (rawRes) {
+      try {
+        const parsed = JSON.parse(rawRes);
+        mapped.trip.pickupAccessStatus = parsed.resolutionType;
+        mapped.trip.relocationMeetingPointName = parsed.meetingPointName;
+        mapped.trip.relocationLatitude = parsed.meetingLatitude;
+        mapped.trip.relocationLongitude = parsed.meetingLongitude;
+        mapped.trip.relocationDistanceMeters = parsed.distanceMeters;
+        mapped.trip.shuttleVehicleId = parsed.shuttleVehicleId;
+        mapped.trip.shuttleDriverId = parsed.shuttleDriverId;
+        mapped.trip.shuttleCostVnd = parsed.shuttleCostVnd;
+        mapped.trip.customerApprovalStatus = parsed.customerApprovalStatus;
+      } catch {}
+    }
+    const storedStatus = typeof localStorage !== 'undefined'
+      ? (localStorage.getItem(`rts_driver_pickup_status_${cleanId}`) || localStorage.getItem(`rts_driver_pickup_status_${id}`))
+      : null;
+    if (storedStatus && !mapped.trip.pickupAccessStatus) {
+      mapped.trip.pickupAccessStatus = storedStatus as any;
+    }
     return mapped;
   }
   const trip: Trip = {
@@ -228,7 +279,15 @@ async function loadAll() {
         return;
       } catch (err) {
         console.warn('[useDriver] Failed to fetch real trips:', err);
-        setState({ ...emptyData, loading: false, loaded: true });
+        const fallbackIncidents = await driverApi.getIncidents().catch(() => []);
+        setState((s) => ({
+          trips: s.trips.length ? s.trips : (getDemoMode('driver') ? demoData().trips : []),
+          crew: s.crew.length ? s.crew : (getDemoMode('driver') ? demoData().crew : []),
+          horses: s.horses.length ? s.horses : (getDemoMode('driver') ? demoData().horses : []),
+          incidents: fallbackIncidents.length ? fallbackIncidents : s.incidents,
+          loading: false,
+          loaded: true,
+        }));
         return;
       }
     }
@@ -334,7 +393,7 @@ const actions = {
   addIncidentPhoto: (p: Photo) => setState((s) => ({ incidentPhotos: [...s.incidentPhotos, p] })),
   removeIncidentPhoto: (i: number) => setState((s) => ({ incidentPhotos: s.incidentPhotos.filter((_, k) => k !== i) })),
 
-  async reportIncident(tripId: string, body: Omit<ReportIncidentRequestDto, 'photos' | 'location' | 'locationCoordinates'> & { locationDetail: string; safe: boolean; ratio: number }): Promise<ActionResult> {
+  async reportIncident(tripId: string, body: Omit<ReportIncidentRequestDto, 'photos' | 'location' | 'locationCoordinates'> & { locationDetail: string; safe: boolean; ratio: number; customPhotos?: string[] }): Promise<ActionResult> {
     let t = findTrip(tripId);
     if (!t || t.status === 'COMPLETED') {
       const activeFallback = state.trips.find((x) => x.status === 'IN_TRANSIT') || state.trips.find((x) => x.status !== 'COMPLETED') || state.trips[0];
@@ -346,11 +405,11 @@ const actions = {
     if (!t) return fail('Không tìm thấy thông tin chuyến đi phù hợp.');
     if (!body.type || !body.severity) return fail('Chọn loại và mức độ sự cố.');
     if (body.description.trim().length < 5) return fail('Vui lòng mô tả sự việc ít nhất 5 ký tự.');
-    if (!body.safe) return fail('Xác nhận người và ngựa đã an toàn hoặc đã bắt đầu sơ cứu.');
+    if (!body.safe && body.type !== 'PICKUP_ACCESS_BLOCKED') return fail('Xác nhận người và ngựa đã an toàn hoặc đã bắt đầu sơ cứu.');
     const { a, b } = incidentSegment(t);
     const point = a && b ? pointOnSegment(a, b, body.ratio) : null;
     const location = incidentWhere(t, body.ratio) + (body.locationDetail.trim() ? ' – ' + body.locationDetail.trim() : '');
-    const photos = state.incidentPhotos.map((p) => p.url || p.name);
+    const photos = body.customPhotos ?? state.incidentPhotos.map((p) => p.url || p.name);
     const locationCoordinates = point ? `${point.lat.toFixed(6)},${point.lng.toFixed(6)}` : undefined;
     const backendRes = await driverApi.reportIncident(tripId, {
       type: body.type,
@@ -363,6 +422,9 @@ const actions = {
       horseName: body.horseName,
       healthIssueType: body.healthIssueType,
       immediateCare: body.immediateCare,
+      proposedRelocationPlaceName: body.proposedRelocationPlaceName,
+      blockedImageUrl: body.blockedImageUrl,
+      relocationImageUrl: body.relocationImageUrl,
     });
     const realId = backendRes?.incidentId || `INC-${String(Date.now()).slice(-4)}`;
     const inc: Incident = {
@@ -447,6 +509,37 @@ const actions = {
       handoverAttempts: [...x.handoverAttempts, { at: nowStamp(), status: 'REFUSED', by: state.userId, category: body.category, reason: body.reason.trim(), next: body.next, note: body.note }],
     }));
     return ok('Đã ghi nhận từ chối bàn giao. Manager đã được thông báo.');
+  },
+
+  // ---------- Ngoại lệ tiếp cận điểm đón ----------
+  acknowledgePickupResolution(tripId: string): ActionResult {
+    const t = findTrip(tripId); if (!t) return fail('Không tìm thấy chuyến.');
+    const cleanId = tripId.replace(/-/g, '_');
+    try {
+      localStorage.setItem(`rts_driver_pickup_ack_${cleanId}`, 'true');
+      localStorage.setItem(`rts_driver_pickup_ack_${tripId}`, 'true');
+    } catch {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('rts_driver_pickup_ack', { detail: { tripId } }));
+      notifySync('requests_updated');
+    }
+    return ok('Tài xế đã xác nhận tiếp nhận thông tin phương án đón ngựa mới.');
+  },
+
+  confirmPickupAccessResolved(tripId: string): ActionResult {
+    const t = findTrip(tripId); if (!t) return fail('Không tìm thấy chuyến.');
+    const cleanId = tripId.replace(/-/g, '_');
+    try {
+      localStorage.setItem(`rts_pickup_resolved_${cleanId}`, 'true');
+      localStorage.setItem(`rts_pickup_resolved_${tripId}`, 'true');
+      localStorage.removeItem(`rts_driver_pickup_status_${cleanId}`);
+      localStorage.removeItem(`rts_driver_pickup_status_${tripId}`);
+    } catch {}
+    updateTrip(tripId, (x) => ({ ...x, pickupAccessStatus: 'RESOLVED', customerApprovalStatus: 'APPROVED' }));
+    if (typeof window !== 'undefined') {
+      notifySync('requests_updated');
+    }
+    return ok('Đã xác nhận tiếp nhận ngựa an toàn. Mở khóa hành trình.');
   },
 
   // ---------- Nút demo (giả lập Specialist / Coordinator / Manager) ----------

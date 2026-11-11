@@ -9,6 +9,7 @@ public static class Flow5ServiceExtensions
     public static IServiceCollection AddFlow5Services(this IServiceCollection services)
     {
         services.AddScoped<IFlow5IncidentService, Flow5IncidentService>();
+        services.AddScoped<IPickupAccessService, PickupAccessService>();
         return services;
     }
 }

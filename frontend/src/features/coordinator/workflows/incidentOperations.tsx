@@ -39,6 +39,7 @@ export const F5_TYPES: Record<string, string> = {
 };
 export const F5_PLAN: Record<string, string> = {
   NO_CHANGE: 'Khắc phục tại chỗ, giữ nguyên kế hoạch',
+  PICKUP_RELOCATE: 'Đổi điểm hẹn đón ngoại vi (Dưới 500m • Không phát sinh phí)',
   VEHICLE_SWAP: 'Nhóm 1: Sự cố về xe (Tổ xe khỏe mạnh)',
   CREW_SWAP: 'Nhóm 2: Sự cố về nhân sự (Xe hoạt động tốt)',
   VEHICLE_AND_CREW_SWAP: 'Nhóm 3: Tai nạn nghiêm trọng (Đổi cả xe và người)',
@@ -432,8 +433,29 @@ export function f5Plan(id: string) {
     ['4.1_SPLIT_TRANSPORT', 'Kịch bản 4.1: Một con ngựa ốm nặng - Tách đàn vận chuyển (Horse Ambulance đưa đi viện, 5 con còn lại đi tiếp)'],
   ];
 
-  const guess = p.kind && F5_PLAN[p.kind] ? p.kind : (/BREAKDOWN|ACCIDENT/.test(i.type) ? 'VEHICLE_SWAP' : /ROAD|BORDER|WEATHER/.test(i.type) ? 'ROUTE_ADJUST' : i.type === 'HORSE_HEALTH' ? (tripHorses(t).length > 1 ? 'HORSE_SPLIT' : 'CREW_SWAP') : 'NO_CHANGE');
+  const isPickupAccessBlocked = /PICKUP_ACCESS|PICKUP_BLOCKED/.test(String(i.type || i.category || ''));
+  const guess = p.kind && F5_PLAN[p.kind] ? p.kind : (isPickupAccessBlocked ? 'PICKUP_RELOCATE' : /BREAKDOWN|ACCIDENT/.test(i.type) ? 'VEHICLE_SWAP' : /ROAD|BORDER|WEATHER/.test(i.type) ? 'ROUTE_ADJUST' : i.type === 'HORSE_HEALTH' ? (tripHorses(t).length > 1 ? 'HORSE_SPLIT' : 'CREW_SWAP') : 'NO_CHANGE');
   const vets = i.type === 'HORSE_HEALTH' ? nearestVets(t) : [];
+
+  const cleanTripKey = (t?.id || i.tripId || '').replace(/-/g, '_');
+  let cachedEv: any = null;
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(`rts_pickup_evidence_${cleanTripKey}`) : null;
+    if (raw) cachedEv = JSON.parse(raw);
+  } catch {}
+  const rawImg = i?.imageUrl || '';
+  const imgParts = rawImg.includes('||') ? rawImg.split('||') : [rawImg];
+  const blockedImg = i?.blockedImageUrl || cachedEv?.blockedImageUrl || (imgParts[0]?.trim() || null);
+  const relocationImg = i?.relocationImageUrl || cachedEv?.relocationImageUrl || (imgParts.length > 1 ? imgParts[1]?.trim() : null);
+  const descMatch = i?.description?.match(/Vị trí dời đề xuất:\s*([^.]+)/i);
+  const extractedPlace = descMatch ? descMatch[1].trim() : undefined;
+  const isMockPlace = (val?: string | null) => !val || val.toLowerCase().includes('ngã ba đường liên xã');
+  const proposedPlace =
+    (!isMockPlace((i as any)?.proposedRelocationPlaceName) ? (i as any)?.proposedRelocationPlaceName : undefined) ||
+    (!isMockPlace(cachedEv?.proposedPlaceName) ? cachedEv?.proposedPlaceName : undefined) ||
+    (!isMockPlace((i as any)?.relocationMeetingPointName) ? (i as any)?.relocationMeetingPointName : undefined) ||
+    (!isMockPlace(extractedPlace) ? extractedPlace : undefined) ||
+    (!isMockPlace(t?.relocationMeetingPointName) ? t?.relocationMeetingPointName : undefined);
 
   openModal({
     title: `${curPlan(i) && curPlan(i).status !== 'DRAFT' ? 'Sửa phương án → tạo phiên bản mới' : 'Lập phương án xử lý (Command Center)'} • ${i.id}`,
@@ -444,6 +466,7 @@ export function f5Plan(id: string) {
       scenario: p.scenario || (guess === 'VEHICLE_SWAP' ? '1.1_STANDARD' : guess === 'CREW_SWAP' ? '2.1_QUICK_SWAP' : guess === 'VEHICLE_AND_CREW_SWAP' ? '3.1_FULL_REPLACEMENT' : guess === 'HORSE_SPLIT' ? '4.1_SPLIT_TRANSPORT' : ''),
       desc: p.desc || '',
       reason: p.reason || '',
+      meetingPointName: p.meetingPointName || '',
       veh: p.vehicleId || '',
       reliefDriverId: p.reliefDriverId || '',
       towingPartner: p.towingPartner || 'Đội Cứu hộ Giao thông Cao tốc 116',
@@ -481,14 +504,25 @@ export function f5Plan(id: string) {
         <>
           <p className="subtitle" style={{ marginTop: 0 }}>{legOf(t, i.leg)} • ETA đã xác nhận {dt(t.eta)}</p>
           <Field label="Nhóm phương án xử lý *">
-            <Sel name="k" options={Object.entries(F5_PLAN)} onChange={(e: any) => {
-              const newK = e.target.value;
-              if (newK === 'VEHICLE_SWAP') f.set('scenario', '1.1_STANDARD');
-              else if (newK === 'CREW_SWAP') f.set('scenario', '2.1_QUICK_SWAP');
-              else if (newK === 'VEHICLE_AND_CREW_SWAP') f.set('scenario', '3.1_FULL_REPLACEMENT');
-              else if (newK === 'HORSE_SPLIT') f.set('scenario', '4.1_SPLIT_TRANSPORT');
-              else f.set('scenario', '');
-            }} />
+            <Sel
+              name="k"
+              options={
+                isPickupAccessBlocked
+                  ? [
+                      ['PICKUP_RELOCATE', F5_PLAN.PICKUP_RELOCATE],
+                      ['NO_CHANGE', F5_PLAN.NO_CHANGE],
+                    ]
+                  : Object.entries(F5_PLAN)
+              }
+              onChange={(e: any) => {
+                const newK = e.target.value;
+                if (newK === 'VEHICLE_SWAP') f.set('scenario', '1.1_STANDARD');
+                else if (newK === 'CREW_SWAP') f.set('scenario', '2.1_QUICK_SWAP');
+                else if (newK === 'VEHICLE_AND_CREW_SWAP') f.set('scenario', '3.1_FULL_REPLACEMENT');
+                else if (newK === 'HORSE_SPLIT') f.set('scenario', '4.1_SPLIT_TRANSPORT');
+                else f.set('scenario', '');
+              }}
+            />
           </Field>
 
           {activeScenario && (
@@ -509,6 +543,66 @@ export function f5Plan(id: string) {
               ))}
             </Note>
           ) : null}
+
+          {/* ========================================================= */}
+          {/* PHƯƠNG ÁN: ĐỔI ĐIỂM HẸN ĐÓN NGOẠI VI (DƯỚI 500M)         */}
+          {/* ========================================================= */}
+          {f.v.k === 'PICKUP_RELOCATE' && (
+            <div style={{ marginTop: 14, padding: 14, border: '1px solid #bbf7d0', borderRadius: 8, background: '#f0fdf4' }}>
+              <b style={{ fontSize: 14, color: '#166534', display: 'block', marginBottom: 6 }}>
+                Phương án: Đổi điểm hẹn đón ngoại vi (Dưới 500m • Không phát sinh phí)
+              </b>
+              <p style={{ margin: '0 0 10px', fontSize: 12.5, color: '#15803d', lineHeight: 1.5 }}>
+                Đoạn đường vào trang trại bị giới hạn kích thước xe, xe tải chuyên dụng đang dừng chờ ở đường lớn bên ngoài. Hướng dẫn tài xế và khách hẹn dắt bộ ngựa ra điểm tập kết an toàn.
+              </p>
+
+              {proposedPlace && (
+                <div style={{ marginBottom: 10, padding: '6px 10px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 6, fontSize: 12.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span><b style={{ color: '#065f46' }}>Vị trí tài xế đề xuất:</b> {proposedPlace}</span>
+                  <button type="button" onClick={() => f.set('meetingPointName', proposedPlace)} style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 8px', fontSize: 11, cursor: 'pointer' }}>
+                    Sử dụng đề xuất này
+                  </button>
+                </div>
+              )}
+
+              <Field label="Tên điểm hẹn đón ngoại vi thay thế *">
+                <Inp
+                  name="meetingPointName"
+                  placeholder={
+                    proposedPlace
+                      ? `Để trống sẽ dùng đề xuất "${proposedPlace}", hoặc nhập tên thay thế...`
+                      : 'VD: Cây xăng đầu ngõ 15, Bãi đất trống ngoài đường lớn...'
+                  }
+                />
+              </Field>
+
+              {(blockedImg || relocationImg) && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginTop: 8, marginBottom: 10 }}>
+                  {blockedImg && (
+                    <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: 6, padding: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#9f1239', display: 'block', marginBottom: 4 }}>
+                        1. Ảnh vị trí không thể vào (Tài xế báo):
+                      </span>
+                      <img src={blockedImg} alt="Vị trí không thể vào" style={{ width: '100%', height: 95, objectFit: 'cover', borderRadius: 4 }} />
+                    </div>
+                  )}
+                  {relocationImg && (
+                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#166534', display: 'block', marginBottom: 4 }}>
+                        2. Ảnh chỗ dời đề xuất:
+                      </span>
+                      <img src={relocationImg} alt="Chỗ dời đề xuất" style={{ width: '100%', height: 95, objectFit: 'cover', borderRadius: 4 }} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 16, fontSize: 13, marginTop: 8 }}>
+                <div>Cự ly ước tính: <b>{t?.relocationDistanceMeters || 320} mét</b> (&lt; 500m)</div>
+                <div>Chi phí phát sinh: <b style={{ color: '#16a34a' }}>0 VNĐ (CBN Transport hỗ trợ miễn phí)</b></div>
+              </div>
+            </div>
+          )}
 
           {/* ========================================================= */}
           {/* NHÓM 1: SỰ CỐ VỀ XE (VEHICLE_SWAP) - Tổ xe khỏe mạnh       */}
@@ -724,6 +818,31 @@ export function f5Plan(id: string) {
       const subTasks: string[] = [];
       let autoDesc = String(v.desc || '').trim();
 
+      if (k === 'PICKUP_RELOCATE') {
+        const place = String(v.meetingPointName || '').trim() || proposedPlace || 'Điểm hẹn đón dắt bộ';
+        subTasks.push('Walk_Horse_To_Meeting_Point', 'Confirm_Safe_Loading');
+        if (!autoDesc) {
+          autoDesc = `Đổi điểm hẹn đón ngoại vi tại ${place}. Dắt bộ ngựa ra ngoài đường lớn (< 500m), không phát sinh chi phí.`;
+        }
+        if (t) {
+          t.pickupAccessStatus = 'RELOCATING';
+          t.relocationMeetingPointName = place;
+        }
+        const cleanTripKey = (t?.id || i.tripId || '').replace(/-/g, '_');
+        try {
+          localStorage.setItem(`rts_pickup_resolution_${cleanTripKey}`, JSON.stringify({
+            resolutionType: 'RELOCATING',
+            meetingPointName: place,
+            meetingLatitude: i.lat || 10.825,
+            meetingLongitude: i.lng || 106.632,
+            distanceMeters: t?.relocationDistanceMeters || 320,
+            shuttleCostVnd: 0,
+            customerApprovalStatus: 'APPROVED',
+          }));
+          localStorage.setItem(`rts_driver_pickup_status_${cleanTripKey}`, 'RELOCATING');
+        } catch {}
+      }
+
       if (k === 'VEHICLE_SWAP') {
         if (v.scenario === '1.2_CRITICAL') {
           subTasks.push('Call_Third_Party_Towing', 'Send_Relief_Vehicle', 'Send_Relief_Driver', 'Clear_Roadway');
@@ -784,6 +903,7 @@ export function f5Plan(id: string) {
         subTasks,
         desc: autoDesc,
         reason: String(v.reason).trim(),
+        meetingPointName: v.meetingPointName || '',
         vehicleId: v.veh || '',
         reliefDriverId: v.reliefDriverId || '',
         towingPartner: v.towingPartner || '',

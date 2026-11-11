@@ -4,3 +4,4 @@ export * from './DelayModal';
 export * from './RefuseHandoverModal';
 export * from './ConfirmModal';
 export * from './HorseDetailModal';
+export * from './PickupAccessBlockedModal';

@@ -1,6 +1,6 @@
 // Sự cố & khiếu nại: danh sách sự cố trong chuyến (Flow 5) và khiếu nại liên quan (chỉ xem)
 import { useEffect, useState } from 'react';
-import { DataTable, Icon, Pill, PillT, Tabs, tabOn } from '../../components/common/ui';
+import { DataTable, Icon, Pill, PillT, Tabs, tabOn, resetTablePage } from '../../components/common/ui';
 import { CoordinatorLayout } from '../../components/layout/CoordinatorLayout';
 import { custOf, legOf, reqById, trip } from '../../domain/coordinatorRules';
 import type { Any } from '../../store/coordinatorStore';
@@ -55,6 +55,7 @@ export function IncidentsPage() {
           });
         }
         db.incidents = sortIncidentsLatestFirst(db.incidents);
+        resetTablePage('f5-inc-f');
         commit();
       }
       void syncCoordinatorIncidents();
@@ -154,13 +155,13 @@ export function IncidentsPage() {
             </button>
           </div>
 
-          <DataTable id="f5-inc-f" rows={displayRows} go={(i: Any) => `f/incident/${i.id}`} style={{ marginTop: 10 }} search={(i: Any) => [i.id, i.tripId, i.description, i.location, i.reporterName, i.by].join(' ')}
+          <DataTable id="f5-inc-f" defaultSort={{ col: 0, dir: -1 }} rows={displayRows} go={(i: Any) => `f/incident/${i.id}`} style={{ marginTop: 10 }} search={(i: Any) => [i.id, i.tripId, i.description, i.location, i.reporterName, i.by].join(' ')}
           emptyTitle="Chưa có sự cố" empty="Sự cố trên các chuyến sẽ hiện ở đây."
           filters={[{ key: 's', label: 'Mọi trạng thái', options: Object.keys(F5_ST).map((k) => [k, F5_ST[k][1]] as [string, string]), test: (i: Any, v) => i.status === v }]}
           cols={[
             {
               label: 'Sự cố',
-              sort: (i: Any) => Math.max(parseIncidentTime(i.updatedAt), parseIncidentTime(i.at)),
+              sort: (i: Any) => Math.max(parseIncidentTime(i.at), parseIncidentTime(i.reportedAt), parseIncidentTime(i.updatedAt)),
               render: (i: Any) => {
                 const vet = isVetIncident(i);
                 return (
@@ -170,7 +171,7 @@ export function IncidentsPage() {
                       {vet ? 'Bác sĩ thú y' : 'Tài xế'}
                     </span>
                     <br />
-                    <small className="muted">{dt(i.updatedAt || i.at)}</small>
+                    <small className="muted">{dt(i.at || i.reportedAt || i.updatedAt)}</small>
                     {i.vetStatus === 'REFERRAL_REQUESTED' && (
                       <span style={{ display: 'block', color: '#b42318', fontWeight: 600, fontSize: 11, marginTop: 2 }}>
                         Yêu cầu chuyển viện

@@ -7,6 +7,8 @@ import { emp, horse, legOf, reqOfTrip, trip, vehicle } from '../../domain/coordi
 import type { Any } from '../../store/coordinatorStore';
 import { cleanId, db, go, syncCoordinatorIncidents, useCoordinatorStore } from '../../store/coordinatorStore';
 import { dt, human, incTypeVi, usd } from '../../utils/format';
+import { PickupAccessCard } from '../../components/relocation/PickupAccessCard';
+import { PickupAccessResolutionModal } from '../../components/relocation/PickupAccessResolutionModal';
 import {
   F5_DONE,
   F5_PLAN,
@@ -762,6 +764,8 @@ export function IncidentDetailPage() {
     }
   });
 
+  const [showPickupResolutionModal, setShowPickupResolutionModal] = useState<boolean>(false);
+
   useEffect(() => {
     let mounted = true;
     syncCoordinatorIncidents().finally(() => {
@@ -916,8 +920,20 @@ export function IncidentDetailPage() {
   } else {
     // Đối với sự cố Phương tiện / Giao thông của Tài xế
     if (['PLANNING', 'CHANGES_REQUESTED', 'EXECUTING'].includes(S)) {
+      const isPickupBlocked = i.type === 'PICKUP_ACCESS_BLOCKED' || i.category === 'PICKUP_ACCESS_BLOCKED' || t?.pickupAccessStatus === 'BLOCKED';
       buttons.push(
-        btn('plan', p ? (p.status === 'DRAFT' ? `Sửa phương án v${p.v}` : `Sửa phương án (tạo v${p.v + 1})`) : 'Lập phương án', () => f5Plan(i.id), p && p.status !== 'DRAFT' ? 'ghost' : 'solid')
+        btn(
+          'plan',
+          p ? (p.status === 'DRAFT' ? `Sửa phương án v${p.v}` : `Sửa phương án (tạo v${p.v + 1})`) : 'Lập phương án',
+          () => {
+            if (isPickupBlocked) {
+              setShowPickupResolutionModal(true);
+            } else {
+              f5Plan(i.id);
+            }
+          },
+          p && p.status !== 'DRAFT' ? 'ghost' : 'solid'
+        )
       );
     }
     if (p && p.status === 'DRAFT') {
@@ -976,6 +992,33 @@ export function IncidentDetailPage() {
     buttons.push(btn('close', 'Đóng sự cố', () => f5Close(i.id), 'solid'));
   }
 
+  const r = reqOfTrip(t);
+  const pickupLat = Number(r?.pickup?.lat || r?.pickupLatitude || t?.pickupLatitude || 10.8231);
+  const pickupLng = Number(r?.pickup?.lng || r?.pickupLongitude || t?.pickupLongitude || 106.6297);
+  const pickupName = r?.pickup?.name || r?.pickupStableName || r?.origin || 'Trang trại điểm đón';
+  const reportedLat = i?.reportedLatitude ? Number(i.reportedLatitude) : (i?.lat ? Number(i.lat) : undefined);
+  const reportedLng = i?.reportedLongitude ? Number(i.reportedLongitude) : (i?.lng ? Number(i.lng) : undefined);
+
+  const cleanTripKey = (t?.id || t?.tripId || i?.tripId || '').replace(/-/g, '_');
+  let cachedEvidence: any = null;
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(`rts_pickup_evidence_${cleanTripKey}`) : null;
+    if (raw) cachedEvidence = JSON.parse(raw);
+  } catch {}
+
+  const rawImg = i?.imageUrl || t?.imageUrl || '';
+  const parts = rawImg.includes('||') ? rawImg.split('||') : [rawImg];
+  const blockedImg = t?.blockedImageUrl || i?.blockedImageUrl || cachedEvidence?.blockedImageUrl || (parts[0]?.trim() || undefined);
+  const relocationImg = t?.relocationImageUrl || i?.relocationImageUrl || cachedEvidence?.relocationImageUrl || (parts.length > 1 ? parts[1]?.trim() : undefined);
+  const descMatch = i?.description?.match(/Vị trí dời đề xuất:\s*([^.]+)/i);
+  const extractedPlace = descMatch ? descMatch[1].trim() : undefined;
+  const isMockPlace = (val?: string | null) => !val || val.toLowerCase().includes('ngã ba đường liên xã');
+  const proposedPlace =
+    (!isMockPlace(i?.proposedRelocationPlaceName) ? i?.proposedRelocationPlaceName : undefined) ||
+    (!isMockPlace(cachedEvidence?.proposedPlaceName) ? cachedEvidence?.proposedPlaceName : undefined) ||
+    (!isMockPlace(extractedPlace) ? extractedPlace : undefined) ||
+    (!isMockPlace(t?.relocationMeetingPointName) ? t?.relocationMeetingPointName : undefined);
+
   return (
     <CoordinatorLayout title="Sự cố & khiếu nại" active="/coordinator/incidents">
       <button type="button" className="link back" onClick={() => go('f/incidents')}>
@@ -1005,6 +1048,9 @@ export function IncidentDetailPage() {
             <HorseHealthCard i={i} liveResolved={vetResolved} liveReferral={vetReferral} />
           ) : (
             <>
+              {(i.type === 'ROAD_CLOSURE' || i.type === 'OTHER' || i.type === 'PICKUP_ACCESS_BLOCKED' || t?.pickupAccessStatus || i.pickupAccessBlocked) && (
+                <PickupAccessCard t={t} incident={i} onUpdated={() => syncCoordinatorIncidents()} />
+              )}
               <PlanCard i={i} />
               <InfoCard i={i} />
             </>
@@ -1050,6 +1096,25 @@ export function IncidentDetailPage() {
           </div>
         </div>
       </div>
+
+      <PickupAccessResolutionModal
+        isOpen={showPickupResolutionModal}
+        onClose={() => setShowPickupResolutionModal(false)}
+        tripId={t?.id || t?.tripId || i.tripId || ''}
+        pickupStableName={pickupName}
+        pickupLatitude={pickupLat}
+        pickupLongitude={pickupLng}
+        reportedLatitude={reportedLat}
+        reportedLongitude={reportedLng}
+        incidentReason={i.description || t?.pickupAccessReason}
+        proposedMeetingPointName={proposedPlace}
+        blockedImageUrl={blockedImg}
+        relocationImageUrl={relocationImg}
+        onSuccess={() => {
+          setShowPickupResolutionModal(false);
+          void syncCoordinatorIncidents();
+        }}
+      />
     </CoordinatorLayout>
   );
 }

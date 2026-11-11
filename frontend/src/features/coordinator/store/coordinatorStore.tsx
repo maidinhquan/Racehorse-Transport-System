@@ -528,6 +528,12 @@ export function parseIncidentTime(val?: string | number | null): number {
 
 export function sortIncidentsLatestFirst<T extends { id?: string; at?: string; updatedAt?: string; vetStatus?: string; status?: string }>(list: T[]): T[] {
   return [...list].sort((a, b) => {
+    // 1. Luôn đưa sự cố cần xử lý (NEW, REPORTED, REFERRAL_REQUESTED) lên trên các sự cố đã hoàn tất
+    const isDoneA = ['CLOSED', 'RESOLVED', 'RECOVERY_APPLIED'].includes(String(a.status || ''));
+    const isDoneB = ['CLOSED', 'RESOLVED', 'RECOVERY_APPLIED'].includes(String(b.status || ''));
+    if (isDoneA !== isDoneB) return isDoneA ? 1 : -1;
+
+    // 2. Sắp xếp giảm dần theo mốc thời gian cập nhật/phát sinh mới nhất
     const timeA = Math.max(parseIncidentTime(a.updatedAt), parseIncidentTime(a.at));
     const timeB = Math.max(parseIncidentTime(b.updatedAt), parseIncidentTime(b.at));
     if (timeB !== timeA) return timeB - timeA;
@@ -556,16 +562,22 @@ export async function syncCoordinatorIncidents(): Promise<void> {
       if (!id || DELETED_SPAM_IDS.has(cleanId(id)) || DELETED_SPAM_IDS.has(id)) continue;
       const isApplied = bi.status === 'RECOVERY_APPLIED' || bi.status === 'EXECUTING';
       const existing = db.incidents.find((x: Any) => cleanId(x.id) === cleanId(id));
-      const biUpdatedAt = bi.updatedAt ? toLocalTimeString(bi.updatedAt) : (bi.reportedAt ? toLocalTimeString(bi.reportedAt) : undefined);
+      const biUpdatedAt = bi.updatedAt ? toLocalTimeString(bi.updatedAt) : undefined;
+      const biReportedAt = bi.reportedAt ? toLocalTimeString(bi.reportedAt) : (bi.at ? toLocalTimeString(bi.at) : undefined);
 
       if (existing) {
+        if (biReportedAt && (!existing.at || existing.at !== biReportedAt)) {
+          existing.at = biReportedAt;
+          existing.reportedAt = biReportedAt;
+          hasChange = true;
+        }
         if (bi.status && existing.status !== bi.status) {
           existing.status = isApplied ? 'EXECUTING' : bi.status;
           existing.updatedAt = biUpdatedAt || nowStamp();
           hasChange = true;
         }
         if (bi.status && bi.status !== 'REPORTED' && !existing.ackAt) {
-          existing.ackAt = bi.reportedAt ? toLocalTimeString(bi.reportedAt).slice(0, 16) : nowStamp();
+          existing.ackAt = biReportedAt ? biReportedAt.slice(0, 16) : nowStamp();
           hasChange = true;
         }
         if (bi.approvedPlan && !existing.approvedPlan) {
@@ -639,24 +651,37 @@ export async function syncCoordinatorIncidents(): Promise<void> {
           existing.vetResolutionNote = bi.vetResolutionNote;
           hasChange = true;
         }
+        if (!existing.proposedRelocationPlaceName && bi.proposedRelocationPlaceName) {
+          existing.proposedRelocationPlaceName = bi.proposedRelocationPlaceName;
+          hasChange = true;
+        }
+        if (!existing.blockedImageUrl && bi.blockedImageUrl) {
+          existing.blockedImageUrl = bi.blockedImageUrl;
+          hasChange = true;
+        }
+        if (!existing.relocationImageUrl && bi.relocationImageUrl) {
+          existing.relocationImageUrl = bi.relocationImageUrl;
+          hasChange = true;
+        }
         if (biUpdatedAt && (!existing.updatedAt || parseIncidentTime(biUpdatedAt) > parseIncidentTime(existing.updatedAt))) {
           existing.updatedAt = biUpdatedAt;
           hasChange = true;
         }
       } else {
         const isPastReported = bi.status && bi.status !== 'REPORTED';
-        const atTime = bi.reportedAt ? toLocalTimeString(bi.reportedAt) : nowStamp();
+        const atTime = biReportedAt || (bi.at ? toLocalTimeString(bi.at) : nowStamp());
         const newInc: Any = {
           id,
           tripId: bi.tripId,
           type: bi.category || bi.incidentType || 'OTHER',
           severity: bi.severity || 'HIGH',
           status: isApplied ? 'EXECUTING' : (bi.status || 'REPORTED'),
-          ackAt: isPastReported ? (bi.reportedAt ? toLocalTimeString(bi.reportedAt).slice(0, 16) : nowStamp()) : undefined,
+          ackAt: isPastReported ? (biReportedAt ? biReportedAt.slice(0, 16) : nowStamp()) : undefined,
           approvedPlan: bi.approvedPlan,
           resolutionNotes: bi.resolutionNotes,
           resolutionType: bi.resolutionType,
           at: atTime,
+          reportedAt: atTime,
           updatedAt: biUpdatedAt || atTime,
           by: bi.reportedByUserName || bi.reportedByUserId || 'Tài xế / Áp tải',
           reporterName: bi.reportedByUserName || '',
@@ -673,6 +698,9 @@ export async function syncCoordinatorIncidents(): Promise<void> {
           vetStatus: bi.vetStatus || '',
           targetVetStation: bi.targetVetStation || '',
           vetResolutionNote: bi.vetResolutionNote || '',
+          proposedRelocationPlaceName: bi.proposedRelocationPlaceName || '',
+          blockedImageUrl: bi.blockedImageUrl || undefined,
+          relocationImageUrl: bi.relocationImageUrl || undefined,
           plans: bi.approvedPlan ? [{
             v: 1,
             kind: bi.resolutionType || 'NO_CHANGE',

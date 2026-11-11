@@ -24,6 +24,7 @@ public class Flow5IncidentService : IFlow5IncidentService
     private static readonly ConcurrentDictionary<string, List<IncidentFileDto>> _fileStore = new();
     private static readonly ConcurrentDictionary<string, List<TerminationProposalDto>> _proposalStore = new();
     private static readonly ConcurrentDictionary<string, VetIncidentMeta> _vetMetaStore = new();
+    private static readonly ConcurrentDictionary<string, string> _pickupPlaceStore = new();
 
     public class VetIncidentMeta
     {
@@ -83,6 +84,7 @@ public class Flow5IncidentService : IFlow5IncidentService
             "HEALTH" or "HORSE_HEALTH" => "HORSE_HEALTH",
             "DELAY" or "ROAD_CLOSURE" or "DELAY_AIR" => "ROAD_CLOSURE",
             "BORDER" or "BORDER_DELAY" => "BORDER_DELAY",
+            "PICKUP_ACCESS_BLOCKED" or "PICKUP_BLOCKED" => "PICKUP_ACCESS_BLOCKED",
             _ => rawCat
         };
         dto.Category = normalizedCategory;
@@ -97,6 +99,7 @@ public class Flow5IncidentService : IFlow5IncidentService
             "VEHICLE_RESOURCE" or "VEHICLE_BREAKDOWN" => "Hỏng xe",
             "DELAY_AIR" or "ROAD_CLOSURE" or "TRAFFIC_ACCIDENT" => "Kẹt xe kéo dài / Trễ chuyến bay",
             "HORSE_HEALTH" => "Sự cố y tế của ngựa",
+            "PICKUP_ACCESS_BLOCKED" => "Không thể tiếp cận điểm lấy ngựa",
             "OTHER" => "Khác",
             _ => dto.Category
         };
@@ -125,8 +128,33 @@ public class Flow5IncidentService : IFlow5IncidentService
             ImageUrl = dto.ImageUrl,
             Status = "REPORTED",
             SafetyBlockerActive = true,
-            CoordinatorId = trip?.AssignedCoordinatorId
+            CoordinatorId = trip?.AssignedCoordinatorId,
+            CreatedAt = DateTime.UtcNow
         };
+
+        if (dto.Category == "PICKUP_ACCESS_BLOCKED")
+        {
+            if (!string.IsNullOrWhiteSpace(dto.ProposedRelocationPlaceName))
+            {
+                _pickupPlaceStore[incidentId] = dto.ProposedRelocationPlaceName.Trim();
+                if (trip != null)
+                {
+                    trip.RelocationMeetingPointName = dto.ProposedRelocationPlaceName.Trim();
+                }
+            }
+            if (trip != null)
+            {
+                trip.PickupAccessStatus = "BLOCKED";
+            }
+            if (dto.Photos != null && dto.Photos.Count > 1)
+            {
+                incident.ImageUrl = $"{dto.Photos[0]}||{dto.Photos[1]}";
+            }
+            else if (!string.IsNullOrWhiteSpace(dto.BlockedImageUrl) || !string.IsNullOrWhiteSpace(dto.RelocationImageUrl))
+            {
+                incident.ImageUrl = $"{dto.BlockedImageUrl ?? ""}||{dto.RelocationImageUrl ?? ""}";
+            }
+        }
 
         _context.Incidents.Add(incident);
 
@@ -208,14 +236,17 @@ public class Flow5IncidentService : IFlow5IncidentService
             CoordinatorId = incident.CoordinatorId,
             ReportedByUserId = reporterUserId,
             ReportedByUserName = reporterName,
-            ReportedAt = DateTime.UtcNow,
+            ReportedAt = incident.CreatedAt ?? DateTime.UtcNow,
             SafetyBlockerActive = true,
             HorseId = meta?.HorseId,
             HorseName = meta?.HorseName,
             HealthIssueType = meta?.HealthIssueType,
             VetStatus = meta?.VetStatus,
             TargetVetStation = meta?.TargetVetStation,
-            VetResolutionNote = meta?.VetResolutionNote
+            VetResolutionNote = meta?.VetResolutionNote,
+            ProposedRelocationPlaceName = trip?.RelocationMeetingPointName ?? dto.ProposedRelocationPlaceName,
+            BlockedImageUrl = dto.BlockedImageUrl ?? (dto.Photos != null && dto.Photos.Count > 0 ? dto.Photos[0] : null),
+            RelocationImageUrl = dto.RelocationImageUrl ?? (dto.Photos != null && dto.Photos.Count > 1 ? dto.Photos[1] : null)
         };
     }
 
@@ -226,10 +257,45 @@ public class Flow5IncidentService : IFlow5IncidentService
         if (!string.IsNullOrWhiteSpace(tripId)) query = query.Where(i => i.TripId == tripId);
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(i => i.Status == status);
 
-        var incidents = await query.OrderByDescending(i => i.IncidentId).ToListAsync();
+        var incidents = await query
+            .OrderByDescending(i => i.CreatedAt ?? DateTime.MinValue)
+            .ThenByDescending(i => i.IncidentId)
+            .ToListAsync();
+
+        var tripIds = incidents.Select(i => i.TripId).Distinct().ToList();
+        var trips = await _context.TripPlans.AsNoTracking()
+            .Where(t => tripIds.Contains(t.TripId))
+            .ToDictionaryAsync(t => t.TripId, t => t);
 
         return incidents.Select(i =>
         {
+            trips.TryGetValue(i.TripId, out var trip);
+            string? blockedImg = null;
+            string? relocImg = null;
+            if (!string.IsNullOrWhiteSpace(i.ImageUrl))
+            {
+                if (i.ImageUrl.Contains("||"))
+                {
+                    var parts = i.ImageUrl.Split("||");
+                    blockedImg = parts.Length > 0 ? parts[0] : null;
+                    relocImg = parts.Length > 1 ? parts[1] : null;
+                }
+                else
+                {
+                    blockedImg = i.ImageUrl;
+                }
+            }
+            string? proposedPlace = _pickupPlaceStore.TryGetValue(i.IncidentId, out var pp) ? pp : trip?.RelocationMeetingPointName;
+            if (string.IsNullOrWhiteSpace(proposedPlace) && !string.IsNullOrWhiteSpace(i.Description))
+            {
+                var m = System.Text.RegularExpressions.Regex.Match(i.Description, @"Vị trí dời đề xuất:\s*([^.]+)");
+                if (m.Success) proposedPlace = m.Groups[1].Value.Trim();
+            }
+            if (!string.IsNullOrWhiteSpace(proposedPlace) && proposedPlace.Contains("ngã ba đường liên xã", StringComparison.OrdinalIgnoreCase))
+            {
+                proposedPlace = null;
+            }
+
             string? approvedPlan = i.ResolutionNotes;
             if (string.IsNullOrWhiteSpace(approvedPlan) && _planStore.TryGetValue(i.IncidentId, out var plans) && plans.Count > 0)
             {
@@ -273,7 +339,7 @@ public class Flow5IncidentService : IFlow5IncidentService
                 LocationCoordinates = i.LocationCoordinates,
                 ImageUrl = i.ImageUrl,
                 CoordinatorId = i.CoordinatorId,
-                ReportedAt = DateTime.UtcNow,
+                ReportedAt = i.CreatedAt ?? DateTime.UtcNow,
                 SafetyBlockerActive = i.SafetyBlockerActive ?? true,
                 ApprovedPlan = approvedPlan ?? i.ResolutionNotes,
                 ResolutionType = i.ResolutionType,
@@ -287,6 +353,9 @@ public class Flow5IncidentService : IFlow5IncidentService
                 VetStatus = vMeta?.VetStatus,
                 TargetVetStation = vMeta?.TargetVetStation,
                 VetResolutionNote = vMeta?.VetResolutionNote,
+                ProposedRelocationPlaceName = proposedPlace,
+                BlockedImageUrl = blockedImg,
+                RelocationImageUrl = relocImg,
                 UpdatedAt = latestUpdate
             };
         }).OrderByDescending(dto => dto.UpdatedAt ?? dto.ReportedAt).ToList();
@@ -341,6 +410,32 @@ public class Flow5IncidentService : IFlow5IncidentService
         }
 
         var vMetaDetail = _vetMetaStore.TryGetValue(incident.IncidentId, out var vmD) ? vmD : null;
+        var trip = await _context.TripPlans.AsNoTracking().FirstOrDefaultAsync(t => t.TripId == incident.TripId);
+        string? blockedImg = null;
+        string? relocImg = null;
+        if (!string.IsNullOrWhiteSpace(incident.ImageUrl))
+        {
+            if (incident.ImageUrl.Contains("||"))
+            {
+                var parts = incident.ImageUrl.Split("||");
+                blockedImg = parts.Length > 0 ? parts[0] : null;
+                relocImg = parts.Length > 1 ? parts[1] : null;
+            }
+            else
+            {
+                blockedImg = incident.ImageUrl;
+            }
+        }
+        string? proposedPlace = _pickupPlaceStore.TryGetValue(incident.IncidentId, out var pp) ? pp : trip?.RelocationMeetingPointName;
+        if (string.IsNullOrWhiteSpace(proposedPlace) && !string.IsNullOrWhiteSpace(incident.Description))
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(incident.Description, @"Vị trí dời đề xuất:\s*([^.]+)");
+            if (m.Success) proposedPlace = m.Groups[1].Value.Trim();
+        }
+        if (!string.IsNullOrWhiteSpace(proposedPlace) && proposedPlace.Contains("ngã ba đường liên xã", StringComparison.OrdinalIgnoreCase))
+        {
+            proposedPlace = null;
+        }
 
         return new IncidentResponseDto
         {
@@ -353,7 +448,7 @@ public class Flow5IncidentService : IFlow5IncidentService
             LocationCoordinates = incident.LocationCoordinates,
             ImageUrl = incident.ImageUrl,
             CoordinatorId = incident.CoordinatorId,
-            ReportedAt = DateTime.UtcNow,
+            ReportedAt = incident.CreatedAt ?? DateTime.UtcNow,
             SafetyBlockerActive = incident.SafetyBlockerActive ?? true,
             ApprovedPlan = approvedPlan,
             ResolutionType = incident.ResolutionType,
@@ -366,7 +461,10 @@ public class Flow5IncidentService : IFlow5IncidentService
             HealthIssueType = vMetaDetail?.HealthIssueType,
             VetStatus = vMetaDetail?.VetStatus,
             TargetVetStation = vMetaDetail?.TargetVetStation,
-            VetResolutionNote = vMetaDetail?.VetResolutionNote
+            VetResolutionNote = vMetaDetail?.VetResolutionNote,
+            ProposedRelocationPlaceName = proposedPlace,
+            BlockedImageUrl = blockedImg,
+            RelocationImageUrl = relocImg
         };
     }
 
@@ -392,7 +490,7 @@ public class Flow5IncidentService : IFlow5IncidentService
             LocationCoordinates = incident?.LocationCoordinates,
             ImageUrl = incident?.ImageUrl,
             CoordinatorId = coordinatorUserId,
-            ReportedAt = DateTime.UtcNow,
+            ReportedAt = incident?.CreatedAt ?? DateTime.UtcNow,
             SafetyBlockerActive = incident?.SafetyBlockerActive ?? true
         };
     }
@@ -958,7 +1056,7 @@ public class Flow5IncidentService : IFlow5IncidentService
             Status = "CONTINUE_ALLOWED",
             Description = incident?.Description,
             CoordinatorId = coordinatorUserId,
-            ReportedAt = DateTime.UtcNow,
+            ReportedAt = incident?.CreatedAt ?? DateTime.UtcNow,
             SafetyBlockerActive = false
         };
     }
@@ -986,7 +1084,7 @@ public class Flow5IncidentService : IFlow5IncidentService
             Status = "RESOLVED",
             Description = incident?.Description,
             CoordinatorId = coordinatorUserId,
-            ReportedAt = DateTime.UtcNow,
+            ReportedAt = incident?.CreatedAt ?? DateTime.UtcNow,
             SafetyBlockerActive = false
         };
     }
@@ -1051,7 +1149,7 @@ public class Flow5IncidentService : IFlow5IncidentService
             Status = "IN_PROGRESS",
             Description = incident?.Description,
             CoordinatorId = coordinatorUserId,
-            ReportedAt = DateTime.UtcNow,
+            ReportedAt = incident?.CreatedAt ?? DateTime.UtcNow,
             SafetyBlockerActive = true
         };
     }

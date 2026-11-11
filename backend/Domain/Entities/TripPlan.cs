@@ -162,6 +162,82 @@ namespace Domain.Entities
         [StringLength(50)]
         public string? PendingEtaProposalId { get; set; }
 
+        // =========================================================================
+        // FLOW 5: XỬ LÝ NGOẠI LỆ TIẾP CẬN ĐIỂM ĐÓN (PICKUP ACCESS FAILURE & SHUTTLING)
+        // =========================================================================
+
+        /// <summary>
+        /// Trạng thái tiếp cận điểm đón: NORMAL, BLOCKED, RELOCATING, SHUTTLING, RESOLVED
+        /// </summary>
+        [Column("PickupAccessStatus")]
+        [StringLength(30)]
+        public string PickupAccessStatus { get; set; } = "NORMAL";
+
+        /// <summary>
+        /// Tên địa điểm hẹn đón ngựa ngoài đường lớn (Áp dụng khi dắt bộ < 500m)
+        /// </summary>
+        [Column("RelocationMeetingPointName")]
+        [StringLength(255)]
+        public string? RelocationMeetingPointName { get; set; }
+
+        /// <summary>
+        /// Tọa độ vĩ độ điểm hẹn đón ngựa (Precision 9, Scale 6)
+        /// </summary>
+        [Column("RelocationLatitude", TypeName = "decimal(9, 6)")]
+        public decimal? RelocationLatitude { get; set; }
+
+        /// <summary>
+        /// Tọa độ kinh độ điểm hẹn đón ngựa (Precision 9, Scale 6)
+        /// </summary>
+        [Column("RelocationLongitude", TypeName = "decimal(9, 6)")]
+        public decimal? RelocationLongitude { get; set; }
+
+        /// <summary>
+        /// Khoảng cách thực tế đo được từ xe lớn đến điểm đón gốc (mét)
+        /// </summary>
+        [Column("RelocationDistanceMeters")]
+        public int? RelocationDistanceMeters { get; set; }
+
+        /// <summary>
+        /// Mã xe trung chuyển nhỏ 2 chỗ được điều động (Áp dụng khi >= 500m)
+        /// </summary>
+        [Column("ShuttleVehicleId")]
+        [StringLength(50)]
+        public string? ShuttleVehicleId { get; set; }
+
+        /// <summary>
+        /// Mã tài xế phụ trách xe trung chuyển nhỏ
+        /// </summary>
+        [Column("ShuttleDriverId")]
+        [StringLength(50)]
+        public string? ShuttleDriverId { get; set; }
+
+        /// <summary>
+        /// Chi phí phát sinh thuê xe trung chuyển (VND)
+        /// </summary>
+        [Column("ShuttleCostVnd", TypeName = "decimal(12, 2)")]
+        public decimal? ShuttleCostVnd { get; set; } = 0;
+
+        /// <summary>
+        /// Trạng thái phê duyệt của Khách hàng: PENDING, APPROVED, REJECTED
+        /// </summary>
+        [Column("CustomerApprovalStatus")]
+        [StringLength(20)]
+        public string? CustomerApprovalStatus { get; set; }
+
+        /// <summary>
+        /// Thời điểm Khách hàng xác nhận phê duyệt phương án (UTC)
+        /// </summary>
+        [Column("CustomerApprovalAt")]
+        public DateTime? CustomerApprovalAt { get; set; }
+
+        // Navigation Properties cho Xe và Tài xế trung chuyển
+        [ForeignKey(nameof(ShuttleVehicleId))]
+        public virtual Vehicle? ShuttleVehicle { get; set; }
+
+        [ForeignKey(nameof(ShuttleDriverId))]
+        public virtual User? ShuttleDriver { get; set; }
+
         // Navigation properties
         [ForeignKey(nameof(RequestId))]
         [InverseProperty(nameof(TransportRequest.TripPlans))]

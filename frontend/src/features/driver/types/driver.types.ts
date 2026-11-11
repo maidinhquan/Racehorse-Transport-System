@@ -43,6 +43,7 @@ export type IncidentType =
   | 'HORSE_HEALTH'
   | 'CUSTOMS_HOLD'
   | 'ROAD_CLOSURE'
+  | 'PICKUP_ACCESS_BLOCKED'
   | 'OTHER';
 export type IncidentSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type IncidentStatus = 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
@@ -253,6 +254,15 @@ export interface Trip {
   handover?: HandoverRecord;
   handoverAttempts: HandoverAttempt[];
   handoverStatus?: 'COMPLETED' | 'REFUSED';
+  pickupAccessStatus?: 'NORMAL' | 'BLOCKED' | 'RELOCATING' | 'SHUTTLING' | 'RESOLVED';
+  relocationMeetingPointName?: string;
+  relocationLatitude?: number;
+  relocationLongitude?: number;
+  relocationDistanceMeters?: number;
+  shuttleVehicleId?: string;
+  shuttleDriverId?: string;
+  shuttleCostVnd?: number;
+  customerApprovalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 /** Bản nháp bàn giao đang nhập trên thiết bị (chưa gửi) */
@@ -300,6 +310,9 @@ export interface ReportIncidentRequestDto {
   horseName?: string;
   healthIssueType?: HorseHealthIssue;
   immediateCare?: string;
+  proposedRelocationPlaceName?: string;
+  blockedImageUrl?: string;
+  relocationImageUrl?: string;
 }
 
 export interface DepartureDelayRequestDto {

@@ -6,11 +6,11 @@ import { IncidentLocationPicker } from '../../components/IncidentLocationPicker/
 import { PhotoPicker } from '../../components/PhotoPicker/PhotoPicker';
 import { Modal } from '../../components/Modals/Modal';
 import { useDriver } from '../../hooks/useDriver';
-import { mockTrips } from '../../data/mockData';
+import { driverApi } from '../../api/driverApi';
 import { INCIDENT_TYPE_LABEL, SEVERITY_LABEL, defaultSegmentRatio, fmtDateTime, incidentWhere, nowStamp, segmentPickable } from '../../hooks/driverRules';
 import { apiClient } from '../../../../shared/api/apiClient';
 import { notifySync } from '../../../../shared/utils/syncChannel';
-import type { HorseHealthIssue, Incident, IncidentSeverity, IncidentType, Trip } from '../../types';
+import type { HorseHealthIssue, Incident, IncidentSeverity, IncidentType, Photo, Trip } from '../../types';
 import './IncidentsPage.css';
 
 const TYPES = Object.keys(INCIDENT_TYPE_LABEL) as IncidentType[];
@@ -128,6 +128,12 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
 
+  // Cho loại sự cố tiếp cận điểm đón (PICKUP_ACCESS_BLOCKED)
+  const [actionProposal, setActionProposal] = useState<'RELOCATE' | 'WAIT_COORDINATOR'>('RELOCATE');
+  const [proposedPlaceName, setProposedPlaceName] = useState('');
+  const [blockedPhotos, setBlockedPhotos] = useState<Photo[]>([]);
+  const [relocationPhotos, setRelocationPhotos] = useState<Photo[]>([]);
+
   const selectedHorse = horses.find((h) => h.id === selectedHorseId);
 
   const isHorseIssue = isVet || type === 'HORSE_HEALTH';
@@ -140,12 +146,62 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
       if (!immediateCare.trim()) { setError('Vui lòng nhập biện pháp sơ cứu khẩn cấp đã tiến hành.'); return; }
       if (description.trim().length < 5) { setError('Vui lòng mô tả triệu chứng lâm sàng quan sát được.'); return; }
       if (!safe) { setError('Xác nhận đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa.'); return; }
+    } else if (type === 'PICKUP_ACCESS_BLOCKED') {
+      if (!severity) { setError('Vui lòng chọn mức độ sự cố.'); return; }
+      if (description.trim().length < 5) { setError('Vui lòng mô tả chi tiết lý do không thể tiếp cận (ít nhất 5 ký tự).'); return; }
+      if (blockedPhotos.length === 0) {
+        setError('Vui lòng tải lên ít nhất 1 ảnh chụp vị trí bị cản trở không thể vào.');
+        return;
+      }
+      if (actionProposal === 'RELOCATE') {
+        if (!proposedPlaceName.trim()) {
+          setError('Vui lòng nhập tên hoặc mô tả chỗ dời địa điểm đề xuất.');
+          return;
+        }
+        if (relocationPhotos.length === 0) {
+          setError('Vui lòng tải lên ít nhất 1 ảnh chụp chỗ dời địa điểm đề xuất.');
+          return;
+        }
+      }
     } else {
       if (!type || !severity) { setError('Chọn loại và mức độ sự cố.'); return; }
       if (description.trim().length < 5) { setError('Vui lòng mô tả sự việc ít nhất 5 ký tự.'); return; }
+      if (!safe) { setError('Xác nhận người và ngựa đã an toàn hoặc đã bắt đầu sơ cứu.'); return; }
     }
 
     setSending(true);
+    const blockedImg = blockedPhotos[0]?.url || blockedPhotos[0]?.name || undefined;
+    const relocationImg = relocationPhotos[0]?.url || relocationPhotos[0]?.name || undefined;
+    const customPhotos = type === 'PICKUP_ACCESS_BLOCKED'
+      ? [...blockedPhotos.map((p) => p.url || p.name), ...relocationPhotos.map((p) => p.url || p.name)]
+      : undefined;
+
+    if (type === 'PICKUP_ACCESS_BLOCKED') {
+      const cleanKey = trip.id.replace(/-/g, '_');
+      try {
+        localStorage.setItem(`rts_driver_pickup_status_${cleanKey}`, 'BLOCKED');
+        localStorage.setItem(`rts_driver_pickup_status_${trip.id}`, 'BLOCKED');
+        localStorage.setItem(`rts_pickup_evidence_${cleanKey}`, JSON.stringify({
+          blockedImageUrl: blockedImg,
+          relocationImageUrl: relocationImg,
+          proposedPlaceName: actionProposal === 'RELOCATE' ? proposedPlaceName.trim() : undefined,
+          reportedAt: new Date().toISOString(),
+        }));
+      } catch {}
+      try {
+        await driverApi.reportPickupAccessBlocked(trip.id, {
+          reason: description.trim(),
+          latitude: trip.stops[0]?.lat || 10.7769,
+          longitude: trip.stops[0]?.lng || 106.7009,
+          blockedImageUrl: blockedImg,
+          relocationImageUrl: relocationImg,
+          imageUrl: blockedImg,
+          proposedRelocationPlaceName: actionProposal === 'RELOCATE' ? proposedPlaceName.trim() : undefined,
+          notes: locationDetail || undefined,
+        });
+      } catch {}
+    }
+
     const horseName = selectedHorse ? selectedHorse.name : selectedHorseId;
     const r = await actions.reportIncident(trip.id, {
       type: isHorseIssue ? 'HORSE_HEALTH' : (type as IncidentType),
@@ -158,6 +214,10 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
       horseName: isHorseIssue ? horseName : undefined,
       healthIssueType: isHorseIssue ? healthIssue : undefined,
       immediateCare: isHorseIssue ? immediateCare.trim() : undefined,
+      proposedRelocationPlaceName: actionProposal === 'RELOCATE' ? proposedPlaceName.trim() : undefined,
+      blockedImageUrl: blockedImg,
+      relocationImageUrl: relocationImg,
+      customPhotos,
     });
     setSending(false);
     if (!r.ok) { setError(r.message); return; }
@@ -168,6 +228,9 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
     setDescription('');
     setImmediateCare('');
     setSafe(false);
+    setProposedPlaceName('');
+    setBlockedPhotos([]);
+    setRelocationPhotos([]);
     setRatio(defaultSegmentRatio(trip));
   };
 
@@ -318,20 +381,118 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
 
       {!isHorseIssue && (
         <div className="drv-field">
-          <label htmlFor="inc-desc">Chuyện gì đã xảy ra *</label>
-          <textarea id="inc-desc" className="drv-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Mô tả tình huống, tình trạng xe và những gì bạn đã làm" />
+          <label htmlFor="inc-desc">
+            {type === 'PICKUP_ACCESS_BLOCKED' ? 'Chi tiết lý do cản trở đường vào *' : 'Chuyện gì đã xảy ra *'}
+          </label>
+          <textarea
+            id="inc-desc"
+            className="drv-textarea"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={
+              type === 'PICKUP_ACCESS_BLOCKED'
+                ? 'VD: Đường ngõ hẹp xe 10 tấn không vào được, cổng trang trại khóa không có người mở, cầu yếu...'
+                : 'Mô tả tình huống, tình trạng xe và những gì bạn đã làm'
+            }
+          />
         </div>
       )}
 
-      <div className="drv-field" style={{ marginTop: 10 }}>
-        <label>Ảnh hiện trường</label>
-        <PhotoPicker photos={incidentPhotos} onAdd={actions.addIncidentPhoto} onRemove={actions.removeIncidentPhoto} />
-      </div>
+      {type === 'PICKUP_ACCESS_BLOCKED' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
+          {/* Lựa chọn phương án thực địa */}
+          <div className="drv-field">
+            <label style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
+              Phương án đề xuất của tài xế:
+            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="pickup-action-prop-form"
+                  checked={actionProposal === 'RELOCATE'}
+                  onChange={() => setActionProposal('RELOCATE')}
+                />
+                <span>
+                  <b>Đề xuất dời địa điểm hẹn đón</b> (Dắt bộ ra chỗ xe đỗ chờ ngoài đường lớn)
+                </span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="pickup-action-prop-form"
+                  checked={actionProposal === 'WAIT_COORDINATOR'}
+                  onChange={() => setActionProposal('WAIT_COORDINATOR')}
+                />
+                <span>
+                  <b>Chờ Điều phối viên khảo sát điểm hẹn đón mới</b>
+                </span>
+              </label>
+            </div>
+          </div>
 
-      <label className="drv-check" style={{ marginTop: 10 }}>
-        <input type="checkbox" checked={safe} onChange={(e) => setSafe(e.target.checked)} />
-        {isHorseIssue ? 'Đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa' : 'Người và ngựa đã an toàn hoặc đã bắt đầu sơ cứu'}
-      </label>
+          {/* Nhập tên chỗ dời địa điểm nếu tài xế chọn dời */}
+          {actionProposal === 'RELOCATE' && (
+            <div className="drv-field">
+              <label htmlFor="proposed-reloc-place-inc" style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                Tên / Vị trí chỗ dời địa điểm đề xuất *
+              </label>
+              <input
+                id="proposed-reloc-place-inc"
+                type="text"
+                className="drv-input"
+                value={proposedPlaceName}
+                onChange={(e) => setProposedPlaceName(e.target.value)}
+                placeholder="VD: Cây xăng Petrolimex đầu ngõ 15, Bãi đất trống ngã ba liên xã..."
+              />
+            </div>
+          )}
+
+          {/* 1. Phần upload hình ảnh KHÔNG THỂ VÀO */}
+          <div className="drv-field" style={{ background: '#fff1f2', border: '1px solid #fecdd3', padding: '10px 12px', borderRadius: 8 }}>
+            <label style={{ fontWeight: 700, display: 'block', marginBottom: 4, color: '#9f1239' }}>
+              1. Ảnh chụp vị trí không thể vào (vật cản / đường hẹp / cấm tải / cổng khóa) *
+            </label>
+            <small style={{ color: '#be123c', display: 'block', marginBottom: 6 }}>
+              Chụp cận cảnh biển cấm, đoạn đường hẹp hoặc chướng ngại vật khiến xe tải lớn không vào được.
+            </small>
+            <PhotoPicker
+              photos={blockedPhotos}
+              onAdd={(photo) => setBlockedPhotos((prev) => [...prev, photo])}
+              onRemove={(idx) => setBlockedPhotos((prev) => prev.filter((_, i) => i !== idx))}
+            />
+          </div>
+
+          {/* 2. Phần upload hình ảnh CHỌN CHỖ DỜI ĐỊA ĐIỂM (khi chọn dời địa điểm) */}
+          {actionProposal === 'RELOCATE' && (
+            <div className="drv-field" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '10px 12px', borderRadius: 8 }}>
+              <label style={{ fontWeight: 700, display: 'block', marginBottom: 4, color: '#166534' }}>
+                2. Ảnh chụp chỗ dời địa điểm đề xuất (bãi đỗ chờ / điểm hẹn dắt ngựa ra) *
+              </label>
+              <small style={{ color: '#15803d', display: 'block', marginBottom: 6 }}>
+                Chụp vị trí xe đang đỗ an toàn ngoài đường lớn để Điều phối viên và Khách hàng nhận diện điểm đón mới.
+              </small>
+              <PhotoPicker
+                photos={relocationPhotos}
+                onAdd={(photo) => setRelocationPhotos((prev) => [...prev, photo])}
+                onRemove={(idx) => setRelocationPhotos((prev) => prev.filter((_, i) => i !== idx))}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="drv-field" style={{ marginTop: 10 }}>
+          <label>Ảnh hiện trường</label>
+          <PhotoPicker photos={incidentPhotos} onAdd={actions.addIncidentPhoto} onRemove={actions.removeIncidentPhoto} />
+        </div>
+      )}
+
+      {type !== 'PICKUP_ACCESS_BLOCKED' && (
+        <label className="drv-check" style={{ marginTop: 10 }}>
+          <input type="checkbox" checked={safe} onChange={(e) => setSafe(e.target.checked)} />
+          {isHorseIssue ? 'Đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa' : 'Người và ngựa đã an toàn hoặc đã bắt đầu sơ cứu'}
+        </label>
+      )}
       {error && <p className="drv-error" role="alert">{error}</p>}
       <button
         type="button"
@@ -350,14 +511,15 @@ export const IncidentsPage: React.FC = () => {
   const { tripId } = useParams<{ tripId?: string }>();
   const navigate = useNavigate();
   const { activeTrips, myTrips, incidents, actions, me, horses } = useDriver();
-  const trip = activeTrips.find((t) => t.id === tripId) ?? activeTrips[0] ?? myTrips[0] ?? mockTrips[0];
+  const trip = activeTrips.find((t) => t.id === tripId) ?? activeTrips[0] ?? myTrips[0];
 
   const isTripMatch = (incTripId?: string, currentTripId?: string, incId?: string, incAt?: string) => {
-    // Sự cố mới tạo trong phiên hoặc vừa gửi: luôn hiển thị
-    if (incId && (incId.startsWith('INC-') || incId.startsWith('TEMP-'))) return true;
+    // Sự cố mới tạo trong phiên hoặc vừa gửi: luôn hiển thị (hỗ trợ cả INC- và INC_)
+    if (incId && (incId.startsWith('INC-') || incId.startsWith('INC_') || incId.startsWith('TEMP-'))) return true;
     if (incAt) {
-      const diffMs = Date.now() - new Date(incAt).getTime();
-      if (!isNaN(diffMs) && diffMs >= 0 && diffMs < 2 * 60 * 60 * 1000) return true;
+      const parsedAt = new Date(incAt.replace(' ', 'T')).getTime();
+      const diffMs = Date.now() - parsedAt;
+      if (!isNaN(diffMs) && diffMs >= 0 && diffMs < 24 * 60 * 60 * 1000) return true;
     }
     if (!incTripId || !currentTripId) return true;
     const a = incTripId.trim().toUpperCase().replace(/[-_]/g, '');

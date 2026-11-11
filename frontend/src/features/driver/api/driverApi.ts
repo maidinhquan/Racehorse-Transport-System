@@ -35,6 +35,7 @@ const mapIncidentDto = (d: any): Incident => {
     'HORSE_HEALTH',
     'CUSTOMS_HOLD',
     'ROAD_CLOSURE',
+    'PICKUP_ACCESS_BLOCKED',
     'OTHER',
   ];
   const typeMap: Record<string, IncidentType> = {
@@ -43,6 +44,8 @@ const mapIncidentDto = (d: any): Incident => {
     ACCIDENT: 'TRAFFIC_ACCIDENT',
     HEALTH: 'HORSE_HEALTH',
     DELAY: 'ROAD_CLOSURE',
+    PICKUP_ACCESS_BLOCKED: 'PICKUP_ACCESS_BLOCKED',
+    PICKUP_BLOCKED: 'PICKUP_ACCESS_BLOCKED',
   };
   const type: IncidentType = validTypes.includes(cat as IncidentType)
     ? (cat as IncidentType)
@@ -446,6 +449,7 @@ export const driverApi = {
       HORSE_HEALTH: 'HORSE_HEALTH',
       ROAD_CLOSURE: 'ROAD_CLOSURE',
       BORDER_DELAY: 'BORDER_DELAY',
+      PICKUP_ACCESS_BLOCKED: 'PICKUP_ACCESS_BLOCKED',
     };
     const category = categoryMap[body.type] || body.type || 'OTHER';
     const payload = {
@@ -463,6 +467,9 @@ export const driverApi = {
       horseName: body.horseName,
       healthIssueType: body.healthIssueType,
       occurredAt: new Date().toISOString(),
+      proposedRelocationPlaceName: body.proposedRelocationPlaceName,
+      blockedImageUrl: body.blockedImageUrl,
+      relocationImageUrl: body.relocationImageUrl,
     };
     try {
       const res = await apiClient.post<ApiResponse<{ incidentId: string }>>(
@@ -485,6 +492,35 @@ export const driverApi = {
   /** Ghi nhận người nhận từ chối / không thể bàn giao (Flow 6) */
   refuseHandover: (tripId: string, body: RefuseHandoverRequestDto) =>
     send(DRIVER_ENDPOINTS.HANDOVER_REFUSAL(tripId), body),
+
+  /** Báo cáo xe không vào được điểm lấy ngựa (Flow 5 Ngoại lệ điểm đón) */
+  reportPickupAccessBlocked: async (
+    tripId: string,
+    body: {
+      reason: string;
+      latitude: number;
+      longitude: number;
+      imageUrl?: string;
+      blockedImageUrl?: string;
+      relocationImageUrl?: string;
+      proposedRelocationPlaceName?: string;
+      notes?: string;
+    }
+  ) => {
+    const res = await apiClient.post<ApiResponse<any>>(
+      `/driver/trips/${tripId}/pickup-access-blocked`,
+      body
+    );
+    return res.data?.data;
+  },
+
+  /** Tra cứu trạng thái ngoại lệ điểm đón */
+  getPickupAccessStatus: async (tripId: string) => {
+    const res = await apiClient.get<ApiResponse<any>>(
+      `/customer/trips/${tripId}/pickup-access-status`
+    );
+    return res.data?.data;
+  },
 };
 
 export default driverApi;

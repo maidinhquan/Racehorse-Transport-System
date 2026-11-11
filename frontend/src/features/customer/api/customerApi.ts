@@ -407,5 +407,10 @@ export const customerApi = {
     contractClient<any>('get', CUSTOMER_ENDPOINTS.PICKUP_RELOCATION(tripId)),
   decidePickupRelocation: (tripId: string, body: { relocationId: string; proposalVersion: number; decision: 'ACCEPT' | 'REJECT'; note: string; acknowledged: boolean }) =>
     contractClient<any>('post', CUSTOMER_ENDPOINTS.PICKUP_RELOCATION_DECISION(tripId), body),
+  // Flow 5: Pickup Access Exception Decision
+  getPickupAccessStatus: (tripId: string) =>
+    apiRequest<any>('get', `/customer/trips/${tripId}/pickup-access-status`),
+  decidePickupAccess: (tripId: string, body: { decision: 'APPROVED' | 'REJECTED'; rejectionReason?: string }) =>
+    apiRequest<any>('post', `/customer/trips/${tripId}/pickup-access-decision`, body),
 };
 export default customerApi;

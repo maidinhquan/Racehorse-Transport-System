@@ -18,6 +18,9 @@ public class ReportIncidentInputDto
     public string? HorseId { get; set; }
     public string? HorseName { get; set; }
     public string? HealthIssueType { get; set; } // HORSE_FEVER, HORSE_COLIC, HORSE_SHOCK
+    public string? ProposedRelocationPlaceName { get; set; }
+    public string? BlockedImageUrl { get; set; }
+    public string? RelocationImageUrl { get; set; }
 }
 
 public class EscalateIncidentInputDto
@@ -65,5 +68,8 @@ public class IncidentResponseDto
     public string? VetStatus { get; set; }
     public string? TargetVetStation { get; set; }
     public string? VetResolutionNote { get; set; }
+    public string? ProposedRelocationPlaceName { get; set; }
+    public string? BlockedImageUrl { get; set; }
+    public string? RelocationImageUrl { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }
