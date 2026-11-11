@@ -928,6 +928,7 @@ export function IncidentDetailPage() {
     // Đối với sự cố Phương tiện / Giao thông của Tài xế
     if (['PLANNING', 'CHANGES_REQUESTED', 'EXECUTING'].includes(S)) {
       const isPickupBlocked = i.type === 'PICKUP_ACCESS_BLOCKED' || i.category === 'PICKUP_ACCESS_BLOCKED' || t?.pickupAccessStatus === 'BLOCKED';
+      const isPlanLocked = Boolean(isSceneReady && S === 'EXECUTING');
       buttons.push(
         btn(
           'plan',
@@ -939,7 +940,8 @@ export function IncidentDetailPage() {
               f5Plan(i.id);
             }
           },
-          p && p.status !== 'DRAFT' ? 'ghost' : 'solid'
+          p && p.status !== 'DRAFT' ? 'ghost' : 'solid',
+          isPlanLocked ? `${targetRoleLabel} đã tiếp nhận phương án, không thể chỉnh sửa trong khi đang thực hiện.` : ''
         )
       );
     }

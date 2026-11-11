@@ -356,7 +356,17 @@ export function f5Ack(id: string) {
 }
 
 export function f5Plan(id: string) {
-  const i = find(id), t = trip(i.tripId), p = curPlan(i) || {}, n = tripHorses(t).length;
+  const i = find(id);
+  if (!i) return;
+  const rawAck = typeof localStorage !== 'undefined'
+    ? (localStorage.getItem(`rts_driver_ack_${cleanId(i.id)}`) || localStorage.getItem(`rts_driver_ack_${i.id}`) || localStorage.getItem(`rts_ack_${cleanId(i.id)}`) || localStorage.getItem(`rts_ack_${i.id}`))
+    : null;
+  const isAcked = Boolean(i.isSceneReady || i.sceneReady || rawAck);
+  if (isAcked && i.status === 'EXECUTING') {
+    toast('Tài xế đã tiếp nhận phương án, không thể chỉnh sửa trong khi đang thực hiện.');
+    return;
+  }
+  const t = trip(i.tripId), p = curPlan(i) || {}, n = tripHorses(t).length;
   const currentVeh = vehicle(t.vehicleId);
   const curMD = t.crew?.MAIN_DRIVER ? emp(t.crew.MAIN_DRIVER) : null;
   const curCD = t.crew?.CO_DRIVER ? emp(t.crew.CO_DRIVER) : null;
