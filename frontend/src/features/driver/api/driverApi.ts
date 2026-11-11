@@ -462,7 +462,7 @@ export const driverApi = {
       locationCoordinates: body.locationCoordinates,
       photos: body.photos,
       imageUrl: body.photos?.[0] || undefined,
-      immediateCare: body.immediateCare || 'Người và ngựa đã được sơ cứu hoặc đảm bảo an toàn',
+      immediateCare: body.immediateCare || (body.type === 'HORSE_HEALTH' ? 'Người và ngựa đã được sơ cứu hoặc đảm bảo an toàn' : 'Xe đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định'),
       horseId: body.horseId,
       horseName: body.horseName,
       healthIssueType: body.healthIssueType,

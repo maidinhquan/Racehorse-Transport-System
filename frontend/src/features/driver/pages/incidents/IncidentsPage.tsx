@@ -5,7 +5,6 @@ import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadg
 import { IncidentLocationPicker } from '../../components/IncidentLocationPicker/IncidentLocationPicker';
 import { PhotoPicker } from '../../components/PhotoPicker/PhotoPicker';
 import { Modal } from '../../components/Modals/Modal';
-import { PickupAccessOrderBanner } from '../../components/PickupAccessOrderBanner';
 import { useDriver } from '../../hooks/useDriver';
 import { driverApi } from '../../api/driverApi';
 import { INCIDENT_TYPE_LABEL, SEVERITY_LABEL, defaultSegmentRatio, fmtDateTime, incidentWhere, nowStamp, segmentPickable } from '../../hooks/driverRules';
@@ -448,7 +447,7 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
     } else {
       if (!type || !severity) { setError('Chọn loại và mức độ sự cố.'); return; }
       if (description.trim().length < 5) { setError('Vui lòng mô tả sự việc ít nhất 5 ký tự.'); return; }
-      if (!safe) { setError('Xác nhận người và ngựa đã an toàn hoặc đã bắt đầu sơ cứu.'); return; }
+      if (!safe) { setError(isHorseIssue ? 'Xác nhận đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa.' : 'Xác nhận đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định.'); return; }
     }
 
     setSending(true);
@@ -523,7 +522,9 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
         <Icon name="alert" />
         <div>
           <b>An toàn trước tiên</b>
-          Đảm bảo an toàn cho người và ngựa, bắt đầu sơ cứu rồi mới báo cáo. Cứu hộ khẩn cấp không bao giờ phải chờ phê duyệt.
+          {isVet
+            ? 'Đảm bảo an toàn cho người và ngựa, bắt đầu sơ cứu rồi mới báo cáo. Cứu hộ khẩn cấp không bao giờ phải chờ phê duyệt.'
+            : 'Đảm bảo xe đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định trước khi báo cáo sự cố.'}
         </div>
       </div>
       <div className="drv-note drv-note--blue" style={{ marginTop: 0, marginBottom: 14 }}>
@@ -772,7 +773,7 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
       {type !== 'PICKUP_ACCESS_BLOCKED' && (
         <label className="drv-check" style={{ marginTop: 10 }}>
           <input type="checkbox" checked={safe} onChange={(e) => setSafe(e.target.checked)} />
-          {isHorseIssue ? 'Đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa' : 'Người và ngựa đã an toàn hoặc đã bắt đầu sơ cứu'}
+          {isHorseIssue ? 'Đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa' : 'Đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định'}
         </label>
       )}
       {error && <p className="drv-error" role="alert">{error}</p>}
@@ -1176,12 +1177,6 @@ export const IncidentsPage: React.FC = () => {
               </select>
             )}
           </div>
-
-          <PickupAccessOrderBanner
-            trip={trip}
-            onAcknowledge={() => actions.acknowledgePickupResolution(trip.id)}
-            onConfirmResolved={() => actions.confirmPickupAccessResolved(trip.id)}
-          />
 
           <div className="drv-grid2">
             <ReportForm key={trip.id} trip={trip} />

@@ -432,7 +432,9 @@ const actions = {
     if (!t) return fail('Không tìm thấy thông tin chuyến đi phù hợp.');
     if (!body.type || !body.severity) return fail('Chọn loại và mức độ sự cố.');
     if (body.description.trim().length < 5) return fail('Vui lòng mô tả sự việc ít nhất 5 ký tự.');
-    if (!body.safe && body.type !== 'PICKUP_ACCESS_BLOCKED') return fail('Xác nhận người và ngựa đã an toàn hoặc đã bắt đầu sơ cứu.');
+    if (!body.safe && body.type !== 'PICKUP_ACCESS_BLOCKED') {
+      return fail(body.type === 'HORSE_HEALTH' ? 'Xác nhận đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa.' : 'Xác nhận đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định.');
+    }
     const { a, b } = incidentSegment(t);
     const point = a && b ? pointOnSegment(a, b, body.ratio) : null;
     const location = incidentWhere(t, body.ratio) + (body.locationDetail.trim() ? ' – ' + body.locationDetail.trim() : '');
@@ -448,12 +450,13 @@ const actions = {
       horseId: body.horseId,
       horseName: body.horseName,
       healthIssueType: body.healthIssueType,
-      immediateCare: body.immediateCare,
+      immediateCare: body.immediateCare || (body.safe ? (body.type === 'HORSE_HEALTH' ? 'Đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa.' : 'Xe đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định.') : undefined),
       proposedRelocationPlaceName: body.proposedRelocationPlaceName,
       blockedImageUrl: body.blockedImageUrl,
       relocationImageUrl: body.relocationImageUrl,
     });
     const realId = backendRes?.incidentId || `INC-${String(Date.now()).slice(-4)}`;
+    const effectiveImmediateCare = body.immediateCare || (body.safe ? (body.type === 'HORSE_HEALTH' ? 'Đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa.' : 'Xe đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định.') : undefined);
     const inc: Incident = {
       id: realId,
       tripId,
@@ -471,7 +474,7 @@ const actions = {
       horseId: body.horseId,
       horseName: body.horseName,
       healthIssueType: body.healthIssueType,
-      immediateCare: body.immediateCare,
+      immediateCare: effectiveImmediateCare,
     };
     saveSharedIncident(inc as any);
     if (point) saveIncidentPin({ id: inc.id, tripId, label: INCIDENT_TYPE_LABEL[inc.type], lat: point.lat, lng: point.lng, where: location, description: inc.description, at: inc.at });

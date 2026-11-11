@@ -517,7 +517,7 @@ function PlanCard({ i }: { i: Any }) {
         ) : null}
 
         {(p.towingPartner || p.ambulancePartner || p.specialistId) ? (
-          <Cell label="Đối tác cứu hộ ngoài">
+          <Cell label="Đơn vị hỗ trợ cứu hộ">
             {p.towingPartner && (
               <div>Xe kéo: <b>{p.towingPartner}</b> {p.towingPhone ? `(SĐT: ${p.towingPhone})` : ''} • {p.towingCost ? usd(p.towingCost) : 'Nội bộ'}</div>
             )}
@@ -598,6 +598,12 @@ function InfoCard({ i }: { i: Any }) {
       </div>
 
       <div className="kv2" style={{ marginTop: 12 }}>
+        <Cell label="Loại sự cố / Lý do">
+          <b style={{ color: 'var(--text-primary, #111827)' }}>
+            {i.type === 'HORSE_HEALTH' ? 'Sự cố y tế & sức khỏe ngựa' : (F5_TYPES[i.type] || incTypeVi(i.type) || i.type)}
+          </b>
+        </Cell>
+        <Cell label="Mức độ nghiêm trọng"><Pill v={i.severity} /></Cell>
         <Cell label="Người báo cáo">
           <b>{repName}</b>
           <div className="muted" style={{ fontSize: 12 }}>{roleLabel}</div>
@@ -612,7 +618,6 @@ function InfoCard({ i }: { i: Any }) {
           )}
         </Cell>
         <Cell label="Thời điểm">{dt(i.at)}</Cell>
-        <Cell label="Mức độ nghiêm trọng"><Pill v={i.severity} /></Cell>
         <Cell label="Vị trí sự cố">{i.location || 'Trên đường vận chuyển'}</Cell>
         <Cell label="Tọa độ GPS">
           {i.locationCoordinates ? <code style={{ fontSize: 12, background: 'var(--bg-page, #f3f4f6)', padding: '2px 6px', borderRadius: 4 }}>{i.locationCoordinates}</code> : 'Chưa có tọa độ'}
@@ -631,7 +636,9 @@ function InfoCard({ i }: { i: Any }) {
         <div>
           <b>Hiện trạng an toàn hiện trường</b>
           <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.5 }}>
-            {i.immediateCare || i.safety || 'Người và ngựa đã được đảm bảo an toàn / Đang tiến hành sơ cứu tại chỗ.'}
+            {(!isVetReporter && (i.immediateCare?.includes('sơ cứu') || !i.immediateCare))
+              ? 'Xe đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định.'
+              : (i.immediateCare || i.safety || (isVetReporter ? 'Người và ngựa đã được đảm bảo an toàn / Đang tiến hành sơ cứu tại chỗ.' : 'Xe đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định.'))}
           </p>
         </div>
       </div>

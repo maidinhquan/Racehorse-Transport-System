@@ -47,12 +47,13 @@ export const IncidentDetailPage: React.FC = () => {
             <h3 className="mgr-card__title">Diễn biến</h3>
             <p style={{ lineHeight: 1.6, marginTop: 0 }}>{i.description}</p>
             <div className="mgr-kv">
+              <div><span>Loại sự cố</span><b>{INCIDENT_TYPE_LABEL[i.type] || i.type}</b></div>
               <div><span>Báo lúc</span><b>{fmtDateTime(i.at)}</b></div>
               <div><span>Người báo</span><b>{i.by}</b></div>
               <div><span>Địa điểm</span><b>{i.location}</b></div>
               <div><span>Ngựa liên quan</span><b>{i.horseId ? horseName(data, i.horseId) : (r?.horses || []).map((h) => horseName(data, h)).join(', ') || 'Không'}</b></div>
             </div>
-            <Note tone={i.safety ? 'green' : 'grey'} title="Biện pháp an toàn tức thời">{i.safety || 'Người báo xác nhận người và ngựa an toàn. Chăm sóc khẩn cấp không cần chờ phê duyệt.'}</Note>
+            <Note tone={i.safety ? 'green' : 'grey'} title="Biện pháp an toàn tức thời">{i.safety || (i.type === 'HORSE_HEALTH' ? 'Người báo xác nhận người và ngựa an toàn / Đang chăm sóc sơ cứu.' : 'Xe đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định.')}</Note>
             {i.status === 'ESCALATED' && (
               <Note tone="red" title="Chuyển cấp từ Điều phối viên">
                 Điều phối viên từ chối hỗ trợ tại chỗ và chuyển sự cố lên Quản lý giải quyết. Vui lòng bấm &ldquo;Tiếp nhận xử lý&rdquo; để ra quyết định phương án hoặc điều phối khẩn cấp.

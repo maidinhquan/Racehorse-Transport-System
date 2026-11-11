@@ -40,7 +40,7 @@ export const F5_TYPES: Record<string, string> = {
 export const F5_PLAN: Record<string, string> = {
   NO_CHANGE: 'Khắc phục tại chỗ, giữ nguyên kế hoạch',
   PICKUP_RELOCATE: 'Đổi điểm hẹn đón ngoại vi (Dưới 500m • Không phát sinh phí)',
-  VEHICLE_SWAP: 'Nhóm 1: Sự cố về xe (Tổ xe khỏe mạnh)',
+  VEHICLE_SWAP: 'Nhóm 1: Điều xe chuyên dụng dự phòng của công ty',
   CREW_SWAP: 'Nhóm 2: Sự cố về nhân sự (Xe hoạt động tốt)',
   VEHICLE_AND_CREW_SWAP: 'Nhóm 3: Tai nạn nghiêm trọng (Đổi cả xe và người)',
   ROUTE_ADJUST: 'Điều chỉnh lộ trình trong tuyến pháp lý đã duyệt',
@@ -49,13 +49,13 @@ export const F5_PLAN: Record<string, string> = {
 export const F5_SCENARIOS: Record<string, { title: string; desc: string; group: string }> = {
   '1.1_STANDARD': {
     group: 'VEHICLE_SWAP',
-    title: 'Kịch bản 1.1: Đổi xe dọc đường (Standard Swap)',
-    desc: 'Cử xe mới + 1 Tài xế trung chuyển (Relief Driver) từ Hub đến. Tổ xe cũ nhận xe mới chạy tiếp. Relief Driver ở lại hiện trường chờ cứu hộ kéo xe cũ về xưởng.',
+    title: 'Điều xe chuyên dụng dự phòng của công ty',
+    desc: 'Điều xe chuyên dụng dự phòng từ bãi xe công ty ra hiện trường kèm tài xế bàn giao xe. Tổ xe cũ nhận xe dự phòng để tiếp tục hành trình.',
   },
   '1.2_CRITICAL': {
     group: 'VEHICLE_SWAP',
-    title: 'Kịch bản 1.2: Cứu hộ khẩn cấp - Xe chặn ngang đường (Critical Swap)',
-    desc: 'Book xe kéo cứu hộ ngoài (Third-party Towing) dọn hiện trường khẩn cấp + điều xe mới và Relief Driver ra.',
+    title: 'Điều xe chuyên dụng dự phòng của công ty + Kéo xe cứu hộ',
+    desc: 'Điều xe chuyên dụng dự phòng của công ty ra tiếp nhận ngựa để tổ xe chạy tiếp; đồng thời điều xe cứu hộ kéo xe hỏng về garage công ty.',
   },
   '2.1_QUICK_SWAP': {
     group: 'CREW_SWAP',
@@ -363,7 +363,7 @@ export function f5Plan(id: string) {
   const curVet = t.crew?.VETERINARIAN ? emp(t.crew.VETERINARIAN) : null;
 
   const vOpts: Array<[string, string]> = [
-    ['', `— Giữ xe hiện tại (${currentVeh?.plate || 'Chưa có xe'}) —`],
+    ['', `— Chọn xe chuyên dụng dự phòng của công ty (Xe hiện tại: ${currentVeh?.plate || 'Chưa gán'}) —`],
     ...db.vehicles.filter((v: Any) => v.id !== t.vehicleId && v.status === 'READY' && v.stalls >= n && !vehicleConflict(v, t))
       .map((v: Any) => [v.id, `${v.plate} • ${v.model} • ${v.stalls} ô • ${v.base}`] as [string, string]),
   ];
@@ -381,15 +381,10 @@ export function f5Plan(id: string) {
   ];
 
   const reliefDriverOpts: Array<[string, string]> = [
-    ['', '— Chọn tài xế trung chuyển (Relief Driver) —'],
+    ['', '— Chọn tài xế giao xe dự phòng —'],
     ...db.employees.filter((e: Any) => isDriver(e) && !isStaffAssignedToTrip(e, t) && !crewConflict(e, t))
       .map((e: Any) => [e.id, `${e.name} • ${human(e.position)}`] as [string, string]),
   ];
-
-  const horsesOnTripOpts: Array<[string, string]> = tripHorses(t).map((hId: string) => {
-    const h = horse(hId);
-    return [hId, `${h?.name || hId} (${hId}) • Giống ${h?.breed || 'Ngựa đua'}`] as [string, string];
-  });
 
   const specialistOpts: Array<[string, string]> = [
     ['', '— Chọn Specialist pháp lý & bảo hiểm hỗ trợ —'],
@@ -401,11 +396,6 @@ export function f5Plan(id: string) {
     ['', `— Giữ áp tải chăm sóc ngựa (${curVet?.name || 'Chưa phân công'}) —`],
     ...db.employees.filter((e: Any) => (isVet(e) || e.position === 'VETERINARIAN') && !isStaffAssignedToTrip(e, t) && !crewConflict(e, t) && (!e.certExpiry || e.certExpiry >= t.eta.slice(0, 10)))
       .map((e: Any) => [e.id, `${e.name} • Thú y (Hạn chứng chỉ: ${e.certExpiry || '—'})`] as [string, string]),
-  ];
-
-  const vehicleSwapScenarios: Array<[string, string]> = [
-    ['1.1_STANDARD', 'Kịch bản 1.1: Đổi xe dọc đường (Standard Swap - Cử xe mới + Relief Driver lái đến, tổ cũ lái tiếp)'],
-    ['1.2_CRITICAL', 'Kịch bản 1.2: Cứu hộ khẩn cấp (Critical Swap - Xe chặn đường, book xe kéo ngoài Towing + xe mới)'],
   ];
 
   const crewSwapScenarios: Array<[string, string]> = [
@@ -454,7 +444,8 @@ export function f5Plan(id: string) {
       meetingPointName: p.meetingPointName || '',
       veh: p.vehicleId || '',
       reliefDriverId: p.reliefDriverId || '',
-      towingPartner: p.towingPartner || 'Đội Cứu hộ Giao thông Cao tốc 116',
+      needTowing: p.needTowing ?? (p.scenario === '1.2_CRITICAL' || !!p.towingPartner || (Number(p.towingCost) > 0)),
+      towingPartner: p.towingPartner || 'Đội Cứu hộ Giao thông 116',
       towingPhone: p.towingPhone || '1900 116 116',
       towingCost: p.towingCost || 250,
 
@@ -584,30 +575,34 @@ export function f5Plan(id: string) {
           )}
 
           {/* ========================================================= */}
-          {/* NHÓM 1: SỰ CỐ VỀ XE (VEHICLE_SWAP) - Tổ xe khỏe mạnh       */}
+          {/* NHÓM 1: ĐIỀU XE DỰ PHÒNG CÔNG TY (VEHICLE_SWAP)           */}
           {/* ========================================================= */}
           {f.v.k === 'VEHICLE_SWAP' && (
             <div style={{ marginTop: 14, padding: 14, border: '1px solid #bfdbfe', borderRadius: 8, background: '#f0f9ff' }}>
-              <b style={{ fontSize: 14, color: '#1e3a8a', display: 'block', marginBottom: 10 }}>
-                1. Kịch bản điều chuyển Xe (Nhóm 1: Tổ xe vẫn khỏe mạnh)
+              <b style={{ fontSize: 14, color: '#1e3a8a', display: 'block', marginBottom: 4 }}>
+                1. Phương án: Điều xe chuyên dụng dự phòng của công ty
               </b>
-              <Field label="Chọn kịch bản thực tế *">
-                <Sel name="scenario" options={vehicleSwapScenarios} />
-              </Field>
-              <div className="form-grid" style={{ marginTop: 8 }}>
-                <Field label="Xe mới điều động đến hiện trường *">
+              <p style={{ margin: '0 0 12px', fontSize: 13, color: '#2563eb', lineHeight: 1.5 }}>
+                Sử dụng xe chuyên dụng dự phòng của công ty. Tổ xe hiện tại nhận xe dự phòng để tiếp tục hành trình.
+              </p>
+              <div className="form-grid">
+                <Field label="Xe chuyên dụng dự phòng của công ty *">
                   <Sel name="veh" options={vOpts} />
                 </Field>
-                <Field label="Tài xế trung chuyển lái xe mới ra (Relief Driver) *">
+                <Field label="Tài xế giao xe dự phòng ra hiện trường *">
                   <Sel name="reliefDriverId" options={reliefDriverOpts} />
                 </Field>
               </div>
 
-              {f.v.scenario === '1.2_CRITICAL' && (
-                <div style={{ marginTop: 12, padding: 10, background: '#fff', borderRadius: 6, border: '1px solid #fed7aa' }}>
-                  <b style={{ fontSize: 13, color: '#c2410c' }}>Dịch vụ xe kéo cứu hộ ngoài (Third-party Towing)</b>
-                  <div className="form-grid" style={{ marginTop: 6 }}>
-                    <Field label="Đơn vị cứu hộ xe kéo *"><Inp name="towingPartner" placeholder="Tên đơn vị xe kéo" /></Field>
+              <div style={{ marginTop: 12 }}>
+                <Chk name="needTowing">Cần cứu hộ kéo xe cũ về garage (Xe hỏng nặng không thể tự di chuyển)</Chk>
+              </div>
+
+              {f.v.needTowing && (
+                <div style={{ marginTop: 10, padding: 12, background: '#fff', borderRadius: 6, border: '1px solid #fed7aa' }}>
+                  <b style={{ fontSize: 13, color: '#c2410c', display: 'block', marginBottom: 8 }}>Thông tin xe cứu hộ kéo xe hỏng</b>
+                  <div className="form-grid">
+                    <Field label="Đơn vị cứu hộ xe *"><Inp name="towingPartner" placeholder="Tên đơn vị xe kéo" /></Field>
                     <Field label="Số điện thoại cứu hộ *"><Inp name="towingPhone" placeholder="SĐT liên hệ" /></Field>
                   </div>
                   <Field label="Chi phí cứu hộ xe kéo (USD) *"><Inp name="towingCost" type="number" min="0" /></Field>
@@ -758,10 +753,6 @@ export function f5Plan(id: string) {
         }
       }
 
-      if (k === 'HORSE_SPLIT' && !v.splitHorseId) {
-        return 'Vui lòng chọn con ngựa cần phân tách sang xe cấp cứu chuyển viện.';
-      }
-
       // Xây dựng danh sách Sub-tasks theo đúng kịch bản
       const subTasks: string[] = [];
       let autoDesc = String(v.desc || '').trim();
@@ -792,15 +783,18 @@ export function f5Plan(id: string) {
       }
 
       if (k === 'VEHICLE_SWAP') {
-        if (v.scenario === '1.2_CRITICAL') {
-          subTasks.push('Call_Third_Party_Towing', 'Send_Relief_Vehicle', 'Send_Relief_Driver', 'Clear_Roadway');
+        if (!v.veh) return 'Chọn xe chuyên dụng dự phòng của công ty.';
+        if (!v.reliefDriverId) return 'Chọn tài xế giao xe dự phòng ra hiện trường.';
+        v.scenario = v.needTowing ? '1.2_CRITICAL' : '1.1_STANDARD';
+        if (v.needTowing) {
+          subTasks.push('Send_Relief_Vehicle', 'Send_Relief_Driver', 'Call_Towing_Service', 'Transfer_Horses');
           if (!autoDesc) {
-            autoDesc = `Kịch bản 1.2 (Cứu hộ khẩn cấp): Điều xe kéo ${v.towingPartner || 'Towing'} dọn xe chặn đường. Điều xe mới ${vehicle(v.veh)?.plate || v.veh} và Relief Driver ${emp(v.reliefDriverId)?.name || 'tài xế'} ra để tổ xe cũ tiếp tục hành trình.`;
+            autoDesc = `Điều xe chuyên dụng dự phòng của công ty (${vehicle(v.veh)?.plate || v.veh}) kèm tài xế giao xe (${emp(v.reliefDriverId)?.name || 'tài xế'}) ra hiện trường để tổ xe cũ tiếp tục hành trình. Đồng thời gọi xe cứu hộ (${v.towingPartner || 'Cứu hộ giao thông'}) kéo xe hỏng về garage công ty.`;
           }
         } else {
-          subTasks.push('Send_Relief_Vehicle', 'Send_Relief_Driver', 'Transfer_Horses', 'Towing_Assistance');
+          subTasks.push('Send_Relief_Vehicle', 'Send_Relief_Driver', 'Transfer_Horses');
           if (!autoDesc) {
-            autoDesc = `Kịch bản 1.1 (Đổi xe dọc đường): Cử xe mới ${vehicle(v.veh)?.plate || v.veh} + Relief Driver ${emp(v.reliefDriverId)?.name || 'tài xế'} lái đến. Tổ xe cũ nhận xe mới chạy tiếp. Relief Driver ở lại chờ xe kéo.`;
+            autoDesc = `Điều xe chuyên dụng dự phòng của công ty (${vehicle(v.veh)?.plate || v.veh}) kèm tài xế giao xe (${emp(v.reliefDriverId)?.name || 'tài xế'}) ra hiện trường. Tổ xe cũ nhận xe dự phòng để tiếp tục hành trình ngay.`;
           }
         }
       } else if (k === 'CREW_SWAP') {
@@ -824,12 +818,6 @@ export function f5Plan(id: string) {
         subTasks.push('Call_Ambulance', 'Send_Relief_Vehicle', 'Send_Relief_Crew', 'Specialist_On_Scene');
         if (!autoDesc) {
           autoDesc = `Kịch bản 3.1 (Tai nạn giao thông - Thay mới toàn bộ): Gọi cấp cứu ${v.ambulancePartner || '115'}, điều xe mới ${vehicle(v.veh)?.plate || v.veh} cùng tổ xe mới và Specialist ${emp(v.specialistId)?.name || ''} ra xử lý hiện trường.`;
-        }
-      } else if (k === 'HORSE_SPLIT') {
-        subTasks.push('Horse_Ambulance_Dispatch', 'Vet_Clinic_Transfer', 'Split_Customs_Manifest', 'Resume_Main_Trip');
-        const splitH = horse(v.splitHorseId);
-        if (!autoDesc) {
-          autoDesc = `Kịch bản 4.1 (Tách đàn vận chuyển): Tách ngựa ${splitH?.name || v.splitHorseId} sang xe chuyên dụng ${v.horseAmbulancePartner || 'Horse Ambulance'} chuyển về ${v.targetVetHospital || 'Bệnh viện thú y'}. Các con ngựa còn lại trên xe tiếp tục hành trình.`;
         }
       } else if (k === 'NO_CHANGE') {
         subTasks.push('Onsite_Troubleshooting', 'Driver_Self_Resolution', 'Safety_Inspection');
@@ -875,10 +863,6 @@ export function f5Plan(id: string) {
         ambulancePartner: v.ambulancePartner || '',
         ambulancePhone: v.ambulancePhone || '',
         specialistId: v.specialistId || '',
-        splitHorseId: v.splitHorseId || '',
-        horseAmbulancePartner: v.horseAmbulancePartner || '',
-        targetVetHospital: v.targetVetHospital || '',
-        vetEscortName: v.vetEscortName || '',
         crewRole: primaryRole,
         crewId: primaryCid,
         newCrew,
