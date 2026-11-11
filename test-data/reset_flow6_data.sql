@@ -86,11 +86,24 @@ BEGIN TRY
 
     -- 2.1 Khôi phục TRIP_003 sẵn sàng để TEST E2E FLOW 6 TỪ BƯỚC ĐẦU (Delivery)
     UPDATE TRANSPORT_REQUEST
-    SET Status = 'IN_PROGRESS'
+    SET Status = 'IN_PROGRESS',
+        DesignatedReceiverName = N'Nguyễn Quang Trường',
+        DesignatedReceiverPhone = '0903334455',
+        DesignatedReceiverEmail = 'quangtruong1922@gmail.com'
     WHERE RequestID = 'REQUEST_003';
+
+    -- Đồng thời cập nhật cả REQUEST_002 phòng trường hợp test trên TRIP_002
+    UPDATE TRANSPORT_REQUEST
+    SET DesignatedReceiverEmail = 'quangtruong1922@gmail.com'
+    WHERE RequestID = 'REQUEST_002';
 
     UPDATE TRIP_PLAN
     SET Status = 'IN_TRANSIT'
+    WHERE TripID = 'TRIP_003';
+
+    -- Phân công tài xế USER_007 (Hoàng Hùng) & Bác sĩ USER_009 (BS. Đỗ Hoa) để đăng nhập test nhanh
+    UPDATE TRIP_VEHICLE_ASSIGNMENT
+    SET DriverID = 'USER_007', EscortID = 'USER_009'
     WHERE TripID = 'TRIP_003';
 
     -- Đảm bảo chặng đích (DESTINATION) của TRIP_003 đã hoàn thành để đủ điều kiện lập biên bản giao nhận F6-J03

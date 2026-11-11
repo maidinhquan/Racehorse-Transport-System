@@ -437,7 +437,7 @@ function validateTripInfo(input: TripInfoInput): string {
   if (!input.pickupAt || input.pickupAt < today()) return 'Chọn ngày lấy ngựa từ hôm nay trở đi.';
   if (input.pickupAt > input.date) return 'Ngày lấy ngựa không được sau ngày giao mong muốn.';
   if (!input.date || input.date < today()) return 'Ngày vận chuyển phải từ hôm nay trở đi.';
-  if (input.horseCount < 1 || input.horseCount > 6) return 'Số lượng ngựa từ 1 đến 6.';
+  if (input.horseCount < 1 || input.horseCount > 100) return 'Số lượng ngựa phải từ 1 trở lên.';
   return '';
 }
 
@@ -575,6 +575,8 @@ const customerActions = {
     if (missing(pickup) || missing(delivery)) return fail('Điền đủ tên địa điểm, địa chỉ, người liên hệ và số điện thoại cho cả điểm nhận và điểm giao.');
     const phoneOk = (p: string) => /^[+0-9 ()-]{8,}$/.test(p.trim());
     if (!phoneOk(pickup.phone) || !phoneOk(delivery.phone)) return fail('Số điện thoại không hợp lệ.');
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (delivery.email && !emailRegex.test(delivery.email.trim())) return fail('Email người nhận không hợp lệ.');
     updateReq(id, (r) => { r.pickup = pickup; r.delivery = delivery; r.wizardStep = Math.max(r.wizardStep, 2); });
     notifySync('requests_updated');
     return ok('Đã lưu điểm nhận và điểm giao.');
@@ -696,7 +698,7 @@ const customerActions = {
     const r = findReq(requestId);
     if (!r || !isActive(r) || !FILE_DOC_KEYS.includes(key)) return fail('Không thể nộp giấy tờ cho yêu cầu này.');
     if (!getDemoMode('customer')) {
-      if (key === 'health' || key === 'flu') {
+      if (key === 'health') {
         if (!file.file) return fail('Chọn tệp từ máy trước khi tải lên.');
         try {
           const saved = await customerApi.uploadDocument(requestId, key, scope, file);
@@ -713,12 +715,12 @@ const customerActions = {
           return ok('Đã gửi giấy tờ cho Transport Specialist kiểm duyệt.');
         } catch (error) { return fail(apiMessage(error)); }
       }
-      const fileTypes: Partial<Record<DocKey, string>> = { passport: 'passport', ownership: 'ownership', valueProof: 'value-proof' };
+      const fileTypes: Partial<Record<DocKey, string>> = { passport: 'passport', ownership: 'ownership', valueProof: 'value-proof', flu: 'flu' };
       const fileType = fileTypes[key];
       if (!fileType) return fail('Tài liệu này chưa hỗ trợ nộp trực tuyến. Vui lòng liên hệ chuyên viên phụ trách.');
       if (!file.file) return fail('Chọn tệp từ máy trước khi tải lên.');
       try {
-        await customerApi.uploadHorseFile(scope, fileType as 'passport' | 'ownership' | 'value-proof', file.file);
+        await customerApi.uploadHorseFile(scope, fileType as 'passport' | 'ownership' | 'value-proof' | 'flu', file.file);
         setState({ horses: await customerApi.getHorses() });
         updateReq(requestId, x => {
           const same = (s: string) => s === scope || cleanId(s) === cleanId(scope);

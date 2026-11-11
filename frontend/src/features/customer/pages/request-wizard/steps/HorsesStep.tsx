@@ -23,6 +23,19 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
   const [selectable, setSelectable] = useState<string[] | null>(null);
   const [conflicts, setConflicts] = useState<Record<string, string>>({});
   const [availabilityError, setAvailabilityError] = useState('');
+  const [maxHorses, setMaxHorses] = useState<number>(() => Math.max(6, r.horseCount || 1));
+
+  useEffect(() => {
+    let active = true;
+    customerApi.getFormOptions(r.origin, r.destination)
+      .then((opts) => {
+        if (active && opts?.maxHorsesPerRequest && opts.maxHorsesPerRequest > 0) {
+          setMaxHorses(Math.max(opts.maxHorsesPerRequest, r.horseCount || 1));
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [r.origin, r.destination, r.horseCount]);
 
   const handleClearDraftError = (key: string) => {
     setDraftErrors((prev) => {
@@ -110,7 +123,7 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
           </span>
           <div className="cus-create__schedule-title-group">
             <h3>Số lượng ngựa vận chuyển <span>*</span></h3>
-            <p>Mỗi chuyến vận chuyển hỗ trợ từ 1 đến 6 ngựa. Chọn số lượng ngựa cần chở.</p>
+            <p>Mỗi chuyến vận chuyển hỗ trợ từ 1 đến {maxHorses} ngựa. Chọn số lượng ngựa cần chở.</p>
           </div>
         </div>
         <div className="cus-create__schedule-dates" style={{ alignItems: 'center' }}>
@@ -128,7 +141,7 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
                 if (result.ok) setSlot(current => Math.min(current, count - 1));
               }}
             >
-              {[1, 2, 3, 4, 5, 6].map(count => <option key={count} value={count}>{count} ngựa</option>)}
+              {Array.from({ length: maxHorses }, (_, i) => i + 1).map(count => <option key={count} value={count}>{count} ngựa</option>)}
             </select>
           </div>
           <span className="cus-wizard__count">{r.horses.filter(Boolean).length}/{r.horseCount} đã chọn</span>

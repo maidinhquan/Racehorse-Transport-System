@@ -39,7 +39,7 @@ export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, ed
                     {rejected ? 'Cập nhật thông tin' : 'Sửa thông tin'}
                   </button>
                 )}
-                {editable && it.kind === 'file' && (getDemoMode('customer') || ['passport', 'ownership', 'valueProof'].includes(it.key) || (rejected && ['health', 'flu'].includes(it.key))) && (
+                {editable && it.kind === 'file' && (getDemoMode('customer') || ['passport', 'ownership', 'valueProof', 'flu'].includes(it.key) || (rejected && it.key === 'health')) && (
                   <FilePickButton label={rejected ? 'Tải lại tệp mới' : it.file ? 'Thay tệp' : 'Tải tệp'}
                     className={`cus-btn cus-btn--sm ${rejected ? 'cus-btn--solid' : ''}`}
                     onPick={(f) => actions.uploadDoc(requestId, it.key, it.scope, f)}

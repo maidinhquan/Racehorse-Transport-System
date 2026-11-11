@@ -50,6 +50,7 @@ public static class RequestMapper
                 postal = request.DeliveryPostalCode,
                 contact = request.DesignatedReceiverName,
                 phone = request.DesignatedReceiverPhone,
+                email = request.DesignatedReceiverEmail,
                 notes = request.DeliveryInstructions,
                 latitude = request.DeliveryLatitude,
                 longitude = request.DeliveryLongitude,

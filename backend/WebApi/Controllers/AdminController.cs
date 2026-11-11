@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using Infrastructure.Data.Context;
 using Application.DTOs;
 
@@ -107,7 +109,7 @@ namespace WebApi.Controllers
             try
             {
                 var policies = await _context.BusinessPolicies
-                    .OrderBy(p => p.PolicyID)
+                    .OrderBy(p => p.PolicyId)
                     .ToListAsync();
 
                 var dtos = policies.Select(MapToDto).ToList();
@@ -134,7 +136,7 @@ namespace WebApi.Controllers
         {
             try
             {
-                var policy = await _context.BusinessPolicies.FirstOrDefaultAsync(p => p.PolicyID == id);
+                var policy = await _context.BusinessPolicies.FirstOrDefaultAsync(p => p.PolicyId == id);
                 if (policy == null)
                 {
                     return NotFound(new ApiResponse<object>
@@ -196,7 +198,18 @@ namespace WebApi.Controllers
                 }
 
                 policy.UpdatedAt = DateTime.UtcNow;
-                policy.UpdatedBy = User.Identity?.Name ?? "ADMIN";
+
+                var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                    ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+                if (!string.IsNullOrWhiteSpace(currentUserId) && await _context.Users.AnyAsync(u => u.UserId == currentUserId))
+                {
+                    policy.UpdatedBy = currentUserId;
+                }
+                else
+                {
+                    policy.UpdatedBy = "USER_024";
+                }
 
                 await _context.SaveChangesAsync();
 
@@ -209,10 +222,11 @@ namespace WebApi.Controllers
             }
             catch (Exception ex)
             {
+                var errorMsg = ex.InnerException != null ? $"{ex.Message} -> {ex.InnerException.Message}" : ex.Message;
                 return StatusCode(500, new ApiResponse<object>
                 {
                     Success = false,
-                    Message = $"Lỗi khi cập nhật thông số hệ thống: {ex.Message}",
+                    Message = $"Lỗi khi cập nhật thông số hệ thống: {errorMsg}",
                     Data = null
                 });
             }
@@ -220,16 +234,16 @@ namespace WebApi.Controllers
 
         private static string CategorizePolicy(string code) => code switch
         {
-            "MIN_PREPARATION_DAYS" or "FLOW1_PREPARATION_DAYS" or "MIN_TRANSIT_DAYS" => "PREPARATION_TRANSIT",
+            "MIN_PREPARATION_DAYS" or "FLOW1_PREPARATION_DAYS" or "MIN_TRANSIT_DAYS" or "MAX_HORSES_PER_REQUEST" => "PREPARATION_TRANSIT",
             "DEFAULT_DEPOSIT_PERCENT" or "CONTRACT_DEADLINE_HOURS" or "FLOW1_REVIEW_BUFFER_DAYS" or "FLOW1_SIGNING_BUFFER_DAYS" or "FLOW1_CUSTOMER_RESPONSE_HOURS" => "CONTRACT_DEPOSIT",
             "SIGN_OTP_TTL_MINUTES" or "SIGN_OTP_RESEND_SECONDS" or "SIGN_OTP_MAX_ATTEMPTS" => "SECURITY_OTP",
             "FEEDBACK_WINDOW_HOURS" => "FEEDBACK",
             _ => "GENERAL"
         };
 
-        private static AdminBusinessPolicyDto MapToDto(Domain.Flow1.Entities.BusinessPolicy p) => new()
+        private static AdminBusinessPolicyDto MapToDto(Domain.Entities.BusinessPolicy p) => new()
         {
-            PolicyId = p.PolicyID,
+            PolicyId = p.PolicyId,
             Code = p.Code,
             ValueType = p.ValueType,
             NumberValue = p.NumberValue,
@@ -237,7 +251,7 @@ namespace WebApi.Controllers
             BoolValue = p.BoolValue,
             Unit = p.Unit,
             ScopeType = p.ScopeType,
-            ScopeId = p.ScopeID,
+            ScopeId = p.ScopeId,
             Description = p.Description,
             UpdatedBy = p.UpdatedBy,
             UpdatedAt = p.UpdatedAt,

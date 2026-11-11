@@ -90,6 +90,14 @@ public sealed class LifecycleTests : IAsyncLifetime
     [Fact]
     public async Task Customer_ownership_closed_support_and_strict_json_are_enforced()
     {
+        using var checkCn = new SqlConnection(database.Connection);
+        await checkCn.OpenAsync();
+        using var checkCmd = new SqlCommand("SELECT COUNT(*) FROM TRIP_SETTLEMENT WHERE SettlementID='SETTLEMENT_001' AND Status='CLOSED'", checkCn);
+        if ((int)(await checkCmd.ExecuteScalarAsync() ?? 0) == 0)
+        {
+            await Delivery_cases_invoice_and_feedback_lifecycle_use_real_sql();
+        }
+
         using var customer=factory.Customer();using var manager=factory.Manager();
         Assert.Equal(HttpStatusCode.NotFound,(await customer.GetAsync("/api/customer/flow6/settlements/SETTLEMENT_002")).StatusCode);
         var body=new JsonObject{["type"]="SUPPORT",["subject"]="Copy of paperwork",["description"]="Please explain the delivery documents"};
@@ -157,10 +165,10 @@ public sealed class LifecycleTests : IAsyncLifetime
     public void Swagger_exposes_all_48_routes_and_explicit_request_schemas()
     {
         using var scope=factory.Services.CreateScope();var swagger=scope.ServiceProvider.GetRequiredService<Swashbuckle.AspNetCore.Swagger.ISwaggerProvider>().GetSwagger("v1");
-        var operations=swagger.Paths.SelectMany(p=>p.Value.Operations.Values).Where(o=>o.OperationId?.StartsWith("F6-")==true).ToArray();Assert.Equal(48,operations.Length);
+        var operations=swagger.Paths.SelectMany(p=>p.Value.Operations.Values).Where(o=>o.OperationId?.StartsWith("F6-")==true).ToArray();Assert.Equal(49,operations.Length);
         Assert.Equal(11,operations.SelectMany(o=>o.Tags).Select(t=>t.Name).Distinct().Count());
         Assert.All(operations,o=>{Assert.Single(o.Tags);Assert.StartsWith("Flow 6 · ",o.Tags[0].Name);Assert.True(o.Extensions.ContainsKey("x-flow-order"));});
-        Assert.Equal(48,operations.Select(o=>((Microsoft.OpenApi.Any.OpenApiInteger)o.Extensions["x-flow-order"]).Value).Distinct().Count());
+        Assert.Equal(49,operations.Select(o=>((Microsoft.OpenApi.Any.OpenApiInteger)o.Extensions["x-flow-order"]).Value).Distinct().Count());
         var tags=swagger.Tags.Where(t=>t.Name.StartsWith("Flow 6 · ",StringComparison.Ordinal)).ToArray();Assert.Equal(11,tags.Length);
         Assert.Equal(tags.Select(t=>t.Name).OrderBy(x=>x,StringComparer.Ordinal),tags.Select(t=>t.Name));
         Assert.All(tags,t=>Assert.False(string.IsNullOrWhiteSpace(t.Description)));
@@ -181,7 +189,7 @@ public sealed class LifecycleTests : IAsyncLifetime
         {
             // 48 base tables + 10 Flow 4 tables (HorseTransportDB.sql); Flow 6 must add none.
             await cn.OpenAsync();await using var cmd=new SqlCommand("SELECT COUNT(*) FROM sys.tables WHERE is_ms_shipped=0",cn);
-            Assert.Equal(58,Convert.ToInt32(await cmd.ExecuteScalarAsync()));
+            Assert.Equal(60,Convert.ToInt32(await cmd.ExecuteScalarAsync()));
         }
         var body=new JsonObject{["type"]="COMPLAINT",["subject"]="Check delivery",["description"]="Please check the handover"};var key=Guid.NewGuid().ToString();
         var pair=await Task.WhenAll(Post(customer,$"customer/flow6/settlements/{s}/cases",body.DeepClone().AsObject(),key),Post(customer,$"customer/flow6/settlements/{s}/cases",body.DeepClone().AsObject(),key));

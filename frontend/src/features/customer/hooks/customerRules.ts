@@ -237,8 +237,6 @@ export function horseIssues(h: Horse) {
   if (ps === 'MISSING') list.push('Hộ chiếu ngựa còn thiếu số hoặc bản scan');
   if (ps === 'EXPIRED') list.push('Hộ chiếu ngựa đã hết hạn');
   if (!h.ownership) list.push('Chưa có giấy chứng nhận sở hữu');
-  if (!h.unsupportedFields?.includes('fluDate') && !h.fluDate) list.push('Chưa có ngày tiêm cúm gần nhất');
-  else if (h.fluDate && (stampToMs(today()) - stampToMs(h.fluDate)) / 86400000 > 365) list.push('Tiêm phòng cúm đã quá 12 tháng');
   return list;
 }
 export function profileStatus(h: Horse): HorseProfileStatus {
@@ -475,7 +473,7 @@ export const DOC_NAME: Record<DocKey, string> = {
   ownership: 'Chứng nhận sở hữu ngựa',
   bio: 'Thông tin sinh học',
   valueProof: 'Giá trị thương mại',
-  flu: 'Sổ tiêm ngừa',
+  flu: 'Sổ tiêm ngừa (Equine Influenza)',
   health: 'Giấy chứng nhận sức khỏe',
   conditions: 'Ghi chú sức khỏe đặc biệt',
 };
@@ -516,13 +514,16 @@ export function horseDocItems(r: TransportRequest, h: Horse): DocItem[] {
     const list = missing.filter(([bad]) => bad).map(([, label]) => label);
     return list.length ? { ...it, missing: list } : it;
   };
-  return [
+  const items: DocItem[] = [
     withMissing(item('passport', 'file', fileOf('passport') && p.number ? 'SUBMITTED' : 'MISSING',
       `Số: ${p.number || '—'} • Cơ quan cấp: ${p.authority || '—'} • Hết hạn: ${fmtDate(p.expiryDate)}`), [
       [!p.number, 'số hộ chiếu'], [!p.authority, 'cơ quan cấp'], [!p.expiryDate, 'ngày hết hạn'], [!fileOf('passport'), 'bản scan hộ chiếu'],
     ]),
     withMissing(item('ownership', 'file', fileOf('ownership') ? 'SUBMITTED' : 'MISSING', fileOf('ownership')?.name ?? 'Chưa có bản scan'), [
       [!fileOf('ownership'), 'tệp giấy chứng nhận sở hữu'],
+    ]),
+    withMissing(item('flu', 'file', fileOf('flu') ? 'SUBMITTED' : 'MISSING', fileOf('flu')?.name ?? 'Chưa tải tệp sổ tiêm'), [
+      [!fileOf('flu'), 'tệp sổ tiêm ngừa'],
     ]),
     withMissing(item('bio', 'info', h.breed && h.sex && h.dob && h.microchip ? 'SUBMITTED' : 'NEEDS_INPUT',
       `Giống: ${h.breed || '—'} • Giới tính: ${SEX_LABEL[h.sex] ?? '—'} • Sinh: ${fmtDate(h.dob)} • Microchip: ${h.microchip || '—'}`), [
@@ -532,13 +533,13 @@ export function horseDocItems(r: TransportRequest, h: Horse): DocItem[] {
       `Giá trị khai báo: ${h.value ? `${Number(h.value).toLocaleString('en-US')} ${h.currency}` : '—'}`, true), [
       [!h.value, 'giá trị khai báo'],
     ]),
-    withMissing(item('flu', 'file', fileOf('flu') ? 'SUBMITTED' : h.unsupportedFields?.includes('flu') ? 'NOT_REQUIRED_YET' : 'MISSING', `Tiêm cúm gần nhất: ${fmtDate(h.fluDate)}`), [
-      [!fileOf('flu') && !h.unsupportedFields?.includes('flu'), 'tệp sổ tiêm ngừa'],
-    ]),
-    item('health', 'file', fileOf('health') ? 'SUBMITTED' : 'NOT_REQUIRED_YET',
-      fileOf('health') ? `Tệp: ${fileOf('health')!.name}` : 'Specialist kiểm tra yêu cầu hiệu lực trước khởi hành.'),
     item('conditions', 'info', h.conditions ? 'SUBMITTED' : 'OPTIONAL', h.conditions || 'Không khai báo tình trạng đặc biệt.', true),
   ];
+  if (asked('health') || docRecord(r, 'health', h.id)?.file) {
+    items.push(item('health', 'file', fileOf('health') ? 'SUBMITTED' : 'NOT_REQUIRED_YET',
+      fileOf('health') ? `Tệp: ${fileOf('health')!.name}` : 'Specialist kiểm tra yêu cầu hiệu lực trước khởi hành.'));
+  }
+  return items;
 }
 
 export const pickedHorses = (r: TransportRequest) => [...new Set((r.horses || []).filter(Boolean))];
@@ -561,7 +562,7 @@ export function wizardErrors(r: TransportRequest, horses: Horse[]): Array<[numbe
     const p = r[k], label = k === 'pickup' ? 'Điểm nhận' : 'Điểm giao';
     if (!String(p?.name ?? '').trim() || !String(p?.address ?? '').trim() || !String(p?.contact ?? '').trim() || !String(p?.phone ?? '').trim()) e.push([0, `${label}: còn thiếu tên, địa chỉ, người liên hệ hoặc số điện thoại.`]);
   });
-  if (r.horseCount < 1 || r.horseCount > 6 || pickedHorses(r).length !== r.horseCount) e.push([2, 'Chọn đủ số ngựa, từ 1 đến 6.']);
+  if (r.horseCount < 1 || pickedHorses(r).length !== r.horseCount) e.push([2, `Chọn đủ ${r.horseCount} ngựa theo số lượng đã đăng ký.`]);
   r.horses.forEach((id, i) => { if (!id) e.push([2, `Chưa chọn ngựa ở vị trí ${i + 1}/${r.horses.length}.`]); });
   pickedHorses(r).forEach((id) => {
     const h = horses.find((x) => x.id === id);
@@ -571,6 +572,7 @@ export function wizardErrors(r: TransportRequest, horses: Horse[]): Array<[numbe
     if (!h.photo) e.push([2, `${h.name}: thiếu ảnh nhận diện.`]);
     if (!h.passport?.scan && !docRecord(r, 'passport', id)?.file) e.push([2, `${h.name}: thiếu bản scan hộ chiếu ngựa.`]);
     if (!h.ownership && !docRecord(r, 'ownership', id)?.file) e.push([2, `${h.name}: thiếu chứng nhận sở hữu.`]);
+    if (!h.flu && !docRecord(r, 'flu', id)?.file) e.push([2, `${h.name}: thiếu sổ tiêm ngừa.`]);
     if (passportStatus(h) === 'EXPIRED') e.push([2, `${h.name}: hộ chiếu đã hết hạn, hãy cập nhật trước khi gửi.`]);
     else if (h.passport.expiryDate && h.passport.expiryDate <= r.date) e.push([2, `${h.name}: hộ chiếu phải còn hạn qua ngày giao mong muốn.`]);
   });

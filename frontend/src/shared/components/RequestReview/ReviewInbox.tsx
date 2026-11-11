@@ -102,12 +102,6 @@ function CoordinatorForm({ review, button, busy, submit }: FormProps) {
           <li key={vehicle.id}>{vehicle.plateNumber || vehicle.id} · {vehicle.operatingCountry} · {vehicle.capacityStalls} ô{vehicle.type ? ` · ${vehicle.type}` : ''}</li>)}</ul>
           : <p>Chưa có xe phù hợp trong danh mục.</p>}
       </details>
-      <details><summary>Danh mục chuyến bay ({review.resources?.flights.length ?? 0})</summary>
-        {review.resources?.flights.length ? <ul>{review.resources.flights.map(flight =>
-          <li key={flight.id}>{flight.airline} {flight.providerFlightCode} · {flight.originAirportPlaceId} {flight.departureDate ? flight.departureDate.split('-').reverse().join('/') : 'Chưa có ngày bay'} {flight.departureTime} ({flight.departureTimeZone})
-            {' → '}{flight.destinationAirportPlaceId} {flight.arrivalDate ? flight.arrivalDate.split('-').reverse().join('/') : 'Chưa có ngày đến'} {flight.arrivalTime} ({flight.arrivalTimeZone}) · {flight.capacityHorses} ngựa</li>)}</ul>
-          : <p>Chưa có chuyến bay phù hợp trong danh mục.</p>}
-      </details>
     </div>
     {review.status === 'COORDINATOR_PENDING' && <form onSubmit={onSubmit}>
       <fieldset disabled={busy}>
@@ -162,6 +156,7 @@ function SpecialistForm({ review, option, button, busy, submit, download }: Form
         const needsPlan = statuses[id] === 'NEEDS_FOLLOW_UP' && source.stage === 'BEFORE_DEPARTURE';
         return <fieldset key={id} disabled={busy}>
           <legend>{source.horseName} · {documentName[source.documentType]}</legend>
+          {source.healthNotes && <p>Ghi chú sức khỏe: {source.healthNotes}</p>}
           <div className="review-buttons">
             <span>{documentStage[source.stage]}{source.expiryDate ? ` · Hạn ${reviewDay(source.expiryDate)}` : ''}</span>
             {source.fileAvailable ? <button type="button" className={button}

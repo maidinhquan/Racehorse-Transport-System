@@ -42,6 +42,8 @@ async function fillForm() {
   }
   for (const input of screen.getAllByLabelText('Họ và tên *')) fireEvent.change(input, { target: { value: 'Contact' } });
   for (const input of screen.getAllByLabelText('Số điện thoại *')) fireEvent.change(input, { target: { value: '+84901234567' } });
+  const emailInput = screen.queryByLabelText(/Email nhận mã OTP/);
+  if (emailInput) fireEvent.change(emailInput, { target: { value: 'receiver@example.com' } });
 }
 
 describe('merged request details step', () => {

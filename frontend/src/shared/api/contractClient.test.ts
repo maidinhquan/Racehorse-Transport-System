@@ -163,7 +163,7 @@ describe('current Flow 1 request boundaries', () => {
   it('blocks invalid multipart fields, photo PDF files and unsupported fileType routes', async () => {
     const data = new FormData(); data.set('file', new File(['pdf'], 'photo.pdf', { type: 'application/pdf' }));
     await expect(contractClient('post', '/customer/horses/HORSE_001/files/photo', data)).rejects.toThrow('JPEG');
-    await expect(contractClient('post', '/customer/horses/HORSE_001/files/flu', data)).rejects.toThrow('fileType');
+    await expect(contractClient('post', '/customer/horses/HORSE_001/files/invalid-type', data)).rejects.toThrow('fileType');
     data.set('documentType', 'HEALTH_CERTIFICATE'); data.set('undeclared', 'x');
     await expect(contractClient('post', '/customer/requests/REQUEST_001/horses/HORSE_001/documents', data)).rejects.toThrow('additional properties');
     expect(request).not.toHaveBeenCalled();

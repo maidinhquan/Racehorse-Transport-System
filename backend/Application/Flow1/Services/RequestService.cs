@@ -49,6 +49,7 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
             data.Add(row); await data.SaveAsync(token);
             var links = AddLinks(row.RequestID, input);
             await RemoveUnselectedDocumentsAsync(row.RequestID, input.Horses, token);
+            await SyncHorseDocumentsToRequestAsync(row.RequestID, input.Horses, token);
             await NotifyAsync(row, token);
             return RequestMapper.View(row, links);
         }, ct);
@@ -69,6 +70,7 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
             await data.SaveAsync(token);
             var links = AddLinks(id, input);
             await RemoveUnselectedDocumentsAsync(row.RequestID, input.Horses, token);
+            await SyncHorseDocumentsToRequestAsync(row.RequestID, input.Horses, token);
             row.Status = "PENDING_REVIEW";
             await NotifyAsync(row, token);
             return RequestMapper.View(row, links);
@@ -80,7 +82,8 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         Require(input.Pickup is not null, "VALIDATION_ERROR", "Thiếu thông tin bên giao ngựa. Vui lòng điền pickup.", 400);
         Require(input.Delivery is not null, "VALIDATION_ERROR", "Thiếu thông tin bên nhận ngựa. Vui lòng điền delivery.", 400);
         Require(input.Horses is { Count: > 0 }, "VALIDATION_ERROR", "Chưa chọn ngựa. Vui lòng chọn ít nhất 1 ngựa trong horses.", 400);
-        Require(input.Horses!.Count <= 6, "VALIDATION_ERROR", "Mỗi yêu cầu chỉ được chọn tối đa 6 ngựa trong horses.", 400);
+        var maxHorses = (int)await policies.NumberOrDefaultAsync("MAX_HORSES_PER_REQUEST", "HORSE", input.DestinationCountry, input.Mode, 1, 100, true, 6, ct);
+        Require(input.Horses!.Count <= maxHorses, "VALIDATION_ERROR", $"Mỗi yêu cầu chỉ được chọn tối đa {maxHorses} ngựa trong horses.", 400);
         Require(input.Horses.All(h => !string.IsNullOrWhiteSpace(h)), "VALIDATION_ERROR", "Danh sách horses có mã ngựa để trống. Vui lòng điền mã ngựa hợp lệ.", 400);
         var duplicates = input.Horses.GroupBy(h => h).Where(g => g.Count() > 1).Select(g => g.Key).ToArray();
         Require(duplicates.Length == 0, "VALIDATION_ERROR", $"Danh sách horses bị trùng ngựa: {string.Join(", ", duplicates)}. Mỗi ngựa chỉ được chọn một lần.", 400);
@@ -132,6 +135,58 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         foreach (var old in await data.ListAsync<MedicalRecord>(m => m.RequestID == requestId, ct))
             if (!selected.Contains(old.HorseID)) data.Remove(old);
     }
+    private async Task SyncHorseDocumentsToRequestAsync(string requestId, IReadOnlyList<string> selectedHorseIds, CancellationToken ct)
+    {
+        var horses = await data.ListAsync<Horse>(h => selectedHorseIds.Contains(h.HorseID), ct);
+        var existingRecords = await data.ListAsync<MedicalRecord>(m => m.RequestID == requestId, ct);
+        foreach (var horse in horses)
+        {
+            if (!string.IsNullOrWhiteSpace(horse.VaccinationFileUrl))
+            {
+                var flu = existingRecords.FirstOrDefault(r => r.HorseID == horse.HorseID && (r.DocumentType == "DT-3" || r.DocumentType == "VACCINATION" || r.DocumentType == "EQUINE_FLU_VAX"));
+                if (flu is null)
+                {
+                    data.Add(new MedicalRecord
+                    {
+                        RecordID = "LMR_" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant(),
+                        RequestID = requestId,
+                        HorseID = horse.HorseID,
+                        DocumentType = "DT-3",
+                        RequirementStatus = "MANDATORY",
+                        DocumentStatus = "SUBMITTED",
+                        UploadedFileUrl = horse.VaccinationFileUrl
+                    });
+                }
+                else if (string.IsNullOrWhiteSpace(flu.UploadedFileUrl))
+                {
+                    flu.UploadedFileUrl = horse.VaccinationFileUrl;
+                    flu.DocumentStatus = "SUBMITTED";
+                }
+            }
+            if (!string.IsNullOrWhiteSpace(horse.HealthCertificateFileUrl))
+            {
+                var health = existingRecords.FirstOrDefault(r => r.HorseID == horse.HorseID && (r.DocumentType == "DT-2" || r.DocumentType == "HEALTH_CERTIFICATE"));
+                if (health is null)
+                {
+                    data.Add(new MedicalRecord
+                    {
+                        RecordID = "LMR_" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant(),
+                        RequestID = requestId,
+                        HorseID = horse.HorseID,
+                        DocumentType = "DT-2",
+                        RequirementStatus = "MANDATORY",
+                        DocumentStatus = "SUBMITTED",
+                        UploadedFileUrl = horse.HealthCertificateFileUrl
+                    });
+                }
+                else if (string.IsNullOrWhiteSpace(health.UploadedFileUrl))
+                {
+                    health.UploadedFileUrl = horse.HealthCertificateFileUrl;
+                    health.DocumentStatus = "SUBMITTED";
+                }
+            }
+        }
+    }
     private async Task NotifyAsync(TransportRequest row, CancellationToken ct)
     {
         foreach (var manager in (await data.ListAsync<Account>(a => a.IsActive, ct)).Where(a => UserRoles.NormalizeRole(a.Role) == UserRoles.LogisticsManager))
@@ -147,9 +202,10 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         {
             var horse = await access.HorseAsync(horseId, actor, token);
             Require(horse.PhotoUrl is not null && horse.PassportScanUrl is not null && horse.OwnershipCertificateFileUrl is not null
+                && horse.VaccinationFileUrl is not null
                 && !string.IsNullOrWhiteSpace(horse.FEI_Passport_No)
                 && horse.PassportExpiryDate >= row.CommittedDeadline && horse.DeclaredValueVnd > 0,
-                "REQUIRED_DOCUMENT_MISSING", "Complete horse profile and ownership documents before submission.", 400);
+                "REQUIRED_DOCUMENT_MISSING", "Complete horse profile, ownership and vaccination documents before submission.", 400);
         }
         await HorseBookingRules.RequireAvailableAsync(data, selected.ToArray(), row, token);
     }
@@ -181,7 +237,7 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         row.PickupContactPhone = pickup.Phone; row.PickupPostalCode = pickup.Postal; row.PickupInstructions = pickup.Notes;
         row.PickupLatitude = pickup.Latitude; row.PickupLongitude = pickup.Longitude;
         row.Destination = delivery.Address; row.DeliveryStableName = delivery.Name; row.DesignatedReceiverName = delivery.Contact;
-        row.DesignatedReceiverPhone = delivery.Phone; row.DeliveryPostalCode = delivery.Postal; row.DeliveryInstructions = delivery.Notes;
+        row.DesignatedReceiverPhone = delivery.Phone; row.DesignatedReceiverEmail = delivery.Email; row.DeliveryPostalCode = delivery.Postal; row.DeliveryInstructions = delivery.Notes;
         row.DeliveryLatitude = delivery.Latitude; row.DeliveryLongitude = delivery.Longitude;
     }
 }
