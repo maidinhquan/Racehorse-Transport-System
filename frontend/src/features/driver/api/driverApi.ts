@@ -113,7 +113,7 @@ const mapIncidentDto = (d: any): Incident => {
     status,
     at: formattedAt,
     by: d.reportedByUserName || d.reportedByUserId || d.by || 'Tài xế',
-    location: d.location || (d.locationCoordinates ? `Tọa độ: ${d.locationCoordinates}` : 'Trên đường vận chuyển'),
+    location: d.location || 'Trên đường vận chuyển',
     description: d.description || '',
     photos: d.imageUrl ? [d.imageUrl] : (d.photos || []),
     approvedPlan: d.approvedPlan || d.resolutionNotes || undefined,

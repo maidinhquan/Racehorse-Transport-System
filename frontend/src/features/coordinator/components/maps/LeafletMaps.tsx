@@ -13,6 +13,7 @@ import { drawIncidentPins, ensureIncidentPinStyle, snapPointToPolyline } from '.
 import { getIncidentPins, saveIncidentPin, useIncidentPins } from '../../../../shared/utils/sharedIncidentPins';
 import { fetchRoadRoute, fetchTripSegments, inferStopCoords } from '../../../../shared/maps/roadRouting';
 import { getUserFullName } from '../../../../shared/utils/userNameResolver';
+import { humanizeLocation } from '../../../../shared/utils/locationResolver';
 
 // Cấu hình icon mặc định Leaflet để tương thích Vite
 delete (L.Icon.Default.prototype as Any)._getIconUrl;
@@ -539,8 +540,7 @@ export function IncidentMap({ i, t }: { i: Any; t?: Any }) {
           <strong style="color:#b42318;font-size:13px">${esc(i?.id || '')}</strong>
         </div>
         <div style="font-size:12.5px;color:#1e293b;margin-bottom:4px"><b>Loại:</b> ${esc(incTypeVi(i?.type))}</div>
-        <div style="font-size:12px;color:#475569;margin-bottom:4px"><b>Vị trí:</b> ${esc(i?.location || `${incCoords[0].toFixed(6)}, ${incCoords[1].toFixed(6)}`)}</div>
-        ${i?.locationCoordinates ? `<div style="font-size:11.5px;color:#64748b;margin-bottom:4px"><b>GPS:</b> <code>${esc(i.locationCoordinates)}</code></div>` : ''}
+        <div style="font-size:12px;color:#475569;margin-bottom:4px"><b>Vị trí:</b> ${esc(humanizeLocation(i?.location, incCoords, t))}</div>
         <div style="font-size:11.5px;color:#64748b;margin-bottom:4px"><b>Thời điểm:</b> ${dt(i?.at)}</div>
         <div style="font-size:11.5px;color:#64748b"><b>Người báo:</b> ${esc(getUserFullName(i?.reporterName || i?.by))}</div>
         ${i?.description ? `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #e2e8f0;font-size:12px;color:#334155;font-style:italic">"${esc(i.description)}"</div>` : ''}
@@ -599,8 +599,8 @@ export function IncidentMap({ i, t }: { i: Any; t?: Any }) {
             {isMaximized ? 'Bản đồ vị trí sự cố trên tuyến (Toàn màn hình)' : 'Vị trí sự cố trên bản đồ tuyến'}
           </span>
           {incCoords && (
-            <span style={{ fontSize: 11, background: '#fee2e2', color: '#b91c1c', fontWeight: 600, padding: '2px 8px', borderRadius: 12 }}>
-              GPS: {incCoords[0].toFixed(5)}, {incCoords[1].toFixed(5)} (Kéo thả trên tuyến)
+            <span style={{ fontSize: 11, background: '#eff6ff', color: '#1d4ed8', fontWeight: 600, padding: '2px 8px', borderRadius: 12 }}>
+              📍 {humanizeLocation(i?.location, incCoords, t)}
             </span>
           )}
         </div>
@@ -643,7 +643,7 @@ export function IncidentMap({ i, t }: { i: Any; t?: Any }) {
       />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, fontSize: 12, color: '#64748b', flexWrap: 'wrap', gap: 4 }}>
         <span>🔴 <b>Điểm đỏ (!):</b> Vị trí sự cố • 🔵 <b>Số 1..N:</b> Các mốc dừng • <span style={{ color: '#0369a1' }}>📍 Kéo ghim (!) để trượt vị trí dọc theo tuyến (cố định trên lộ trình, không thể kéo ra ngoài)</span></span>
-        {i?.location && <span>Địa điểm ghi nhận: <b>{i.location}</b></span>}
+        {i?.location && <span>Địa điểm ghi nhận: <b>{humanizeLocation(i.location, incCoords, t)}</b></span>}
       </div>
     </div>
   );

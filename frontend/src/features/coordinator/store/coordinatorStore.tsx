@@ -741,7 +741,7 @@ export async function syncCoordinatorIncidents(): Promise<void> {
           reporterRole: bi.reportedByUserRole || (bi.category === 'HORSE_HEALTH' ? 'VETERINARIAN' : 'MAIN_DRIVER'),
           reporterPhone: bi.reportedByUserPhone || '',
           immediateCare: bi.immediateCare || '',
-          location: bi.location || (bi.locationCoordinates ? `Tọa độ: ${bi.locationCoordinates}` : 'Trên đường vận chuyển'),
+          location: bi.location || 'Trên đường vận chuyển',
           locationCoordinates: bi.locationCoordinates || '',
           description: bi.description || '',
           photos: bi.photos || (bi.imageUrl ? [bi.imageUrl] : []),

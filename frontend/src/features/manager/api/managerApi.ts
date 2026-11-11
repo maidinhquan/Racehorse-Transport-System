@@ -95,7 +95,7 @@ export const incidentFromWire = (r: Record<string, any>): Incident => {
     status,
     at: r.reportedAt ? r.reportedAt.replace('T', ' ').slice(0, 16) : (r.at || ''),
     by: r.reportedByUserName || r.reportedByUserId || r.by || 'Tài xế / Áp tải',
-    location: r.location || (r.locationCoordinates ? `Tọa độ: ${r.locationCoordinates}` : 'Trên đường vận chuyển'),
+    location: r.location || 'Trên đường vận chuyển',
     horseId: r.horseId,
     description: r.description || '',
     safety: r.safety || r.immediateCare || 'Người và ngựa an toàn hoặc đã được sơ cứu',

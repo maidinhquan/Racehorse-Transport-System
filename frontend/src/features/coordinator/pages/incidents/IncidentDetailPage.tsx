@@ -29,6 +29,7 @@ import {
   f5Submit,
 } from '../../workflows/incidentOperations';
 import { getUserFullName } from '../../../../shared/utils/userNameResolver';
+import { humanizeLocation, locationBadgeInfo } from '../../../../shared/utils/locationResolver';
 
 const PLAN_ST: Record<string, string> = {
   DRAFT: 'Nháp',
@@ -198,15 +199,29 @@ function HorseHealthCard({ i, liveResolved, liveReferral }: { i: Any; liveResolv
         <Cell label="Mức độ nguy cấp">
           <Pill v={i.severity} />
         </Cell>
-        <Cell label="Vị trí hiện trường">{i.location || 'Trên đường vận chuyển'}</Cell>
-        <Cell label="Tọa độ GPS">
-          {i.locationCoordinates ? (
-            <code style={{ fontSize: 12, background: 'var(--bg-page, #f3f4f6)', padding: '2px 6px', borderRadius: 4 }}>
-              {i.locationCoordinates}
-            </code>
-          ) : (
-            'Chưa có tọa độ'
-          )}
+        <Cell label="Vị trí hiện trường">
+          {(() => {
+            const locText = humanizeLocation(i.location, i.locationCoordinates, t);
+            const { badgeLabel, isStop, cleanText } = locationBadgeInfo(locText);
+            return (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span
+                  className="badge"
+                  style={{
+                    fontSize: 11,
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                    background: isStop ? '#ecfdf5' : '#eff6ff',
+                    color: isStop ? '#047857' : '#1d4ed8',
+                    fontWeight: 600,
+                  }}
+                >
+                  {badgeLabel}
+                </span>
+                <b>{cleanText}</b>
+              </div>
+            );
+          })()}
         </Cell>
       </div>
 
@@ -524,9 +539,29 @@ function InfoCard({ i }: { i: Any }) {
         </Cell>
         <Cell label="Thời điểm">{dt(i.at)}</Cell>
         <Cell label="Mức độ nghiêm trọng"><Pill v={i.severity} /></Cell>
-        <Cell label="Vị trí sự cố">{i.location || 'Trên đường vận chuyển'}</Cell>
-        <Cell label="Tọa độ GPS">
-          {i.locationCoordinates ? <code style={{ fontSize: 12, background: 'var(--bg-page, #f3f4f6)', padding: '2px 6px', borderRadius: 4 }}>{i.locationCoordinates}</code> : 'Chưa có tọa độ'}
+        <Cell label="Vị trí sự cố">
+          {(() => {
+            const locText = humanizeLocation(i.location, i.locationCoordinates, t);
+            const { badgeLabel, isStop, cleanText } = locationBadgeInfo(locText);
+            return (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span
+                  className="badge"
+                  style={{
+                    fontSize: 11,
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                    background: isStop ? '#ecfdf5' : '#eff6ff',
+                    color: isStop ? '#047857' : '#1d4ed8',
+                    fontWeight: 600,
+                  }}
+                >
+                  {badgeLabel}
+                </span>
+                <b>{cleanText}</b>
+              </div>
+            );
+          })()}
         </Cell>
         <Cell label="Xe hiện tại của chuyến">
           {currentVeh ? `${currentVeh.plate} • ${currentVeh.model} (${currentVeh.stalls} ô chuồng)` : 'Chưa gán xe'}

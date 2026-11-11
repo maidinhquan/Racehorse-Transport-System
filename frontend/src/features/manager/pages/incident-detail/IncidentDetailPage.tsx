@@ -6,6 +6,7 @@ import { BackLink, LockedCard, Note, openSampleFile } from '../../components/Com
 import { Modal, ReasonModal } from '../../components/Modals';
 import { useManager } from '../../hooks/useManager';
 import { INCIDENT_TYPE_LABEL, PAYER_LABEL, TRIP_STATUS_LABEL, fmtDateTime, fmtMoney, horseName, reqOfTrip, routeText } from '../../hooks/managerRules';
+import { humanizeLocation, locationBadgeInfo } from '../../../../shared/utils/locationResolver';
 
 /** Chi tiết sự cố: mô tả, biện pháp an toàn, phương án xử lý chờ Manager quyết định, nhật ký */
 export const IncidentDetailPage: React.FC = () => {
@@ -45,7 +46,21 @@ export const IncidentDetailPage: React.FC = () => {
             <div className="mgr-kv">
               <div><span>Báo lúc</span><b>{fmtDateTime(i.at)}</b></div>
               <div><span>Người báo</span><b>{i.by}</b></div>
-              <div><span>Địa điểm</span><b>{i.location}</b></div>
+              <div>
+                <span>Địa điểm</span>
+                {(() => {
+                  const locText = humanizeLocation(i.location, (i as any).locationCoordinates, t);
+                  const { badgeLabel, isStop, cleanText } = locationBadgeInfo(locText);
+                  return (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+                      <span className={`mgr-badge ${isStop ? 'mgr-badge--ok' : 'mgr-badge--info'}`} style={{ fontSize: 11 }}>
+                        {badgeLabel}
+                      </span>
+                      <b>{cleanText}</b>
+                    </div>
+                  );
+                })()}
+              </div>
               <div><span>Ngựa liên quan</span><b>{i.horseId ? horseName(data, i.horseId) : (r?.horses || []).map((h) => horseName(data, h)).join(', ') || 'Không'}</b></div>
             </div>
             <Note tone={i.safety ? 'green' : 'grey'} title="Biện pháp an toàn tức thời">{i.safety || 'Người báo xác nhận người và ngựa an toàn. Chăm sóc khẩn cấp không cần chờ phê duyệt.'}</Note>
