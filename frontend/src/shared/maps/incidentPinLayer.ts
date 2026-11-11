@@ -13,13 +13,63 @@ function ensureStyle() {
   const style = document.createElement('style');
   style.id = INCIDENT_PIN_CSS_ID;
   style.textContent = `
-.rts-inc-pin{position:relative;width:34px;height:34px;display:flex;align-items:center;justify-content:center}
-.rts-inc-pin.is-draggable{cursor:grab}
-.rts-inc-pin.is-draggable:active{cursor:grabbing}
-.rts-inc-pin::before{content:"";position:absolute;inset:0;border-radius:50%;background:rgba(220,38,38,.35);animation:rts-inc-pulse 1.6s ease-out infinite}
-.rts-inc-pin b{position:relative;width:22px;height:22px;border-radius:50%;background:#dc2626;border:3px solid #fff;color:#fff;font:700 13px/16px sans-serif;text-align:center;box-shadow:0 1px 5px rgba(0,0,0,.45)}
-@keyframes rts-inc-pulse{0%{transform:scale(.5);opacity:1}100%{transform:scale(1.2);opacity:0}}
-@media (prefers-reduced-motion:reduce){.rts-inc-pin::before{animation:none}}`;
+.rts-inc-pin {
+  position: relative;
+  width: 32px;
+  height: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  pointer-events: auto;
+}
+.rts-inc-pin.is-draggable { cursor: grab; }
+.rts-inc-pin.is-draggable:active { cursor: grabbing; }
+.rts-inc-pin-badge {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #dc2626;
+  border: 2.5px solid #ffffff;
+  color: #ffffff;
+  font: 800 14px/21px system-ui, -apple-system, sans-serif;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+.rts-inc-pin-tip {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid #dc2626;
+  margin-top: -2px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+  z-index: 2;
+}
+.rts-inc-pin::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(220, 38, 38, 0.45);
+  animation: rts-inc-pulse 1.6s ease-out infinite;
+  z-index: 1;
+}
+@keyframes rts-inc-pulse {
+  0% { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rts-inc-pin::before { animation: none; }
+}`;
   document.head.appendChild(style);
 }
 
@@ -106,12 +156,17 @@ export function drawIncidentPins(
   pins.forEach((pin) => {
     const marker = L.marker([pin.lat, pin.lng], {
       icon: L.divIcon({
-        html: `<div class="rts-inc-pin ${isDraggable ? 'is-draggable' : ''}"><b>!</b></div>`,
+        html: `
+          <div class="rts-inc-pin ${isDraggable ? 'is-draggable' : ''}">
+            <div class="rts-inc-pin-badge">!</div>
+            <div class="rts-inc-pin-tip"></div>
+          </div>
+        `,
         className: '',
-        iconSize: [34, 34],
-        iconAnchor: [17, 17],
+        iconSize: [32, 40],
+        iconAnchor: [16, 38],
       }),
-      zIndexOffset: 2000,
+      zIndexOffset: 3000,
       draggable: isDraggable,
     });
 

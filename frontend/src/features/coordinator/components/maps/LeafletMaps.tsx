@@ -457,10 +457,15 @@ export function IncidentMap({ i, t }: { i: Any; t?: Any }) {
     if (incCoords) {
       ensureIncidentPinStyle();
       const incIcon = L.divIcon({
-        html: `<div class="rts-inc-pin is-draggable" title="Kéo thả dọc theo tuyến đường để định vị sự cố"><b>!</b></div>`,
+        html: `
+          <div class="rts-inc-pin is-draggable" title="Kéo thả dọc theo tuyến đường để định vị sự cố">
+            <div class="rts-inc-pin-badge">!</div>
+            <div class="rts-inc-pin-tip"></div>
+          </div>
+        `,
         className: '',
-        iconSize: [34, 34],
-        iconAnchor: [17, 17],
+        iconSize: [32, 40],
+        iconAnchor: [16, 38],
       });
       const incMarker = L.marker(incCoords, {
         icon: incIcon,

@@ -216,34 +216,51 @@ export function ManagerRouteMap({
   return (
     <div className={`mgr-map-wrap ${isMaximized ? 'is-maximized' : ''}`}>
       <div className="mgr-map-canvas-wrap">
-        <button
-          type="button"
-          className="cus-map-maximize-btn"
-          onClick={() => setIsMaximized((m) => !m)}
-          title={isMaximized ? 'Thu nhỏ (Esc)' : 'Phóng to bản đồ toàn màn hình'}
-        >
-          {isMaximized ? (
-            <>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="4 14 10 14 10 20"></polyline>
-                <polyline points="20 10 14 10 14 4"></polyline>
-                <line x1="14" y1="10" x2="21" y2="3"></line>
-                <line x1="3" y1="21" x2="10" y2="14"></line>
-              </svg>
-              <span>Thu nhỏ (Esc)</span>
-            </>
-          ) : (
-            <>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="15 3 21 3 21 9"></polyline>
-                <polyline points="9 21 3 21 3 15"></polyline>
-                <line x1="21" y1="3" x2="14" y2="10"></line>
-                <line x1="3" y1="21" x2="10" y2="14"></line>
-              </svg>
-              <span>Phóng to bản đồ</span>
-            </>
+        <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, display: 'flex', gap: 8 }}>
+          {incidentPins.length > 0 && (
+            <button
+              type="button"
+              className="cus-map-maximize-btn"
+              onClick={() => {
+                if (mapRef.current && incidentPins[0]) {
+                  mapRef.current.setView([incidentPins[0].lat, incidentPins[0].lng], 13, { animate: true });
+                }
+              }}
+              title="Phóng to vào vị trí điểm sự cố trên tuyến đường"
+              style={{ background: '#fee2e2', borderColor: '#fca5a5', color: '#b91c1c', fontWeight: 600 }}
+            >
+              📍 Tới điểm sự cố
+            </button>
           )}
-        </button>
+          <button
+            type="button"
+            className="cus-map-maximize-btn"
+            onClick={() => setIsMaximized((m) => !m)}
+            title={isMaximized ? 'Thu nhỏ (Esc)' : 'Phóng to bản đồ toàn màn hình'}
+          >
+            {isMaximized ? (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="4 14 10 14 10 20"></polyline>
+                  <polyline points="20 10 14 10 14 4"></polyline>
+                  <line x1="14" y1="10" x2="21" y2="3"></line>
+                  <line x1="3" y1="21" x2="10" y2="14"></line>
+                </svg>
+                <span>Thu nhỏ (Esc)</span>
+              </>
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <polyline points="9 21 3 21 3 15"></polyline>
+                  <line x1="21" y1="3" x2="14" y2="10"></line>
+                  <line x1="3" y1="21" x2="10" y2="14"></line>
+                </svg>
+                <span>Phóng to bản đồ</span>
+              </>
+            )}
+          </button>
+        </div>
         <div ref={box} className="mgr-map" role="img" aria-label="Bản đồ lộ trình" />
       </div>
 
