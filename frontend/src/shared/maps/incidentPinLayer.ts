@@ -4,6 +4,10 @@ import type { IncidentPin } from '../utils/sharedIncidentPins';
 
 export const INCIDENT_PIN_CSS_ID = 'rts-incident-pin-style';
 
+export function ensureIncidentPinStyle() {
+  ensureStyle();
+}
+
 function ensureStyle() {
   if (typeof document === 'undefined' || document.getElementById(INCIDENT_PIN_CSS_ID)) return;
   const style = document.createElement('style');

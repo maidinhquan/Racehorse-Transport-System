@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { Cell, Icon, Pill, PillT, RouteText } from '../../components/common/ui';
 import { CoordinatorLayout } from '../../components/layout/CoordinatorLayout';
+import { IncidentMap } from '../../components/maps/LeafletMaps';
 import { emp, horse, legOf, reqOfTrip, trip, vehicle } from '../../domain/coordinatorRules';
 import type { Any } from '../../store/coordinatorStore';
 import { cleanId, db, go, syncCoordinatorIncidents, useCoordinatorStore } from '../../store/coordinatorStore';
@@ -208,6 +209,9 @@ function HorseHealthCard({ i, liveResolved, liveReferral }: { i: Any; liveResolv
           )}
         </Cell>
       </div>
+
+      {/* Bản đồ vị trí sự cố trên tuyến đường */}
+      <IncidentMap i={i} t={t} />
 
       {/* Sơ cứu khẩn cấp tại chỗ */}
       <div className="note green" style={{ marginTop: 14 }}>
@@ -531,6 +535,9 @@ function InfoCard({ i }: { i: Any }) {
           {tripHorseList.length ? `${tripHorseList.length} con: ${tripHorseList.map((h: string) => horse(h)?.name || h).join(', ')}` : 'Không có ngựa'}
         </Cell>
       </div>
+
+      {/* Bản đồ vị trí sự cố do tài xế báo cáo trên tuyến đường */}
+      <IncidentMap i={i} t={t} />
 
       {/* Khối an toàn & sơ cứu hiện trường */}
       <div className="note green" style={{ marginTop: 14 }}>
