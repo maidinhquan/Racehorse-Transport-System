@@ -5,7 +5,7 @@ import './RouteMap.css';
 import type { RouteStop } from '../../types';
 import { STOP_LABEL } from '../../hooks/driverRules';
 import { addGeoapifyTiles } from '../../../../shared/maps/GeoapifyTiles';
-import { drawIncidentPins } from '../../../../shared/maps/incidentPinLayer';
+import { drawIncidentPins, snapPointToPolyline } from '../../../../shared/maps/incidentPinLayer';
 import type { IncidentPin } from '../../../../shared/utils/sharedIncidentPins';
 import { fetchRoadRoute, fetchTripSegments, inferStopCoords } from '../../../../shared/maps/roadRouting';
 
@@ -51,6 +51,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
   const mapRef = useRef<L.Map | null>(null);
   const layersRef = useRef<L.LayerGroup | null>(null);
   const lastBounds = useRef('');
+  const activeLegCoordsRef = useRef<Array<[number, number]>>([]);
   const [tileError, setTileError] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const missing = stops.filter((stop) => !getStopPosition(stop));
@@ -101,7 +102,12 @@ export const RouteMap: React.FC<RouteMapProps> = ({
     if (!map || !onPick) return;
     const handleClick = (event: L.LeafletMouseEvent) => {
       const point = event.latlng.wrap();
-      onPick({ lat: point.lat, lng: point.lng });
+      if (activeLegCoordsRef.current && activeLegCoordsRef.current.length > 0) {
+        const snapped = snapPointToPolyline(point, activeLegCoordsRef.current);
+        onPick(snapped);
+      } else {
+        onPick({ lat: point.lat, lng: point.lng });
+      }
     };
     map.on('click', handleClick);
     return () => {
@@ -122,11 +128,14 @@ export const RouteMap: React.FC<RouteMapProps> = ({
     });
     const lastConfirmed =
       Number.isInteger(current) && current >= 0 && current < stops.length ? current : -1;
+    const targetLeg = Number.isInteger(current) && current !== undefined && current >= 0 ? current : null;
+    activeLegCoordsRef.current = [];
 
     const polylines: Array<{ legIndex: number; poly: L.Polyline; prevPos: L.LatLngTuple; nextPos: L.LatLngTuple; confirmed: boolean; flight: boolean }> = [];
     for (let i = 1; i < located.length; i++) {
       const previous = located[i - 1], next = located[i];
       if (next.index !== previous.index + 1) continue;
+      const legIndex = i - 1;
       const confirmed = next.index <= lastConfirmed;
       const flight = previous.stop.type === 'AIRPORT' && next.stop.type === 'AIRPORT';
       const poly = L.polyline([previous.position, next.position], {
@@ -137,13 +146,24 @@ export const RouteMap: React.FC<RouteMapProps> = ({
         interactive: false,
       }).addTo(layers);
       polylines.push({
-        legIndex: i - 1,
+        legIndex,
         poly,
         prevPos: previous.position,
         nextPos: next.position,
         confirmed,
         flight,
       });
+
+      const isTargetLeg = targetLeg === null ? true : (previous.index === targetLeg || legIndex === targetLeg);
+      if (isTargetLeg) {
+        const prevTuple: [number, number] = [previous.position[0], previous.position[1]];
+        const nextTuple: [number, number] = [next.position[0], next.position[1]];
+        if (targetLeg !== null) {
+          activeLegCoordsRef.current = [prevTuple, nextTuple];
+        } else {
+          activeLegCoordsRef.current.push(prevTuple, nextTuple);
+        }
+      }
     }
 
     if (!hasAir && located.length === stops.length && located.length >= 2) {
@@ -155,11 +175,18 @@ export const RouteMap: React.FC<RouteMapProps> = ({
           if (seg && seg.length > 1) {
             (poly as any).setLatLngs?.(seg);
             if (!confirmed) poly.setStyle({ dashArray: undefined });
+            const isTargetLeg = targetLeg === null ? false : (targetLeg === legIndex || (located[legIndex] && located[legIndex].index === targetLeg));
+            if (isTargetLeg) {
+              activeLegCoordsRef.current = seg;
+            }
           }
         });
+        if (targetLeg === null) {
+          activeLegCoordsRef.current = segments.flat();
+        }
       });
     } else {
-      polylines.forEach(({ poly, prevPos, nextPos, confirmed, flight }) => {
+      polylines.forEach(({ legIndex, poly, prevPos, nextPos, confirmed, flight }) => {
         if (flight) return;
         void fetchRoadRoute([
           { lat: prevPos[0], lng: prevPos[1] },
@@ -168,6 +195,10 @@ export const RouteMap: React.FC<RouteMapProps> = ({
           if (!isCancelled && roadCoords && roadCoords.length > 1) {
             (poly as any).setLatLngs?.(roadCoords);
             if (!confirmed) poly.setStyle({ dashArray: undefined });
+            const isTargetLeg = targetLeg === null ? false : (targetLeg === legIndex || (located[legIndex] && located[legIndex].index === targetLeg));
+            if (isTargetLeg) {
+              activeLegCoordsRef.current = roadCoords;
+            }
           }
         });
       });
@@ -207,6 +238,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
     drawIncidentPins(layers, JSON.parse(pinsKey) as IncidentPin[], {
       draggable: draggablePin,
       onDrag: onPick,
+      constrainPolyline: () => activeLegCoordsRef.current,
     });
 
     const boundsKey = JSON.stringify(located.map((point) => [point.stop.id, ...point.position]));

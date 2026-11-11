@@ -7,13 +7,14 @@ import type { Trip } from '../../types';
 interface Props {
   trip: Trip;
   ratio: number;
-  onChange: (ratio: number) => void;
+  onChange: (ratio: number, coords?: { lat: number; lng: number }) => void;
+  pickedCoords?: { lat: number; lng: number } | null;
 }
 
 /** Chọn vị trí sự cố trên đoạn đường giữa trạm mới rời (A) và trạm sắp tới (B) */
-export const IncidentLocationPicker: React.FC<Props> = ({ trip, ratio, onChange }) => {
+export const IncidentLocationPicker: React.FC<Props> = ({ trip, ratio, onChange, pickedCoords }) => {
   const { a, b, aIndex } = incidentSegment(trip);
-  const point = a && b ? pointOnSegment(a, b, ratio) : null;
+  const point = pickedCoords || (a && b ? pointOnSegment(a, b, ratio) : null);
   const pins = useMemo(() => point ? [{
     id: 'Sự cố', tripId: trip.id, label: 'Vị trí sự cố', lat: point.lat, lng: point.lng,
     where: incidentWhere(trip, ratio), description: 'Vị trí bạn đang chọn', at: '',
@@ -21,7 +22,7 @@ export const IncidentLocationPicker: React.FC<Props> = ({ trip, ratio, onChange 
   const onPick = useCallback(({ lat, lng }: { lat: number; lng: number }) => {
     if (!a || !b) return;
     const r = ratioOnSegment(a, b, lat, lng);
-    if (r !== null) onChange(r);
+    if (r !== null) onChange(r, { lat, lng });
   }, [a, b, onChange]);
 
   if (!a || !b || !point) return null;

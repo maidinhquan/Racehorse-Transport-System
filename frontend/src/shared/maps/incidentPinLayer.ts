@@ -23,9 +23,76 @@ function ensureStyle() {
   document.head.appendChild(style);
 }
 
+export type PolylineCoords = Array<[number, number]> | Array<{ lat: number; lng: number }>;
+
 export interface DrawIncidentPinsOptions {
   draggable?: boolean;
   onDrag?: (point: { lat: number; lng: number }) => void;
+  /** Giới hạn vị trí ghim chỉ được trượt trên đường gấp khúc/chặng này (dạng mảng toạ độ hoặc hàm getter) */
+  constrainPolyline?: PolylineCoords | (() => PolylineCoords | undefined);
+}
+
+/**
+ * Chiếu vuông góc một điểm (lat, lng) vào đường gấp khúc (polyline).
+ * Điểm trả về luôn nằm chính xác trên một trong các đoạn thẳng của polyline,
+ * trong phạm vi từ điểm đầu đến điểm cuối, không bao giờ văng ra ngoài.
+ */
+export function snapPointToPolyline(
+  point: { lat: number; lng: number },
+  polyline: Array<[number, number]> | Array<{ lat: number; lng: number }>
+): { lat: number; lng: number } {
+  if (!polyline || polyline.length === 0) return point;
+  if (polyline.length === 1) {
+    const p0 = Array.isArray(polyline[0])
+      ? { lat: polyline[0][0], lng: polyline[0][1] }
+      : polyline[0];
+    return { lat: Number(p0.lat.toFixed(6)), lng: Number(p0.lng.toFixed(6)) };
+  }
+
+  const pts: Array<{ lat: number; lng: number }> = polyline.map((p) =>
+    Array.isArray(p) ? { lat: p[0], lng: p[1] } : p
+  );
+
+  let bestDistSq = Infinity;
+  let bestPoint = pts[0];
+
+  const midLat = point.lat;
+  const rad = Math.PI / 180;
+  const cosLat = Math.cos(midLat * rad);
+
+  for (let i = 0; i < pts.length - 1; i++) {
+    const pA = pts[i];
+    const pB = pts[i + 1];
+
+    const dx = (pB.lng - pA.lng) * cosLat;
+    const dy = pB.lat - pA.lat;
+    const segLenSq = dx * dx + dy * dy;
+
+    let t = 0;
+    if (segLenSq > 1e-12) {
+      const px = (point.lng - pA.lng) * cosLat;
+      const py = point.lat - pA.lat;
+      t = (px * dx + py * dy) / segLenSq;
+      t = Math.max(0, Math.min(1, t));
+    }
+
+    const projLat = pA.lat + t * (pB.lat - pA.lat);
+    const projLng = pA.lng + t * (pB.lng - pA.lng);
+
+    const distDx = (point.lng - projLng) * cosLat;
+    const distDy = point.lat - projLat;
+    const distSq = distDx * distDx + distDy * distDy;
+
+    if (distSq < bestDistSq) {
+      bestDistSq = distSq;
+      bestPoint = { lat: projLat, lng: projLng };
+    }
+  }
+
+  return {
+    lat: Number(bestPoint.lat.toFixed(6)),
+    lng: Number(bestPoint.lng.toFixed(6)),
+  };
 }
 
 /** Thêm các ghim sự cố vào một lớp (hoặc bản đồ). Hỗ trợ kéo trực tiếp trên bản đồ khi draggable=true */
@@ -48,16 +115,36 @@ export function drawIncidentPins(
       draggable: isDraggable,
     });
 
-    if (isDraggable && options?.onDrag) {
+    if (isDraggable) {
+      const getPoly = () => {
+        if (typeof options?.constrainPolyline === 'function') {
+          return options.constrainPolyline();
+        }
+        return options?.constrainPolyline;
+      };
+
+      const snap = (raw: L.LatLng) => {
+        const poly = getPoly();
+        if (poly && poly.length > 0) {
+          return snapPointToPolyline(raw, poly);
+        }
+        return { lat: Number(raw.lat.toFixed(6)), lng: Number(raw.lng.toFixed(6)) };
+      };
+
       marker.on('drag', (e: L.LeafletEvent) => {
         const targetMarker = e.target as L.Marker;
         const ll = targetMarker.getLatLng().wrap();
-        options.onDrag!({ lat: ll.lat, lng: ll.lng });
+        const snapped = snap(ll);
+        targetMarker.setLatLng([snapped.lat, snapped.lng]);
+        options?.onDrag?.(snapped);
       });
+
       marker.on('dragend', (e: L.LeafletEvent) => {
         const targetMarker = e.target as L.Marker;
         const ll = targetMarker.getLatLng().wrap();
-        options.onDrag!({ lat: ll.lat, lng: ll.lng });
+        const snapped = snap(ll);
+        targetMarker.setLatLng([snapped.lat, snapped.lng]);
+        options?.onDrag?.(snapped);
       });
     }
 

@@ -9,8 +9,8 @@ import { db, useCoordinatorStore } from '../../store/coordinatorStore';
 import { STOP_LABEL, dt, incTypeVi } from '../../utils/format';
 import { fmtMin, kmBetween, PF, PF_COLOR, RP, plannerMap, ROUTE_POLICY, rpCalc, rpCandidates, rpCoords, rpEditable, rpFocus, rpGroups, rpPick, rpRoute, rpRouteKey, rpSeg } from '../../workflows/routePlanner';
 import { Empty, Icon } from '../common/ui';
-import { drawIncidentPins, ensureIncidentPinStyle } from '../../../../shared/maps/incidentPinLayer';
-import { getIncidentPins, useIncidentPins } from '../../../../shared/utils/sharedIncidentPins';
+import { drawIncidentPins, ensureIncidentPinStyle, snapPointToPolyline } from '../../../../shared/maps/incidentPinLayer';
+import { getIncidentPins, saveIncidentPin, useIncidentPins } from '../../../../shared/utils/sharedIncidentPins';
 import { fetchRoadRoute, fetchTripSegments, inferStopCoords } from '../../../../shared/maps/roadRouting';
 import { getUserFullName } from '../../../../shared/utils/userNameResolver';
 
@@ -287,7 +287,7 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
 // ---------------------------------------------------------------------------
 const cleanIdKey = (s: string) => String(s || '').replace(/[-_]/g, '').toUpperCase();
 
-export function parseIncidentCoords(i: Any, t?: Any): [number, number] | null {
+function parseIncidentCoords(i: Any, t?: Any): [number, number] | null {
   if (!i) return null;
   // 1. i.locationCoordinates (chuỗi "10.928900,108.102100" hoặc có khoảng trắng)
   if (typeof i.locationCoordinates === 'string') {
@@ -339,9 +339,11 @@ export function parseIncidentCoords(i: Any, t?: Any): [number, number] | null {
 export function IncidentMap({ i, t }: { i: Any; t?: Any }) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const routeCoordsRef = useRef<Array<[number, number]>>([]);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [liveCoords, setLiveCoords] = useState<[number, number] | null>(() => parseIncidentCoords(i, t));
 
-  const incCoords = parseIncidentCoords(i, t);
+  const incCoords = liveCoords || parseIncidentCoords(i, t);
 
   const rawStops: Any[] = t ? (tripStops(t) || t.stops || []) : [];
   const stops = rawStops.map((s: Any) => {
@@ -401,6 +403,9 @@ export function IncidentMap({ i, t }: { i: Any; t?: Any }) {
       return Number.isFinite(lat) && Number.isFinite(lng) ? ([lat, lng] as [number, number]) : null;
     });
 
+    const validPts = pts.filter((p): p is [number, number] => p !== null);
+    routeCoordsRef.current = validPts;
+
     const polylines: Array<{ index: number; poly: L.Polyline; a: [number, number]; b: [number, number] }> = [];
     for (let idx = 1; idx < pts.length; idx++) {
       if (!pts[idx - 1] || !pts[idx]) continue;
@@ -414,9 +419,8 @@ export function IncidentMap({ i, t }: { i: Any; t?: Any }) {
     }
 
     if (pts.length >= 2) {
-      const validPoints = pts.filter((p): p is [number, number] => p !== null);
-      if (validPoints.length === stops.length) {
-        void fetchTripSegments(validPoints.map(([lat, lng]) => ({ lat, lng }))).then((segments) => {
+      if (validPts.length === stops.length) {
+        void fetchTripSegments(validPts.map(([lat, lng]) => ({ lat, lng }))).then((segments) => {
           if (isCancelled) return;
           polylines.forEach(({ index, poly }) => {
             const seg = segments[index];
@@ -424,6 +428,12 @@ export function IncidentMap({ i, t }: { i: Any; t?: Any }) {
               (poly as Any).setLatLngs?.(seg);
             }
           });
+          const legIdx = typeof i?.leg === 'number' ? i.leg : null;
+          if (legIdx !== null && segments[legIdx] && segments[legIdx].length > 1) {
+            routeCoordsRef.current = segments[legIdx];
+          } else {
+            routeCoordsRef.current = segments.flat();
+          }
         });
       }
     }
@@ -443,11 +453,11 @@ export function IncidentMap({ i, t }: { i: Any; t?: Any }) {
         .addTo(map);
     });
 
-    // 2. Vẽ điểm sự cố nổi bật với hiệu ứng nhấp nháy đỏ
+    // 2. Vẽ điểm sự cố nổi bật với hiệu ứng nhấp nháy đỏ & khoá trượt trên tuyến đường
     if (incCoords) {
       ensureIncidentPinStyle();
       const incIcon = L.divIcon({
-        html: `<div class="rts-inc-pin"><b>!</b></div>`,
+        html: `<div class="rts-inc-pin is-draggable" title="Kéo thả dọc theo tuyến đường để định vị sự cố"><b>!</b></div>`,
         className: '',
         iconSize: [34, 34],
         iconAnchor: [17, 17],
@@ -455,7 +465,59 @@ export function IncidentMap({ i, t }: { i: Any; t?: Any }) {
       const incMarker = L.marker(incCoords, {
         icon: incIcon,
         zIndexOffset: 3000,
+        draggable: true,
       }).addTo(map);
+
+      const snap = (raw: L.LatLng): [number, number] => {
+        if (routeCoordsRef.current && routeCoordsRef.current.length > 0) {
+          const s = snapPointToPolyline(raw, routeCoordsRef.current);
+          return [s.lat, s.lng];
+        }
+        return [Number(raw.lat.toFixed(6)), Number(raw.lng.toFixed(6))];
+      };
+
+      const persistPin = (coords: [number, number]) => {
+        const coordsStr = `${coords[0].toFixed(6)},${coords[1].toFixed(6)}`;
+        i.locationCoordinates = coordsStr;
+        i.lat = coords[0];
+        i.lng = coords[1];
+        if (i.tripId) {
+          saveIncidentPin({
+            id: i.id,
+            tripId: i.tripId,
+            label: incTypeVi(i.type),
+            lat: coords[0],
+            lng: coords[1],
+            where: i.location || coordsStr,
+            description: i.description || '',
+            at: i.at || '',
+          });
+        }
+      };
+
+      incMarker.on('drag', (e: L.LeafletEvent) => {
+        const targetMarker = e.target as L.Marker;
+        const snapped = snap(targetMarker.getLatLng().wrap());
+        targetMarker.setLatLng(snapped);
+        setLiveCoords(snapped);
+      });
+
+      incMarker.on('dragend', (e: L.LeafletEvent) => {
+        const targetMarker = e.target as L.Marker;
+        const snapped = snap(targetMarker.getLatLng().wrap());
+        targetMarker.setLatLng(snapped);
+        setLiveCoords(snapped);
+        persistPin(snapped);
+      });
+
+      map.on('click', (e: L.LeafletMouseEvent) => {
+        if (routeCoordsRef.current && routeCoordsRef.current.length > 0) {
+          const snapped = snap(e.latlng.wrap());
+          incMarker.setLatLng(snapped);
+          setLiveCoords(snapped);
+          persistPin(snapped);
+        }
+      });
 
       incMarker.bindTooltip(`⚠️ Điểm sự cố: ${esc(i?.id || 'INC')} • ${esc(incTypeVi(i?.type))}`, {
         direction: 'top',
@@ -533,7 +595,7 @@ export function IncidentMap({ i, t }: { i: Any; t?: Any }) {
           </span>
           {incCoords && (
             <span style={{ fontSize: 11, background: '#fee2e2', color: '#b91c1c', fontWeight: 600, padding: '2px 8px', borderRadius: 12 }}>
-              GPS: {incCoords[0].toFixed(5)}, {incCoords[1].toFixed(5)}
+              GPS: {incCoords[0].toFixed(5)}, {incCoords[1].toFixed(5)} (Kéo thả trên tuyến)
             </span>
           )}
         </div>
@@ -575,7 +637,7 @@ export function IncidentMap({ i, t }: { i: Any; t?: Any }) {
         }}
       />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, fontSize: 12, color: '#64748b', flexWrap: 'wrap', gap: 4 }}>
-        <span>🔴 <b>Điểm đỏ nhấp nháy (!):</b> Vị trí sự cố do tài xế báo cáo • 🔵 <b>Số 1..N:</b> Các điểm dừng trên lộ trình</span>
+        <span>🔴 <b>Điểm đỏ (!):</b> Vị trí sự cố • 🔵 <b>Số 1..N:</b> Các mốc dừng • <span style={{ color: '#0369a1' }}>📍 Kéo ghim (!) để trượt vị trí dọc theo tuyến (cố định trên lộ trình, không thể kéo ra ngoài)</span></span>
         {i?.location && <span>Địa điểm ghi nhận: <b>{i.location}</b></span>}
       </div>
     </div>

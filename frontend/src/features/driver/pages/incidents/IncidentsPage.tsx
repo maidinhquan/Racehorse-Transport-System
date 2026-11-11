@@ -122,6 +122,7 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
   const [severity, setSeverity] = useState<IncidentSeverity | ''>(() => (isVet ? 'HIGH' : ''));
   const [locationDetail, setLocationDetail] = useState('');
   const [ratio, setRatio] = useState(() => defaultSegmentRatio(trip));
+  const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
   const pickable = segmentPickable(trip);
   const [description, setDescription] = useState('');
   const [safe, setSafe] = useState(false);
@@ -154,6 +155,7 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
       locationDetail,
       safe,
       ratio: pickable ? ratio : 0,
+      coordinates: pickedCoords || undefined,
       horseId: isHorseIssue ? selectedHorseId : undefined,
       horseName: isHorseIssue ? horseName : undefined,
       healthIssueType: isHorseIssue ? healthIssue : undefined,
@@ -168,6 +170,7 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
     setDescription('');
     setImmediateCare('');
     setSafe(false);
+    setPickedCoords(null);
     setRatio(defaultSegmentRatio(trip));
   };
 
@@ -310,7 +313,17 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
         <div><span>Thời điểm</span><b>{fmtDateTime(nowStamp())}</b></div>
         <div><span>Vị trí</span><b>{incidentWhere(trip, pickable ? ratio : 0)}</b></div>
       </div>
-      {pickable && <IncidentLocationPicker trip={trip} ratio={ratio} onChange={setRatio} />}
+      {pickable && (
+        <IncidentLocationPicker
+          trip={trip}
+          ratio={ratio}
+          pickedCoords={pickedCoords}
+          onChange={(r, coords) => {
+            setRatio(r);
+            if (coords) setPickedCoords(coords);
+          }}
+        />
+      )}
       <div className="drv-field" style={{ marginTop: 10 }}>
         <label htmlFor="inc-loc">Chi tiết vị trí (không bắt buộc)</label>
         <input id="inc-loc" className="drv-input" value={locationDetail} onChange={(e) => setLocationDetail(e.target.value)} placeholder="VD: km 42, gần cây xăng Petrolimex" />
