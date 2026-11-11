@@ -70,6 +70,7 @@ import {
   AuditPage,
   SpecialistProfilePage,
   SpecialistNotificationsPage,
+  SpecialistIncidentsPage,
 } from "../../features/specialist";
 import { SpecialistRequestReviewsPage } from "../../features/specialist/pages/request-reviews/SpecialistRequestReviewsPage";
 import { CoordinatorRequestReviewsPage } from "../../features/coordinator/pages/request-reviews/CoordinatorRequestReviewsPage";
@@ -89,6 +90,22 @@ import {
 import { LandingPage } from "../../features/landing/LandingPage";
 import ApiDemoPage from "../../features/demo/ApiDemoPage";
 import { RequireAuth } from "../../features/auth/RequireAuth";
+
+function NotFoundRedirect() {
+  const token = typeof sessionStorage !== 'undefined' ? (sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken')) : null;
+  const role = typeof sessionStorage !== 'undefined' ? (sessionStorage.getItem('userRole') || localStorage.getItem('userRole')) : null;
+  if (token && role) {
+    switch (role.toUpperCase()) {
+      case 'CUSTOMER': return <Navigate to="/customer/home" replace />;
+      case 'LOGISTICS_MANAGER': return <Navigate to="/manager/dashboard" replace />;
+      case 'FLEET_COORDINATOR': return <Navigate to="/coordinator/dashboard" replace />;
+      case 'TRANSPORT_SPECIALIST': return <Navigate to="/specialist/dashboard" replace />;
+      case 'DRIVER': return <Navigate to="/driver/journey" replace />;
+      case 'ADMIN': return <Navigate to="/admin/dashboard" replace />;
+    }
+  }
+  return <Navigate to="/login" replace />;
+}
 
 function AppRouter() {
   return (
@@ -177,7 +194,8 @@ function AppRouter() {
         <Route path="/specialist/documents/:docId" element={<DocumentReviewPage />} />
         <Route path="/specialist/regulations" element={<RegulationsPage />} />
         <Route path="/specialist/regulations/:tab" element={<RegulationsPage />} />
-        <Route path="/specialist/incidents" element={<Navigate to="/specialist/dashboard" replace />} />
+        <Route path="/specialist/incidents" element={<SpecialistIncidentsPage />} />
+        <Route path="/specialist/incidents/:tripId" element={<SpecialistIncidentsPage />} />
         <Route path="/specialist/audit" element={<AuditPage />} />
         {/* Legacy redirects */}
         <Route path="/specialist/master" element={<Navigate to="/specialist/regulations" replace />} />
@@ -232,7 +250,7 @@ function AppRouter() {
         <Route path="/demo-api" element={<ApiDemoPage />} />
 
         {/* ==================== NOT FOUND ==================== */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<NotFoundRedirect />} />
       </Routes>
     </BrowserRouter>
   );

@@ -134,15 +134,45 @@ export default function SandboxPaymentPage() {
         {checking && <p role="status">Đang chờ xác nhận giao dịch…</p>}
         {payment?.status === 'Pending' && !checking && <p>Chưa nhận được IPN. Kiểm tra URL IPN công khai đã đăng ký với VNPAY, rồi tải lại trang.</p>}
         <div style={{ marginTop: 24, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          {sessionStorage.getItem('last_payment_request_id') ? (
-            <Link to={`/customer/requests/${sessionStorage.getItem('last_payment_request_id')}/handover`} style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
-              Quay về yêu cầu {sessionStorage.getItem('last_payment_request_id')}
-            </Link>
-          ) : (
-            <Link to="/customer/requests" style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
-              Quay về danh sách yêu cầu của tôi
-            </Link>
-          )}
+          {(() => {
+            const role = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userRole') : null)
+              || (typeof localStorage !== 'undefined' ? localStorage.getItem('userRole') : null) || '';
+            const isManager = role.toUpperCase() === 'LOGISTICS_MANAGER';
+            const reqId = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('last_payment_request_id') : null;
+
+            if (isManager) {
+              return (
+                <>
+                  {reqId ? (
+                    <Link to={`/manager/requests/${reqId}/closure`} style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
+                      Quay về yêu cầu {reqId} (Tất toán & đóng đơn)
+                    </Link>
+                  ) : (
+                    <Link to="/manager/reports" style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
+                      Về Báo cáo chi phí
+                    </Link>
+                  )}
+                  <Link to="/manager/requests" style={{ padding: '8px 16px', background: '#e2e8f0', color: '#1e293b', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
+                    Danh sách yêu cầu
+                  </Link>
+                </>
+              );
+            }
+
+            return (
+              <>
+                {reqId ? (
+                  <Link to={`/customer/requests/${reqId}/handover`} style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
+                    Quay về yêu cầu {reqId}
+                  </Link>
+                ) : (
+                  <Link to="/customer/requests" style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
+                    Quay về danh sách yêu cầu của tôi
+                  </Link>
+                )}
+              </>
+            );
+          })()}
           <Link to="/payment/sandbox" style={{ padding: '8px 16px', background: '#f1f5f9', color: '#334155', borderRadius: 6, textDecoration: 'none' }}>
             Thử giao dịch khác
           </Link>

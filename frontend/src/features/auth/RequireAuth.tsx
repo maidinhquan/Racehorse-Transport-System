@@ -32,8 +32,16 @@ export const RequireAuth: React.FC<RequireAuthProps> = ({ children, allowedRoles
     const normalizedRole = role.toUpperCase();
     const hasRole = allowedRoles.some((r) => r.toUpperCase() === normalizedRole);
     if (!hasRole) {
-      // Role hiện tại không khớp quyền trang này -> Chuyển hướng sang trang Login
-      return <Navigate to="/login" state={{ from: location }} replace />;
+      // Role hiện tại không khớp quyền trang này -> Chuyển về Dashboard của chính role đó thay vì đá ra login
+      switch (normalizedRole) {
+        case 'CUSTOMER': return <Navigate to="/customer/home" replace />;
+        case 'LOGISTICS_MANAGER': return <Navigate to="/manager/dashboard" replace />;
+        case 'FLEET_COORDINATOR': return <Navigate to="/coordinator/dashboard" replace />;
+        case 'TRANSPORT_SPECIALIST': return <Navigate to="/specialist/dashboard" replace />;
+        case 'DRIVER': return <Navigate to="/driver/journey" replace />;
+        case 'ADMIN': return <Navigate to="/admin/dashboard" replace />;
+        default: return <Navigate to="/login" state={{ from: location }} replace />;
+      }
     }
   }
 
