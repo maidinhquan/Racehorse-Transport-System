@@ -156,7 +156,7 @@ public class PickupAccessService : IPickupAccessService
 
         if (dto.ResolutionType == "RELOCATING")
         {
-            // Nhánh < 500m: Dắt bộ ra điểm hẹn ngoài đường lớn
+            // Nhánh: Dắt bộ ra điểm hẹn ngoài đường lớn (Miễn phí 0 VNĐ)
             if (!dto.MeetingLatitude.HasValue || !dto.MeetingLongitude.HasValue)
                 throw new ArgumentException("Tọa độ điểm hẹn là bắt buộc khi chọn phương án dắt bộ (RELOCATING).");
 
@@ -167,7 +167,7 @@ public class PickupAccessService : IPickupAccessService
             trip.ShuttleCostVnd = 0; // Dắt bộ miễn phí
             trip.ShuttleVehicleId = null;
             trip.ShuttleDriverId = null;
-            trip.CustomerApprovalStatus = "PENDING";
+            trip.CustomerApprovalStatus = "APPROVED"; // Miễn phí, phát lệnh trực tiếp cho tài xế thi hành ngay
         }
         else if (dto.ResolutionType == "SHUTTLING")
         {
@@ -187,6 +187,17 @@ public class PickupAccessService : IPickupAccessService
         else
         {
             throw new ArgumentException("Loại phương án không hợp lệ. Chỉ chấp nhận RELOCATING hoặc SHUTTLING.");
+        }
+
+        // Cập nhật trực tiếp vào bản ghi sự cố để tài xế nhận diện được chỉ đạo và phương án xử lý
+        string planDescription = $"Phương án dắt bộ ra điểm hẹn mới: {trip.RelocationMeetingPointName} (Cự ly: {trip.RelocationDistanceMeters ?? 0}m - 0 VNĐ)";
+        var activeIncidents = await QueryActivePickupIncidents(tripId, trip.TripId).ToListAsync();
+        foreach (var inc in activeIncidents)
+        {
+            inc.ResolutionNotes = planDescription;
+            inc.ResolutionType = "PICKUP_RELOCATE";
+            inc.Status = "IN_PROGRESS";
+            inc.SafetyBlockerActive = false;
         }
 
         await _context.SaveChangesAsync();

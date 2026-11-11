@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PickupAccessResolutionMap } from './PickupAccessResolutionMap';
 import { pickupAccessApi, type PickupAccessResolutionRequest, type PickupAccessStatusResponse } from '../../api/pickupAccessApi';
 import { db, commit, toast } from '../../store/coordinatorStore';
+import { notifySync } from '../../../../shared/utils/syncChannel';
 
 export interface PickupAccessResolutionModalProps {
   isOpen: boolean;
@@ -155,6 +156,7 @@ export const PickupAccessResolutionModal: React.FC<PickupAccessResolutionModalPr
       }
 
       commit();
+      notifySync('requests_updated');
 
       toast('Đã lập phương án giải quyết và phát lệnh điều động cho Tài xế.');
       onSuccess?.(result);

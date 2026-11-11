@@ -302,6 +302,10 @@ public class Flow5IncidentService : IFlow5IncidentService
                 var ap = plans.LastOrDefault(p => p.Status == "APPROVED" || p.Status == "APPLIED");
                 approvedPlan = ap?.Summary;
             }
+            if (string.IsNullOrWhiteSpace(approvedPlan) && trip?.PickupAccessStatus == "RELOCATING")
+            {
+                approvedPlan = $"Phương án dắt bộ ra điểm hẹn mới: {trip.RelocationMeetingPointName ?? "Điểm tập kết ngoài đường lớn"}";
+            }
 
             bool isSceneReady = false;
             string? sceneAckRole = null;
@@ -386,11 +390,16 @@ public class Flow5IncidentService : IFlow5IncidentService
             };
         }
 
+        var trip = await _context.TripPlans.AsNoTracking().FirstOrDefaultAsync(t => t.TripId == incident.TripId);
         string? approvedPlan = incident.ResolutionNotes;
         if (string.IsNullOrWhiteSpace(approvedPlan) && _planStore.TryGetValue(incident.IncidentId, out var plans) && plans.Count > 0)
         {
             var ap = plans.LastOrDefault(p => p.Status == "APPROVED" || p.Status == "APPLIED");
             approvedPlan = ap?.Summary;
+        }
+        if (string.IsNullOrWhiteSpace(approvedPlan) && trip?.PickupAccessStatus == "RELOCATING")
+        {
+            approvedPlan = $"Phương án dắt bộ ra điểm hẹn mới: {trip.RelocationMeetingPointName ?? "Điểm tập kết ngoài đường lớn"}";
         }
 
         bool isSceneReady = false;
@@ -410,7 +419,6 @@ public class Flow5IncidentService : IFlow5IncidentService
         }
 
         var vMetaDetail = _vetMetaStore.TryGetValue(incident.IncidentId, out var vmD) ? vmD : null;
-        var trip = await _context.TripPlans.AsNoTracking().FirstOrDefaultAsync(t => t.TripId == incident.TripId);
         string? blockedImg = null;
         string? relocImg = null;
         if (!string.IsNullOrWhiteSpace(incident.ImageUrl))

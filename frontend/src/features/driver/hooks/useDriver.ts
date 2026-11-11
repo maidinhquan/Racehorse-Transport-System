@@ -14,7 +14,7 @@ import type {
 } from '../types';
 import { saveIncidentPin } from '../../../shared/utils/sharedIncidentPins';
 import { driverApi, saveLocalIncident } from '../api/driverApi';
-import { notifySync } from '../../../shared/utils/syncChannel';
+import { notifySync, onSync } from '../../../shared/utils/syncChannel';
 import { saveSharedIncident } from '../../../shared/utils/sharedIncidents';
 import { tripFromTracking } from '../api/flow4Mapper';
 import { flow4Api } from '../../tracking/api/flow4Api';
@@ -180,6 +180,18 @@ if (typeof window !== 'undefined') {
     }));
   };
   window.addEventListener('rts_pickup_resolution_updated', handlePickupResolution);
+
+  onSync((msg) => {
+    if (msg.type === 'requests_updated' || msg.type === 'refresh_all') {
+      void reloadIncidents();
+      void loadAll();
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    void reloadIncidents();
+    void loadAll();
+  });
 }
 
 const findTrip = (tripId: string) => state.trips.find((t) => t.id === tripId);
@@ -232,6 +244,21 @@ async function buildLiveTrip(id: string, f6?: { tripId: string; requestId: strin
     if (storedStatus && !mapped.trip.pickupAccessStatus) {
       mapped.trip.pickupAccessStatus = storedStatus as any;
     }
+
+    try {
+      const liveStatus = await driverApi.getPickupAccessStatus(id);
+      if (liveStatus && liveStatus.pickupAccessStatus && liveStatus.pickupAccessStatus !== 'NORMAL') {
+        mapped.trip.pickupAccessStatus = liveStatus.pickupAccessStatus;
+        if (liveStatus.relocationMeetingPointName) {
+          mapped.trip.relocationMeetingPointName = liveStatus.relocationMeetingPointName;
+        }
+        if (liveStatus.relocationLatitude) mapped.trip.relocationLatitude = liveStatus.relocationLatitude;
+        if (liveStatus.relocationLongitude) mapped.trip.relocationLongitude = liveStatus.relocationLongitude;
+        if (liveStatus.relocationDistanceMeters) mapped.trip.relocationDistanceMeters = liveStatus.relocationDistanceMeters;
+        mapped.trip.customerApprovalStatus = liveStatus.customerApprovalStatus || 'APPROVED';
+      }
+    } catch {}
+
     return mapped;
   }
   const trip: Trip = {

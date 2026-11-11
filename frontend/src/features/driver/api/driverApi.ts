@@ -516,10 +516,23 @@ export const driverApi = {
 
   /** Tra cứu trạng thái ngoại lệ điểm đón */
   getPickupAccessStatus: async (tripId: string) => {
-    const res = await apiClient.get<ApiResponse<any>>(
-      `/customer/trips/${tripId}/pickup-access-status`
-    );
-    return res.data?.data;
+    try {
+      const res = await apiClient.get<ApiResponse<any>>(
+        `/driver/trips/${tripId}/pickup-access-status`
+      );
+      if (res.data?.success !== false && res.data?.data) {
+        return res.data.data;
+      }
+    } catch {}
+    try {
+      const res = await apiClient.get<ApiResponse<any>>(
+        `/coordinator/trips/${tripId}/pickup-access-status`
+      );
+      if (res.data?.success !== false && res.data?.data) {
+        return res.data.data;
+      }
+    } catch {}
+    return null;
   },
 };
 

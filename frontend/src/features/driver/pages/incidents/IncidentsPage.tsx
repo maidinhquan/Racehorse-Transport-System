@@ -5,6 +5,7 @@ import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadg
 import { IncidentLocationPicker } from '../../components/IncidentLocationPicker/IncidentLocationPicker';
 import { PhotoPicker } from '../../components/PhotoPicker/PhotoPicker';
 import { Modal } from '../../components/Modals/Modal';
+import { PickupAccessOrderBanner } from '../../components/PickupAccessOrderBanner';
 import { useDriver } from '../../hooks/useDriver';
 import { driverApi } from '../../api/driverApi';
 import { INCIDENT_TYPE_LABEL, SEVERITY_LABEL, defaultSegmentRatio, fmtDateTime, incidentWhere, nowStamp, segmentPickable } from '../../hooks/driverRules';
@@ -95,6 +96,7 @@ const PLAN_TYPE_LABEL: Record<string, string> = {
   ROUTE_ADJUST: 'Điều chỉnh lộ trình trong tuyến pháp lý đã duyệt',
   COORDINATOR_APPLIED: 'Phương án xử lý được Điều phối viên phê duyệt',
   VET_TRANSFER: 'Chuyển viện khẩn cấp đến cơ sở y tế chuyên khoa',
+  PICKUP_RELOCATE: 'Dắt bộ ra điểm hẹn mới',
 };
 
 /** Form báo cáo sự cố cho chuyến đang hoạt động */
@@ -845,6 +847,13 @@ export const IncidentsPage: React.FC = () => {
               </select>
             )}
           </div>
+
+          <PickupAccessOrderBanner
+            trip={trip}
+            onAcknowledge={() => actions.acknowledgePickupResolution(trip.id)}
+            onConfirmResolved={() => actions.confirmPickupAccessResolved(trip.id)}
+          />
+
           <div className="drv-grid2">
             <ReportForm key={trip.id} trip={trip} />
             <div className="drv-card">
