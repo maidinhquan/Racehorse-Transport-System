@@ -1467,6 +1467,186 @@ public class Flow5IncidentService : IFlow5IncidentService
         return Task.FromResult(new List<TerminationProposalDto>());
     }
 
+    // ==========================================
+    // VETERINARY FACILITIES CATALOG & SMART SUGGESTION
+    // ==========================================
+    public async Task<List<VetFacilityDto>> GetVetFacilitiesAsync(string? tripId, string? province, decimal? lat, decimal? lng)
+    {
+        string? resolvedProvince = province;
+        if (string.IsNullOrWhiteSpace(resolvedProvince) && !string.IsNullOrWhiteSpace(tripId))
+        {
+            try
+            {
+                var trip = await _context.TripPlans.AsNoTracking().FirstOrDefaultAsync(t => t.TripId == tripId);
+                if (trip != null)
+                {
+                    resolvedProvince = ExtractProvinceFromTrip(trip);
+                }
+            }
+            catch
+            {
+                // Bỏ qua lỗi truy vấn phụ
+            }
+        }
+
+        var facilities = await _context.PartnerFacilities.AsNoTracking()
+            .Where(f => f.FacilityType == "VET_CLINIC" && (f.Status == "ACTIVE" || string.IsNullOrEmpty(f.Status)))
+            .ToListAsync();
+
+        var result = new List<VetFacilityDto>();
+
+        foreach (var f in facilities)
+        {
+            var dto = new VetFacilityDto
+            {
+                FacilityId = f.FacilityId,
+                Name = f.Name,
+                FacilityType = f.FacilityType ?? "VET_CLINIC",
+                CountryCode = f.CountryCode,
+                StateProvince = f.StateProvince,
+                City = f.City,
+                Address = f.Address,
+                Coordinates = f.Coordinates,
+                Latitude = f.Latitude,
+                Longitude = f.Longitude,
+                ContactPerson = f.ContactPerson,
+                ContactPhone = f.ContactPhone,
+                OperatingHours = f.OperatingHours ?? "24/7",
+                Region = DetermineRegion(f.CountryCode, f.StateProvince)
+            };
+
+            if (lat.HasValue && lng.HasValue && f.Latitude.HasValue && f.Longitude.HasValue)
+            {
+                double distM = CalculateHaversineDistanceM((double)lat.Value, (double)lng.Value, (double)f.Latitude.Value, (double)f.Longitude.Value);
+                dto.DistanceKm = Math.Round(distM / 1000.0, 1);
+            }
+
+            if (!string.IsNullOrWhiteSpace(resolvedProvince))
+            {
+                dto.IsSuggested = IsProvinceMatch(f.StateProvince, f.City, f.Address, resolvedProvince);
+            }
+
+            result.Add(dto);
+        }
+
+        return result
+            .OrderByDescending(x => x.IsSuggested)
+            .ThenBy(x => x.DistanceKm.HasValue ? x.DistanceKm.Value : 999999)
+            .ThenBy(x => x.Region)
+            .ThenBy(x => x.Name)
+            .ToList();
+    }
+
+    private static string DetermineRegion(string? countryCode, string? province)
+    {
+        if (countryCode != null && countryCode != "VN")
+        {
+            return "INTERNATIONAL";
+        }
+
+        if (string.IsNullOrWhiteSpace(province)) return "OTHER";
+
+        var p = province.ToLowerInvariant();
+        if (p.Contains("hà nội") || p.Contains("ha noi") || p.Contains("thái nguyên") || p.Contains("thai nguyen") ||
+            p.Contains("lạng sơn") || p.Contains("lang son") || p.Contains("quảng ninh") || p.Contains("quang ninh") ||
+            p.Contains("hải phòng") || p.Contains("hai phong") || p.Contains("bắc ninh") || p.Contains("hưng yên"))
+        {
+            return "NORTH";
+        }
+
+        if (p.Contains("huế") || p.Contains("hue") || p.Contains("đà nẵng") || p.Contains("da nang") ||
+            p.Contains("quảng nam") || p.Contains("quang nam") || p.Contains("bình định") || p.Contains("binh dinh") ||
+            p.Contains("khánh hòa") || p.Contains("khanh hoa") || p.Contains("nha trang") || p.Contains("quảng ngãi"))
+        {
+            return "CENTRAL";
+        }
+
+        if (p.Contains("hồ chí minh") || p.Contains("ho chi minh") || p.Contains("hcm") || p.Contains("tp.hcm") ||
+            p.Contains("bình dương") || p.Contains("binh duong") || p.Contains("đồng nai") || p.Contains("dong nai") ||
+            p.Contains("tây ninh") || p.Contains("tay ninh") || p.Contains("cần thơ") || p.Contains("can tho") ||
+            p.Contains("long an") || p.Contains("tiền giang"))
+        {
+            return "SOUTH";
+        }
+
+        return "OTHER";
+    }
+
+    private static bool IsProvinceMatch(string? stateProvince, string? city, string? address, string searchProvince)
+    {
+        if (string.IsNullOrWhiteSpace(searchProvince)) return false;
+        var q = searchProvince.Trim().ToLowerInvariant()
+            .Replace("thành phố", "")
+            .Replace("tp.", "")
+            .Replace("tp", "")
+            .Replace("tỉnh", "")
+            .Trim();
+
+        if (string.IsNullOrWhiteSpace(q)) return false;
+
+        bool CheckText(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            var t = text.ToLowerInvariant();
+            if (t.Contains(q)) return true;
+            if ((q.Contains("hcm") || q.Contains("hồ chí minh") || q.Contains("sài gòn")) &&
+                (t.Contains("hồ chí minh") || t.Contains("tp.hcm") || t.Contains("hcm") || t.Contains("sài gòn")))
+            {
+                return true;
+            }
+            if ((q.Contains("hn") || q.Contains("hà nội")) && (t.Contains("hà nội") || t.Contains("ha noi") || t.Contains("hn")))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        return CheckText(stateProvince) || CheckText(city) || CheckText(address);
+    }
+
+    private static string? ExtractProvinceFromTrip(Domain.Entities.TripPlan trip)
+    {
+        var json = trip.ApprovedPlanJson ?? trip.DraftPlanJson;
+        if (!string.IsNullOrWhiteSpace(json))
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("stops", out var stops) && stops.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    foreach (var stop in stops.EnumerateArray())
+                    {
+                        if (stop.TryGetProperty("province", out var prov) && !string.IsNullOrWhiteSpace(prov.GetString()))
+                        {
+                            return prov.GetString();
+                        }
+                        if (stop.TryGetProperty("address", out var addr) && !string.IsNullOrWhiteSpace(addr.GetString()))
+                        {
+                            return addr.GetString();
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // ignore parse failure
+            }
+        }
+        return null;
+    }
+
+    private static double CalculateHaversineDistanceM(double lat1, double lon1, double lat2, double lon2)
+    {
+        const double R = 6371000;
+        double dLat = (lat2 - lat1) * Math.PI / 180.0;
+        double dLon = (lon2 - lon1) * Math.PI / 180.0;
+        double a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                   Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0) *
+                   Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        double c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        return R * c;
+    }
+
     // Helper ghi log lịch sử
     private void AddHistoryRecord(string incidentId, string eventType, string description, string userId)
     {

@@ -29,64 +29,344 @@ export const HEALTH_ISSUE_LABEL: Record<string, string> = {
   HORSE_SHOCK: 'Ngựa sốc (Sốc nhiệt / Hạ huyết áp)',
 };
 
-const AVAILABLE_VET_STATIONS = [
+export interface VetStationInfo {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  country: string;
+  province?: string;
+  region: 'NORTH' | 'CENTRAL' | 'SOUTH' | 'INTERNATIONAL' | 'OTHER';
+  near?: string;
+  lat?: number;
+  lng?: number;
+  distanceKm?: number;
+  isSuggested?: boolean;
+}
+
+export const AVAILABLE_VET_STATIONS: VetStationInfo[] = [
+  // --- Miền Nam ---
   {
-    id: 'VS-JP-MIHO',
+    id: 'FACILITY_VN_NLU',
+    name: 'Bệnh viện Thú y – Trường Đại học Nông Lâm TP.HCM',
+    address: 'Khu phố 6, P. Linh Trung, TP. Thủ Đức, TP. Hồ Chí Minh',
+    phone: '028 3896 6780',
+    country: 'VN',
+    province: 'TP.HCM',
+    region: 'SOUTH',
+    near: 'TP. Thủ Đức, TP.HCM, Bình Dương, Đồng Nai',
+    lat: 10.87,
+    lng: 106.79,
+  },
+  {
+    id: 'FACILITY_VN_RAHO6',
+    name: 'Cơ quan Thú y Vùng VI – Cục Thú y (Tân Sơn Nhất)',
+    address: '521/1 Hoàng Văn Thụ, Phường 4, Q. Tân Bình, TP. Hồ Chí Minh',
+    phone: '028 3844 4024',
+    country: 'VN',
+    province: 'TP.HCM',
+    region: 'SOUTH',
+    near: 'Sân bay Quốc tế Tân Sơn Nhất (SGN), Tân Bình',
+    lat: 10.7981,
+    lng: 106.6578,
+  },
+  {
+    id: 'FACILITY_VN_HCMC_CLINIC',
+    name: 'Trạm Chẩn đoán, Xét nghiệm & Điều trị Động vật TP.HCM',
+    address: '151 Lý Thường Kiệt, Phường 7, Quận 11, TP. Hồ Chí Minh',
+    phone: '028 3855 2408',
+    country: 'VN',
+    province: 'TP.HCM',
+    region: 'SOUTH',
+    near: 'Trung tâm Quận 5, Quận 10, Quận 11, TP.HCM',
+    lat: 10.7612,
+    lng: 106.6589,
+  },
+  {
+    id: 'FACILITY_003',
+    name: 'Trạm Tiếp nhận & Cấp cứu Thú y Củ Chi',
+    address: 'Khu tiếp nhận ngựa Củ Chi, H. Củ Chi, TP. Hồ Chí Minh',
+    phone: '0918 776 655',
+    country: 'VN',
+    province: 'TP.HCM',
+    region: 'SOUTH',
+    near: 'Củ Chi, Tây Ninh, Bình Dương, Hóc Môn',
+    lat: 10.97,
+    lng: 106.5,
+  },
+  {
+    id: 'FACILITY_VN_BDG_VET',
+    name: 'Chi cục Chăn nuôi, Thú y & Thủy sản Tỉnh Bình Dương',
+    address: 'Đại lộ Bình Dương, P. Phú Hòa, TP. Thủ Dầu Một, Bình Dương',
+    phone: '0274 3822 556',
+    country: 'VN',
+    province: 'Bình Dương',
+    region: 'SOUTH',
+    near: 'TP. Thủ Dầu Một, Thuận An, Dĩ An, Bến Cát',
+    lat: 10.9805,
+    lng: 106.6519,
+  },
+  {
+    id: 'FACILITY_VN_DNAI_VET',
+    name: 'Chi cục Chăn nuôi và Thú y Tỉnh Đồng Nai',
+    address: 'Nguyễn Ái Quốc, P. Trảng Dài, TP. Biên Hòa, Đồng Nai',
+    phone: '0251 3822 411',
+    country: 'VN',
+    province: 'Đồng Nai',
+    region: 'SOUTH',
+    near: 'TP. Biên Hòa, Long Thành, Trảng Bom, Cao tốc Dầu Giây',
+    lat: 10.9625,
+    lng: 106.8431,
+  },
+  {
+    id: 'FACILITY_VN_MOCBAI',
+    name: 'Trạm Kiểm dịch Động vật Cửa khẩu Quốc tế Mộc Bài',
+    address: 'Khu kinh tế Cửa khẩu Mộc Bài, Xã Lợi Thuận, H. Bến Cầu, Tây Ninh',
+    phone: '0276 3876 123',
+    country: 'VN',
+    province: 'Tây Ninh',
+    region: 'SOUTH',
+    near: 'Cửa khẩu Mộc Bài (Tây Ninh) – Bavet (Campuchia), Gò Dầu',
+    lat: 11.0822,
+    lng: 106.1783,
+  },
+  {
+    id: 'FACILITY_VN_CTU',
+    name: 'Bệnh viện Thú y – Trường ĐH Cần Thơ',
+    address: 'Khu II, Đường 3/2, P. Xuân Khánh, Q. Ninh Kiều, TP. Cần Thơ',
+    phone: '0292 3832 641',
+    country: 'VN',
+    province: 'Cần Thơ',
+    region: 'SOUTH',
+    near: 'Cần Thơ, Hậu Giang, Vĩnh Long, Sóc Trăng, ĐBSCL',
+    lat: 10.0305,
+    lng: 105.7689,
+  },
+
+  // --- Miền Trung ---
+  {
+    id: 'FACILITY_VN_HUAF',
+    name: 'Bệnh viện Thú y – Trường ĐH Nông Lâm Huế',
+    address: '102 Phùng Hưng, P. Thuận Thành, TP. Huế, Thừa Thiên Huế',
+    phone: '0234 3522 535',
+    country: 'VN',
+    province: 'Thừa Thiên Huế',
+    region: 'CENTRAL',
+    near: 'Thừa Thiên Huế, Quảng Trị, Quảng Bình',
+    lat: 16.4712,
+    lng: 107.575,
+  },
+  {
+    id: 'FACILITY_004',
+    name: 'Trung tâm Thú y Vùng IV – TP. Đà Nẵng',
+    address: 'Số 88 Bùi Thị Xuân, Q. Sơn Trà, TP. Đà Nẵng',
+    phone: '0902 223 344',
+    country: 'VN',
+    province: 'Đà Nẵng',
+    region: 'CENTRAL',
+    near: 'Đà Nẵng, Quảng Nam, Sân bay Đà Nẵng',
+    lat: 16.05,
+    lng: 108.2,
+  },
+  {
+    id: 'FACILITY_VN_QN_VET',
+    name: 'Chi cục Chăn nuôi và Thú y Tỉnh Quảng Nam',
+    address: 'Đường Hùng Vương, TP. Tam Kỳ, Tỉnh Quảng Nam',
+    phone: '0235 3852 467',
+    country: 'VN',
+    province: 'Quảng Nam',
+    region: 'CENTRAL',
+    near: 'Tam Kỳ, Hội An, Quảng Ngãi',
+    lat: 15.5689,
+    lng: 108.4811,
+  },
+  {
+    id: 'FACILITY_VN_BD_VET',
+    name: 'Chi cục Chăn nuôi và Thú y Tỉnh Bình Định',
+    address: 'Đường Tây Sơn, TP. Quy Nhơn, Tỉnh Bình Định',
+    phone: '0256 3846 543',
+    country: 'VN',
+    province: 'Bình Định',
+    region: 'CENTRAL',
+    near: 'Quy Nhơn, Phú Yên, Gia Lai',
+    lat: 13.782,
+    lng: 109.2195,
+  },
+  {
+    id: 'FACILITY_VN_KH_VET',
+    name: 'Chi cục Chăn nuôi và Thú y Tỉnh Khánh Hòa',
+    address: '04 Hoàng Diệu, P. Vĩnh Nguyên, TP. Nha Trang, Khánh Hòa',
+    phone: '0258 3881 321',
+    country: 'VN',
+    province: 'Khánh Hòa',
+    region: 'CENTRAL',
+    near: 'Nha Trang, Cam Ranh, Ninh Thuận, Đắk Lắk',
+    lat: 12.2285,
+    lng: 109.1967,
+  },
+
+  // --- Miền Bắc ---
+  {
+    id: 'FACILITY_VN_VNUA',
+    name: 'Bệnh viện Thú y – Học viện Nông nghiệp Việt Nam (VNUA)',
+    address: 'Ngô Xuân Quảng, TT. Trâu Quỳ, H. Gia Lâm, Hà Nội',
+    phone: '024 3876 9621',
+    country: 'VN',
+    province: 'Hà Nội',
+    region: 'NORTH',
+    near: 'Hà Nội, Sóc Sơn, Bắc Ninh, Hưng Yên',
+    lat: 21.0055,
+    lng: 105.9325,
+  },
+  {
+    id: 'FACILITY_VN_NCVD',
+    name: 'Trung tâm Chẩn đoán Thú y Trung ương – Cục Thú y',
+    address: 'Số 521 Hoàng Hoa Thám, P. Vĩnh Phúc, Q. Ba Đình, Hà Nội',
+    phone: '024 3832 9494',
+    country: 'VN',
+    province: 'Hà Nội',
+    region: 'NORTH',
+    near: 'Hà Nội, Sân bay Nội Bài, Vĩnh Phúc',
+    lat: 21.0427,
+    lng: 105.8142,
+  },
+  {
+    id: 'FACILITY_VN_TUAF',
+    name: 'Bệnh viện Thú y – Trường ĐH Nông Lâm Thái Nguyên',
+    address: 'Xã Quyết Thắng, TP. Thái Nguyên, Tỉnh Thái Nguyên',
+    phone: '0208 3855 564',
+    country: 'VN',
+    province: 'Thái Nguyên',
+    region: 'NORTH',
+    near: 'Thái Nguyên, Bắc Kạn, Tuyên Quang, Cao Bằng',
+    lat: 21.5833,
+    lng: 105.8167,
+  },
+  {
+    id: 'FACILITY_VN_HUU_NGHI',
+    name: 'Trạm Kiểm dịch Động vật Cửa khẩu Quốc tế Hữu Nghị',
+    address: 'Cửa khẩu Quốc tế Hữu Nghị, TT. Đồng Đăng, H. Cao Lộc, Lạng Sơn',
+    phone: '0205 3851 234',
+    country: 'VN',
+    province: 'Lạng Sơn',
+    region: 'NORTH',
+    near: 'Cửa khẩu Hữu Nghị, TP. Lạng Sơn, Bắc Giang',
+    lat: 21.9842,
+    lng: 106.7125,
+  },
+  {
+    id: 'FACILITY_VN_MONG_CAI',
+    name: 'Trạm Kiểm dịch Động vật Cửa khẩu Quốc tế Móng Cái',
+    address: 'P. Trần Phú, TP. Móng Cái, Quảng Ninh',
+    phone: '0203 3881 245',
+    country: 'VN',
+    province: 'Quảng Ninh',
+    region: 'NORTH',
+    near: 'TP. Móng Cái, Hạ Long, Cẩm Phả, Hải Phòng',
+    lat: 21.5283,
+    lng: 107.9692,
+  },
+
+  // --- Quốc tế ---
+  {
+    id: 'FACILITY_002',
+    name: 'Trạm Thú y Tiếp nhận Sân bay Narita',
+    address: 'Khu tiếp nhận động vật Narita, Chiba, Japan',
+    phone: '+81 90 1111 2222',
+    country: 'JP',
+    province: 'Chiba',
+    region: 'INTERNATIONAL',
+    near: 'Sân bay Quốc tế Narita (NRT), Chiba, Tokyo',
+    lat: 35.772,
+    lng: 140.3929,
+  },
+  {
+    id: 'FACILITY_JP_MIHO',
     name: 'JRA Miho Training Center Equine Hospital (Bệnh viện Thú y Miho – JRA)',
     address: '2500-2 Mikoma, Miho-mura, Inashiki-gun, Ibaraki 300-0493, Japan',
     phone: '+81 29 885 2111',
     country: 'JP',
+    province: 'Ibaraki',
+    region: 'INTERNATIONAL',
     near: 'Sân bay Quốc tế Narita (NRT), Tokyo',
+    lat: 36.0028,
+    lng: 140.3541,
   },
   {
-    id: 'VS-JP-RITTO',
+    id: 'FACILITY_JP_RITTO',
     name: 'JRA Ritto Training Center Equine Hospital (Bệnh viện Thú y Ritto – JRA)',
     address: '1028 Mikogawa, Ritto-shi, Shiga 520-3085, Japan',
     phone: '+81 77 558 1111',
     country: 'JP',
+    province: 'Shiga',
+    region: 'INTERNATIONAL',
     near: 'Sân bay Quốc tế Kansai (KIX), Osaka, Kyoto',
+    lat: 35.0167,
+    lng: 135.9833,
   },
   {
-    id: 'VS-JP-SHADAI',
+    id: 'FACILITY_JP_SHADAI',
     name: 'Shadai Horse Clinic (Bệnh viện Thú y Ngựa Shadai – Hokkaido)',
     address: '100-12 Uenae, Tomakomai-shi, Hokkaido 059-1365, Japan',
     phone: '+81 144 58 2211',
     country: 'JP',
+    province: 'Hokkaido',
+    region: 'INTERNATIONAL',
     near: 'Sân bay New Chitose (CTS), Trại ngựa đua Hokkaido',
+    lat: 42.75,
+    lng: 141.7167,
   },
   {
-    id: 'VS-VN-VNUA',
-    name: 'Bệnh viện Thú y – Học viện Nông nghiệp Việt Nam (VNUA)',
-    address: 'Ngô Xuân Quảng, TT. Trâu Quỳ, H. Gia Lâm, Hà Nội',
-    phone: '+84 24 3876 9621',
-    country: 'VN',
-    near: 'Hà Nội, Sân bay Nội Bài, Sóc Sơn',
-  },
-  {
-    id: 'VS-VN-NLU',
-    name: 'Bệnh viện Thú y – Trường Đại học Nông Lâm TP.HCM',
-    address: 'Khu phố 6, P. Linh Trung, TP. Thủ Đức, TP. Hồ Chí Minh',
-    phone: '+84 28 3896 6780',
-    country: 'VN',
-    near: 'TP. Hồ Chí Minh, Bình Dương, Đồng Nai',
-  },
-  {
-    id: 'VS-VN-MOCBAI',
-    name: 'Trạm Kiểm dịch Động vật Cửa khẩu Quốc tế Mộc Bài',
-    address: 'Khu kinh tế Cửa khẩu Mộc Bài, Xã Lợi Thuận, H. Bến Cầu, Tây Ninh',
-    phone: '+84 276 3876 123',
-    country: 'VN',
-    near: 'Cửa khẩu Mộc Bài (Tây Ninh) – Bavet (Campuchia)',
-  },
-  {
-    id: 'VS-TH-KASETSART',
+    id: 'FACILITY_TH_KASETSART',
     name: 'Kasetsart University Large Animal Teaching Hospital',
     address: '1 Malaiman Road, Kamphaeng Saen, Nakhon Pathom 73140, Thailand',
     phone: '+66 34 351 901',
     country: 'TH',
+    province: 'Nakhon Pathom',
+    region: 'INTERNATIONAL',
     near: 'Bangkok, Sân bay Suvarnabhumi (BKK)',
+    lat: 14.0167,
+    lng: 99.9833,
   },
 ];
+
+/** Tự động nhận diện Tỉnh/Thành phố của chuyến đi hiện tại để ưu tiên đề xuất trạm thú y */
+export const detectCurrentProvince = (trip?: Trip | null): string => {
+  if (!trip) return 'TP.HCM';
+
+  // 1. Kiểm tra qua các điểm dừng (stops)
+  if (trip.stops && trip.stops.length > 0) {
+    for (const stop of trip.stops) {
+      const name = (stop.name || '').toLowerCase();
+      if (name.includes('hồ chí minh') || name.includes('tp.hcm') || name.includes('hcm') || name.includes('tân sơn nhất')) return 'TP.HCM';
+      if (name.includes('hà nội') || name.includes('nội bài')) return 'Hà Nội';
+      if (name.includes('đà nẵng')) return 'Đà Nẵng';
+      if (name.includes('bình dương')) return 'Bình Dương';
+      if (name.includes('đồng nai')) return 'Đồng Nai';
+      if (name.includes('huế')) return 'Thừa Thiên Huế';
+      if (name.includes('tây ninh') || name.includes('mộc bài')) return 'Tây Ninh';
+      if (name.includes('cần thơ')) return 'Cần Thơ';
+      if (name.includes('nha trang') || name.includes('khánh hòa')) return 'Khánh Hòa';
+    }
+  }
+
+  // 2. Kiểm tra origin, destination, pickup hoặc delivery
+  const fullText = `${trip.origin || ''} ${trip.destination || ''} ${trip.pickup?.name || ''} ${trip.pickup?.address || ''} ${trip.delivery?.name || ''} ${trip.delivery?.address || ''}`.toLowerCase();
+  if (fullText.includes('hồ chí minh') || fullText.includes('tp.hcm') || fullText.includes('hcm') || fullText.includes('củ chi') || fullText.includes('tân sơn nhất')) return 'TP.HCM';
+  if (fullText.includes('hà nội') || fullText.includes('nội bài') || fullText.includes('sóc sơn')) return 'Hà Nội';
+  if (fullText.includes('đà nẵng') || fullText.includes('hải vân')) return 'Đà Nẵng';
+  if (fullText.includes('bình dương') || fullText.includes('thủ dầu một')) return 'Bình Dương';
+  if (fullText.includes('đồng nai') || fullText.includes('biên hòa')) return 'Đồng Nai';
+  if (fullText.includes('huế')) return 'Thừa Thiên Huế';
+  if (fullText.includes('tây ninh') || fullText.includes('mộc bài')) return 'Tây Ninh';
+  if (fullText.includes('cần thơ')) return 'Cần Thơ';
+  if (fullText.includes('nha trang') || fullText.includes('khánh hòa')) return 'Khánh Hòa';
+  if (fullText.includes('thái nguyên')) return 'Thái Nguyên';
+  if (fullText.includes('lạng sơn')) return 'Lạng Sơn';
+  if (fullText.includes('quảng ninh') || fullText.includes('móng cái')) return 'Quảng Ninh';
+
+  return 'TP.HCM';
+};
 
 const PLAN_TYPE_LABEL: Record<string, string> = {
   NO_CHANGE: 'Khắc phục tại chỗ, giữ nguyên kế hoạch',
@@ -599,10 +879,59 @@ export const IncidentsPage: React.FC = () => {
   const [resolving, setResolving] = useState(false);
 
   const [referralIncident, setReferralIncident] = useState<Incident | null>(null);
+  const [stations, setStations] = useState<VetStationInfo[]>(AVAILABLE_VET_STATIONS);
   const [selectedStationId, setSelectedStationId] = useState(AVAILABLE_VET_STATIONS[0].id);
   const [customStationName, setCustomStationName] = useState('');
   const [referralReason, setReferralReason] = useState('');
   const [referring, setReferring] = useState(false);
+
+  const currentProvince = React.useMemo(() => detectCurrentProvince(trip), [trip]);
+
+  // Tải danh mục trạm thú y trực tiếp từ backend hoặc fallback danh sách chuẩn
+  React.useEffect(() => {
+    let active = true;
+    driverApi.getVetFacilities({ tripId: trip?.id, province: currentProvince }).then((data) => {
+      if (active && Array.isArray(data) && data.length > 0) {
+        const mapped: VetStationInfo[] = data.map((d: any) => ({
+          id: d.facilityId || d.id,
+          name: d.name,
+          address: d.address || '',
+          phone: d.contactPhone || d.phone || '',
+          country: d.countryCode || d.country || 'VN',
+          province: d.stateProvince || d.province || '',
+          region: d.region || 'OTHER',
+          near: d.city || '',
+          lat: d.latitude,
+          lng: d.longitude,
+          distanceKm: d.distanceKm,
+          isSuggested: d.isSuggested,
+        }));
+        setStations(mapped);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [trip?.id, currentProvince]);
+
+  const handleOpenReferralModal = (inc: Incident) => {
+    setReferralIncident(inc);
+    setReferralReason('');
+
+    // Tự động tìm và chọn trạm thú y đề xuất gần nhất với tỉnh hiện tại
+    const suggested = stations.find((st) => {
+      if (st.isSuggested) return true;
+      const p = (st.province || '').toLowerCase();
+      const cp = currentProvince.toLowerCase();
+      return p.includes(cp) || cp.includes(p) || (st.near && st.near.toLowerCase().includes(cp));
+    });
+
+    if (suggested) {
+      setSelectedStationId(suggested.id);
+    } else if (stations.length > 0) {
+      setSelectedStationId(stations[0].id);
+    }
+  };
 
   // Local storage flags tracking
   const [resolvedMap, setResolvedMap] = useState<Record<string, boolean>>({});
@@ -765,7 +1094,7 @@ export const IncidentsPage: React.FC = () => {
     if (selectedStationId === 'OTHER') {
       stationName = customStationName.trim() || 'Cơ sở thú y địa phương gần nhất';
     } else {
-      const st = AVAILABLE_VET_STATIONS.find((s) => s.id === selectedStationId);
+      const st = stations.find((s) => s.id === selectedStationId);
       stationName = st?.name || selectedStationId;
       stationAddress = st?.address || '';
       stationPhone = st?.phone || '';
@@ -1025,10 +1354,7 @@ export const IncidentsPage: React.FC = () => {
                                 className="drv-btn drv-btn--danger-solid drv-btn--sm"
                                 disabled={!isCoordAccepted}
                                 title={!isCoordAccepted ? 'Chờ Điều phối viên tiếp nhận sự cố' : undefined}
-                                onClick={() => {
-                                  setReferralIncident(i);
-                                  setReferralReason('');
-                                }}
+                                onClick={() => handleOpenReferralModal(i)}
                               >
                                 Không thể xử lý tại chỗ
                               </button>
@@ -1175,21 +1501,123 @@ export const IncidentsPage: React.FC = () => {
             </div>
 
             <div className="drv-field">
-              <label htmlFor="ref-station">Chọn Cơ sở y tế / Bệnh viện thú y đề xuất *</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <label htmlFor="ref-station" style={{ fontWeight: 600 }}>
+                  Chọn Cơ sở y tế / Bệnh viện thú y đề xuất *
+                </label>
+                {currentProvince && (
+                  <span style={{ fontSize: 12, color: 'var(--text-secondary, #475569)' }}>
+                    Khu vực hiện tại: <b>{currentProvince}</b>
+                  </span>
+                )}
+              </div>
               <select
                 id="ref-station"
                 className="drv-select"
                 value={selectedStationId}
                 onChange={(e) => setSelectedStationId(e.target.value)}
               >
-                {AVAILABLE_VET_STATIONS.map((st) => (
-                  <option key={st.id} value={st.id}>
-                    {st.name} ({st.address})
-                  </option>
-                ))}
+                {/* 1. Gợi ý gần vị trí hiện tại */}
+                {(() => {
+                  const suggested = stations.filter((st) => {
+                    if (st.isSuggested) return true;
+                    const p = (st.province || '').toLowerCase();
+                    const cp = currentProvince.toLowerCase();
+                    return p.includes(cp) || cp.includes(p) || (st.near && st.near.toLowerCase().includes(cp));
+                  });
+
+                  if (suggested.length === 0) return null;
+                  return (
+                    <optgroup label={`Gợi ý gần nhất theo vị trí xe (Tỉnh: ${currentProvince})`}>
+                      {suggested.map((st) => (
+                        <option key={`sug-${st.id}`} value={st.id}>
+                          {st.name} — {st.address}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })()}
+
+                {/* 2. Miền Nam */}
+                <optgroup label="Cơ sở thú y Miền Nam">
+                  {stations
+                    .filter((st) => st.region === 'SOUTH')
+                    .map((st) => (
+                      <option key={st.id} value={st.id}>
+                        {st.name} — {st.address}
+                      </option>
+                    ))}
+                </optgroup>
+
+                {/* 3. Miền Trung */}
+                <optgroup label="Cơ sở thú y Miền Trung">
+                  {stations
+                    .filter((st) => st.region === 'CENTRAL')
+                    .map((st) => (
+                      <option key={st.id} value={st.id}>
+                        {st.name} — {st.address}
+                      </option>
+                    ))}
+                </optgroup>
+
+                {/* 4. Miền Bắc */}
+                <optgroup label="Cơ sở thú y Miền Bắc">
+                  {stations
+                    .filter((st) => st.region === 'NORTH')
+                    .map((st) => (
+                      <option key={st.id} value={st.id}>
+                        {st.name} — {st.address}
+                      </option>
+                    ))}
+                </optgroup>
+
+                {/* 5. Quốc tế */}
+                <optgroup label="Cơ sở thú y Quốc tế">
+                  {stations
+                    .filter((st) => st.region === 'INTERNATIONAL')
+                    .map((st) => (
+                      <option key={st.id} value={st.id}>
+                        {st.name} — {st.address}
+                      </option>
+                    ))}
+                </optgroup>
+
                 <option value="OTHER">Cơ sở thú y khác (tự nhập tên)</option>
               </select>
             </div>
+
+            {/* Thẻ tóm tắt thông tin cơ sở được chọn */}
+            {selectedStationId !== 'OTHER' && (() => {
+              const selectedStation = stations.find((s) => s.id === selectedStationId);
+              if (!selectedStation) return null;
+              return (
+                <div style={{
+                  padding: '10px 12px',
+                  background: 'var(--bg-page, #f8fafc)',
+                  border: '1px solid var(--border-color, #e2e8f0)',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  lineHeight: 1.5
+                }}>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary, #0f172a)', marginBottom: 2 }}>
+                    {selectedStation.name}
+                  </div>
+                  <div style={{ color: 'var(--text-secondary, #475569)' }}>
+                    Địa chỉ: {selectedStation.address}
+                  </div>
+                  <div style={{ color: 'var(--text-secondary, #475569)', marginTop: 2, display: 'flex', gap: 16 }}>
+                    <span>
+                      Đường dây nóng cấp cứu: <b style={{ color: 'var(--text-primary, #0f172a)' }}>{selectedStation.phone || 'Chưa có'}</b>
+                    </span>
+                    {selectedStation.distanceKm !== undefined && (
+                      <span>
+                        Khoảng cách: <b>{selectedStation.distanceKm} km</b>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {selectedStationId === 'OTHER' && (
               <div className="drv-field">

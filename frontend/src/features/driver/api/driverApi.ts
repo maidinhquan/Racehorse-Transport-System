@@ -534,6 +534,23 @@ export const driverApi = {
     } catch {}
     return null;
   },
+
+  /** Lấy danh sách cơ sở y tế / trạm thú y kèm đề xuất theo tỉnh hoặc chuyến */
+  getVetFacilities: async (params?: { tripId?: string; province?: string; lat?: number; lng?: number }) => {
+    try {
+      const query = new URLSearchParams();
+      if (params?.tripId) query.append('tripId', params.tripId);
+      if (params?.province) query.append('province', params.province);
+      if (params?.lat !== undefined) query.append('lat', String(params.lat));
+      if (params?.lng !== undefined) query.append('lng', String(params.lng));
+
+      const res = await apiClient.get<ApiResponse<any[]>>(`/flow5/vet-facilities?${query.toString()}`);
+      if (res.data?.success !== false && Array.isArray(res.data?.data) && res.data.data.length > 0) {
+        return res.data.data;
+      }
+    } catch {}
+    return null;
+  },
 };
 
 export default driverApi;

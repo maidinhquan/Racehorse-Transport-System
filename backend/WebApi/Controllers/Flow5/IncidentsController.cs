@@ -208,4 +208,21 @@ public class IncidentsController : BaseApiController
         var result = await _incidentService.GetTerminationProposalsAsync(incidentId);
         return Success(result);
     }
+
+    /// <summary>
+    /// Lấy danh mục trạm y tế / bệnh viện thú y kèm gợi ý theo vị trí hoặc tỉnh thành
+    /// </summary>
+    [HttpGet("flow5/vet-facilities")]
+    [HttpGet("driver/vet-facilities")]
+    [HttpGet("incidents/vet-facilities")]
+    [Authorize]
+    public async Task<IActionResult> GetVetFacilities(
+        [FromQuery] string? tripId,
+        [FromQuery] string? province,
+        [FromQuery] decimal? lat,
+        [FromQuery] decimal? lng)
+    {
+        var result = await _incidentService.GetVetFacilitiesAsync(tripId, province, lat, lng);
+        return Success(result);
+    }
 }

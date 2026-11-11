@@ -81,4 +81,9 @@ public interface IFlow5IncidentService
     Task<TerminationProposalDto> ReferTerminationProposalAsync(string incidentId, string proposalId, TerminationReferInputDto dto, string managerUserId);
     Task<List<TerminationProposalDto>> GetTerminationProposalsAsync(string incidentId);
     Task<List<TerminationProposalDto>> GetCustomerTerminationProposalsAsync(string requestId, string incidentId);
+
+    // ==========================================
+    // VETERINARY FACILITIES CATALOG & SMART SUGGESTION
+    // ==========================================
+    Task<List<VetFacilityDto>> GetVetFacilitiesAsync(string? tripId, string? province, decimal? lat, decimal? lng);
 }
