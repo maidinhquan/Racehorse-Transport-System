@@ -54,7 +54,40 @@ async function send(method: 'post' | 'put', url: string, body?: unknown): Promis
 
 export const specialistApi = {
   getTrips: async (): Promise<SpecTrip[]> => {
-    return getOr<SpecTrip[]>(SPECIALIST_ENDPOINTS.TRIPS, mockTrips);
+    try {
+      const res = await apiClient.get<ApiResponse<SpecTrip[]>>(SPECIALIST_ENDPOINTS.TRIPS);
+      if (res.data?.data && res.data.data.length > 0) return res.data.data;
+    } catch {
+      // Thử tiếp endpoint bàn giao Flow 1
+    }
+
+    try {
+      const res = await apiClient.get<any[]>('/operations/flow1/trips');
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        return res.data.map((t) => ({
+          id: `TRP-${(t.tripId || '').replace(/^TRIP[_-]/, '')}`,
+          requestId: t.requestId || '',
+          customerName: 'Khách hàng',
+          origin: 'Ho Chi Minh City',
+          destination: 'Tokyo',
+          originCountry: 'VN' as const,
+          destCountry: 'JP' as const,
+          mode: 'AIR' as const,
+          status: (t.status || 'PLANNING') as any,
+          deployment: 'CONFIRMED' as const,
+          plannedDepart: '2026-12-26 06:00',
+          eta: '2026-12-26 22:00',
+          horses: [{ id: 'HOR-1029', name: 'Thunderbolt', microchip: '985112004571029', passportNo: 'VN-EQ-2020-1029' }],
+          checkpoints: [],
+          specialistId: t.specialistId,
+          coordinatorId: t.coordinatorId,
+        })) as SpecTrip[];
+      }
+    } catch {
+      // bỏ qua lỗi handoff
+    }
+
+    return getDemoMode('specialist') ? clone(mockTrips) : [];
   },
   getCustomerDocs: () => getOr<CustomerDoc[]>(SPECIALIST_ENDPOINTS.CUSTOMER_DOCS, mockCustomerDocs),
   getDocuments: () => getOr<TripDocument[]>(SPECIALIST_ENDPOINTS.DOCUMENTS, mockDocuments),

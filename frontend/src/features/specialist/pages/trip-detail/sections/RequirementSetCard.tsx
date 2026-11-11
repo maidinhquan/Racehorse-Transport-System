@@ -21,6 +21,7 @@ import {
 import { ApplySetModal } from '../../../components/Modals';
 import { Note } from '../../../components/Common/Common';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
+import { getUserFullName } from '../../../../../shared/utils/userNameResolver';
 
 /** Bộ yêu cầu hồ sơ của chuyến: chọn & áp dụng (xem trước thay đổi), xem bản chụp, cập nhật */
 export const RequirementSetCard: React.FC<{ trip: SpecTrip }> = ({ trip: t }) => {
@@ -58,17 +59,10 @@ export const RequirementSetCard: React.FC<{ trip: SpecTrip }> = ({ trip: t }) =>
 
   const c = checklist(data, t), pk = data.packages.find((p) => p.id === rs.pkgId);
   const later = c.items.filter((i) => i.stage === 'AT_CHECKPOINT').length;
-  const hasNewPkg = Boolean(pk && pk.v > rs.pkgV);
-  const hasNewRules = rs.rules.some((r) => {
-    const current = data.regulations.find((g) => g.id === r.regId);
-    return Boolean(current && r.regV != null && current.v > r.regV);
-  });
-  const hasNewVersion = hasNewPkg || hasNewRules;
-
   return (
     <div className="spc-card spc-rp">
       <h3 className="spc-card__title">
-        <span>Bộ yêu cầu hồ sơ<br /><small className="spc-muted"><b>{rs.pkgId} • {rs.name}</b> • v{rs.pkgV} • áp dụng {fmtDateTime(rs.at)} bởi {rs.by}</small></span>
+        <span>Bộ yêu cầu hồ sơ<br /><small className="spc-muted"><b>{rs.pkgId} • {rs.name}</b> • v{rs.pkgV} • áp dụng {fmtDateTime(rs.at)} bởi {getUserFullName(rs.by)}</small></span>
         <TripStatusBadge label={`Đã áp dụng v${rs.pkgV}`} tone="ok" />
       </h3>
       <div className="spc-ready__stats spc-ready__stats--4">
@@ -77,13 +71,7 @@ export const RequirementSetCard: React.FC<{ trip: SpecTrip }> = ({ trip: t }) =>
         <div><span>Cần bổ sung</span><b>{c.needs}</b><small>thiếu / bị từ chối / hết hạn</small></div>
         <div><span>Tại điểm kiểm tra</span><b>{later}</b><small>theo dõi, không chặn Docs READY</small></div>
       </div>
-      {hasNewVersion && (
-        <div className="spc-note spc-note--yellow" style={{ marginTop: 10 }}>
-          {hasNewPkg
-            ? `Bộ yêu cầu đã có phiên bản v${pk?.v} (hiệu lực ${fmtDate(pk?.effectiveFrom || '')}). Chuyến vẫn dùng v${rs.pkgV} cho tới khi bạn chủ động cập nhật.`
-            : 'Quy định giấy tờ của tuyến đã có phiên bản mới cập nhật. Chuyến vẫn giữ bản chụp đã lập cho tới khi bạn chủ động cập nhật.'}
-        </div>
-      )}
+      {pk && pk.v > rs.pkgV && <p className="spc-muted" style={{ marginTop: 10 }}>Bộ đã có phiên bản v{pk.v} (hiệu lực {fmtDate(pk.effectiveFrom)}). Chuyến vẫn dùng v{rs.pkgV} cho tới khi bạn chủ động cập nhật.</p>}
       <div className="spc-btn-row">
         <button type="button" className="spc-btn spc-btn--sm" onClick={() => setShowRules((v) => !v)}>{showRules ? 'Ẩn bộ yêu cầu' : 'Xem bộ yêu cầu'}</button>
         {can && <button type="button" className="spc-btn spc-btn--sm" onClick={() => setApplyOpen(true)}>Cập nhật bộ yêu cầu…</button>}

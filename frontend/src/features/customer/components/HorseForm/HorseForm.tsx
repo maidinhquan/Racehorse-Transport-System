@@ -296,6 +296,12 @@ export const HorseForm: React.FC<HorseFormProps> = ({
       <section>
         <h4>05 · Hồ sơ tiêm ngừa & sức khỏe</h4>
 
+        <div className="cus-horse-form__grid">
+          <div className="cus-field">
+            <label htmlFor="hf-flu">Ngày tiêm cúm gần nhất</label>
+            <DateField id="hf-flu" value={h.fluDate ?? ''} max={today()} disabled={!demo} onChange={(v) => set('fluDate', v)} />
+          </div>
+        </div>
         <div className="cus-horse-form__minor"><span className="cus-eyebrow">Sổ tiêm ngừa</span>{fileCard('flu', 'Chưa tải tệp')}</div>
         <div className="cus-horse-form__minor"><span className="cus-eyebrow">Giấy chứng nhận sức khỏe</span>{fileCard('health', 'Chưa tải tệp')}</div>
         <div className="cus-field" style={{ marginTop: 12 }}>

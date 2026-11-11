@@ -24,12 +24,14 @@ export const ReviewStep: React.FC<StepProps> = ({ request: r, draft, customer, h
   return (
     <>
       <h3 className="mgr-card__title">4. Kiểm tra cuối & phát hành</h3>
+      <p className="mgr-hint" style={{ marginTop: 0 }}>Bản dưới đây đúng là nội dung khách hàng nhận sau khi phát hành.</p>
       <div className="mgr-between" style={{ margin: '8px 0' }}><StatusBadge tone="muted" label="Bản xem trước • chưa phát hành" /><b>CT-{r.id.slice(4)} v{v}</b></div>
       <ContractPreview request={r} customer={customer} horses={horses}
         content={{ ref: `CT-${r.id.slice(4)} v${v}`, mode: draft.mode, departAt: draft.departAt, arriveAt: draft.arriveAt, items: draft.items, depositPct: draft.depositPct, terms: draft.terms, note: draft.note }} />
       <div className="mgr-inner" style={{ marginTop: 14 }}>
         <h4>Nội dung cần xác nhận</h4>
         {checks.map(([a, b], i) => <div key={a} className="mgr-row"><div><b>{String(i + 1).padStart(2, '0')}. {a}</b><span>{b}</span></div></div>)}
+        <p className="mgr-hint">Nút Phát hành kiểm tra trường bắt buộc, giá sàn và nội dung điều khoản trước khi lưu.</p>
       </div>
     </>
   );

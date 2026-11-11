@@ -16,6 +16,8 @@ import { specialistApi } from '../api/specialistApi';
 import { getSharedIncidents } from '../../../shared/utils/sharedIncidents';
 import {
   SPECIALIST_NAME,
+  type SpecialistNotification,
+  mockSpecialistNotifications,
   mockAudit,
   mockBookings,
   mockCustomerDocs,
@@ -43,6 +45,12 @@ import {
   openRequestFor,
   opsBlock,
   findMatchingPackage,
+  getCustomDocTypes,
+  saveCustomDocTypes,
+  getCustomRegulations,
+  saveCustomRegulations,
+  getCustomPackages,
+  saveCustomPackages,
   pkgWhyNot,
   prepTrips,
   snapshot,
@@ -59,6 +67,7 @@ interface SpecialistState extends SpecialistData {
   loaded: boolean;
   loadedFor?: string;
   toast: { id: number; message: string } | null;
+  notifications: SpecialistNotification[];
 }
 
 import { getDemoMode } from '../../../shared/context/DemoModeContext';
@@ -95,6 +104,40 @@ export const tokenUser = (): string => {
   }
 };
 
+const SPECIALIST_READ_NOTIFS_KEY = 'specialist_read_notifications';
+
+function getSpecialistReadNotifIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(SPECIALIST_READ_NOTIFS_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function persistSpecialistReadNotifIds(ids: string[]): void {
+  try {
+    const current = getSpecialistReadNotifIds();
+    ids.forEach((id) => {
+      if (id) {
+        current.add(id);
+        current.add(cleanId(id));
+      }
+    });
+    localStorage.setItem(SPECIALIST_READ_NOTIFS_KEY, JSON.stringify([...current]));
+  } catch {
+    // ignore
+  }
+}
+
+const resolveSpecialistNotifs = (list: SpecialistNotification[]): SpecialistNotification[] => {
+  const readIds = getSpecialistReadNotifIds();
+  return list.map((n) => ({
+    ...n,
+    read: Boolean(n.read || readIds.has(n.id) || readIds.has(cleanId(n.id))),
+  }));
+};
+
 const emptyData = (): SpecialistData => ({
   trips: [],
   docTypes: [],
@@ -105,6 +148,7 @@ const emptyData = (): SpecialistData => ({
   requests: [],
   bookings: [],
   audit: [],
+  notifications: resolveSpecialistNotifs(clone(mockSpecialistNotifications)),
 });
 
 let state: SpecialistState;
@@ -196,7 +240,8 @@ function sharedTripsAndDocs(forUser?: string): { trips: SpecTrip[]; customerDocs
           }
         );
 
-        const status = found?.status === 'APPROVED' ? 'APPROVED' : found?.status === 'ACTION_REQUIRED' ? 'ACTION_REQUIRED' : (found?.status === 'OPTIONAL' ? 'SUBMITTED' : (found?.status || 'SUBMITTED'));
+        const isCompletedReq = r.status === 'COMPLETED' || r.status === 'DELIVERED';
+        const status = isCompletedReq ? 'APPROVED' : (found?.status === 'APPROVED' ? 'APPROVED' : found?.status === 'ACTION_REQUIRED' ? 'ACTION_REQUIRED' : (found?.status === 'OPTIONAL' ? 'SUBMITTED' : (found?.status || 'SUBMITTED')));
 
         customerDocs.push({
           tripId,
@@ -277,29 +322,37 @@ function normalizeCustomerDocs(docs: CustomerDoc[], trips: SpecTrip[]): Customer
     conditions: 'Ghi chú sức khỏe đặc biệt'
   };
 
+  const isTripCompleted = (tripId: string) => {
+    const t = trips.find((x) => cleanId(x.id) === cleanId(tripId) || (x.requestId && cleanId(x.requestId) === cleanId(tripId)));
+    return t?.status === 'COMPLETED';
+  };
+
   const normalized: CustomerDoc[] = docs.map((d) => ({
     ...d,
     optional: false,
-    status: d.status === 'OPTIONAL' ? 'SUBMITTED' : d.status,
+    status: isTripCompleted(d.tripId) ? 'APPROVED' : (d.status === 'OPTIONAL' ? 'SUBMITTED' : d.status),
   }));
 
   for (const t of trips) {
+    const isCompleted = t.status === 'COMPLETED';
     const horses = t.horses && t.horses.length > 0 ? t.horses : [{ id: 'HOR-1029', name: 'Thunderbolt' }];
     const tTrips = [t.id, cleanId(t.id), t.requestId, cleanId(t.requestId)].filter(Boolean);
     for (const h of horses) {
       for (const k of STANDARD_KEYS) {
-        const exists = normalized.some(
+        const found = normalized.find(
           (d) =>
             tTrips.some((tid) => tid === d.tripId || cleanId(d.tripId) === tid) &&
             d.key === k &&
             (cleanId(d.scope) === cleanId(h.id) || !d.scope)
         );
-        if (!exists) {
+        if (found) {
+          if (isCompleted) found.status = 'APPROVED';
+        } else {
           normalized.push({
             tripId: t.id,
             key: k,
             scope: h.id,
-            status: 'SUBMITTED',
+            status: isCompleted ? 'APPROVED' : 'SUBMITTED',
             optional: false,
             file: `${h.id.toLowerCase()}-${k}.pdf`,
             note: STANDARD_TITLES[k] || '',
@@ -324,11 +377,35 @@ const initialCustomerDocs = normalizeCustomerDocs(
   initialTrips
 );
 
+const initialSavedDocTypes = getCustomDocTypes();
+const initialBaseDocTypes = initialDemo ? clone(mockDocTypes) : [];
+const initialMergedDocTypes = [...initialBaseDocTypes];
+for (const dt of initialSavedDocTypes) {
+  const idx = initialMergedDocTypes.findIndex((x) => x.id === dt.id);
+  if (idx >= 0) initialMergedDocTypes[idx] = dt; else initialMergedDocTypes.push(dt);
+}
+
+const initialSavedRegs = getCustomRegulations();
+const initialBaseRegs = initialDemo ? clone(mockRegulations) : [];
+const initialMergedRegs = [...initialBaseRegs];
+for (const r of initialSavedRegs) {
+  const idx = initialMergedRegs.findIndex((x) => x.id === r.id);
+  if (idx >= 0) initialMergedRegs[idx] = r; else initialMergedRegs.push(r);
+}
+
+const initialSavedPkgs = getCustomPackages();
+const initialBasePkgs = initialDemo ? clone(mockPackages) : [];
+const initialMergedPkgs = [...initialBasePkgs];
+for (const p of initialSavedPkgs) {
+  const idx = initialMergedPkgs.findIndex((x) => x.id === p.id);
+  if (idx >= 0) initialMergedPkgs[idx] = p; else initialMergedPkgs.push(p);
+}
+
 state = {
   trips: initialTrips,
-  docTypes: initialDemo ? clone(mockDocTypes) : [],
-  regulations: initialDemo ? clone(mockRegulations) : [],
-  packages: initialDemo ? clone(mockPackages) : [],
+  docTypes: initialMergedDocTypes,
+  regulations: initialMergedRegs,
+  packages: initialMergedPkgs,
   customerDocs: initialCustomerDocs,
   documents: initialDemo ? clone(mockDocuments) : [],
   requests: initialDemo ? clone(mockRequests) : [],
@@ -337,6 +414,7 @@ state = {
   loading: false,
   loaded: false,
   toast: null,
+  notifications: resolveSpecialistNotifs(clone(mockSpecialistNotifications)),
 };
 autoApplyMatchingPackages(state.trips, state.packages);
 const listeners = new Set<() => void>();
@@ -369,12 +447,22 @@ const mergeBackendDocs = (backend: any[], shared: any[]) => {
 async function refreshCustomerDocs() {
   if (!state.loaded || getDemoMode('specialist')) return;
   try {
-    const [customerDocs, requests] = await Promise.all([specialistApi.getCustomerDocs(), specialistApi.getRequests()]);
-    if (!customerDocs || customerDocs.length === 0) return;
-    setState((s) => ({
-      customerDocs: normalizeCustomerDocs(mergeBackendDocs(customerDocs.filter((d) => s.trips.some((t) => cleanId(t.id) === cleanId(d.tripId))), s.customerDocs), s.trips),
-      ...(requests && requests.length > 0 ? { requests: requests.filter((r) => s.trips.some((t) => cleanId(t.id) === cleanId(r.tripId))) } : {}),
-    }));
+    const [trips, customerDocs, requests] = await Promise.all([specialistApi.getTrips(), specialistApi.getCustomerDocs(), specialistApi.getRequests()]);
+    const me = tokenUser();
+    // Chuyến vừa được Quản lý giao cho tôi sau lần tải đầu tiên: thêm vào danh sách mà không cần tải lại trang
+    const assigned = (trips || []).filter((bt) => !!me && cleanId(bt.specialistId) === cleanId(me));
+    setState((s) => {
+      const added = assigned.filter((bt) => !s.trips.some((t) => cleanId(t.id) === cleanId(bt.id)));
+      const allTrips = added.length ? [...s.trips, ...added] : s.trips;
+      const known = (id: string) => allTrips.some((t) => cleanId(t.id) === cleanId(id));
+      return {
+        ...(added.length ? { trips: allTrips } : {}),
+        ...(customerDocs && customerDocs.length > 0
+          ? { customerDocs: normalizeCustomerDocs(mergeBackendDocs(customerDocs.filter((d) => known(d.tripId)), s.customerDocs), allTrips) }
+          : {}),
+        ...(requests && requests.length > 0 ? { requests: requests.filter((r) => known(r.tripId)) } : {}),
+      };
+    });
   } catch {
     // giữ dữ liệu hiện tại, lần làm mới sau sẽ thử lại
   }
@@ -517,11 +605,32 @@ async function loadAll(targetUser?: string) {
     const baseDocs = (customerDocs || []).filter((d) => visibleTrips.has(cleanId(d.tripId)));
     const mergedDocs = normalizeCustomerDocs(mergeBackendDocs(baseDocs, sh.customerDocs.filter((d) => visibleTrips.has(cleanId(d.tripId)))), mergedTrips);
 
-    const activePackages = (packages && packages.length > 0) ? packages : (getDemoMode('specialist') ? clone(mockPackages) : []);
-    const activeRegs = ((regulations && regulations.length > 0) ? regulations : (getDemoMode('specialist') ? clone(mockRegulations) : []))
-      .map((g) => ({ ...g, lines: (g.lines || []).filter((l: any) => l.provider !== 'CUSTOMER') }));
+    const savedPackages = getCustomPackages();
+    const basePackages = (packages && packages.length > 0) ? packages : (getDemoMode('specialist') ? clone(mockPackages) : []);
+    const mergedPackages = [...basePackages];
+    for (const p of savedPackages) {
+      const idx = mergedPackages.findIndex((x) => x.id === p.id);
+      if (idx >= 0) mergedPackages[idx] = p; else mergedPackages.push(p);
+    }
+    const activePackages = mergedPackages;
+
+    const savedRegs = getCustomRegulations();
+    const baseRegs = (regulations && regulations.length > 0) ? regulations : (getDemoMode('specialist') ? clone(mockRegulations) : []);
+    const mergedRegs = [...baseRegs];
+    for (const r of savedRegs) {
+      const idx = mergedRegs.findIndex((x) => x.id === r.id);
+      if (idx >= 0) mergedRegs[idx] = r; else mergedRegs.push(r);
+    }
+    const activeRegs = mergedRegs.map((g) => ({ ...g, lines: (g.lines || []).filter((l: any) => l.provider !== 'CUSTOMER') }));
+
+    const savedDocTypes = getCustomDocTypes();
     const rawDocTypes = (docTypes && docTypes.length > 0) ? docTypes : (getDemoMode('specialist') ? clone(mockDocTypes) : []);
-    const activeDocTypes = rawDocTypes.filter((d: any) => d.provider !== 'CUSTOMER' && !['DT-1', 'DT-2', 'DT-3'].includes(d.id));
+    const mergedDocTypes = [...rawDocTypes];
+    for (const dt of savedDocTypes) {
+      const idx = mergedDocTypes.findIndex((x) => x.id === dt.id);
+      if (idx >= 0) mergedDocTypes[idx] = dt; else mergedDocTypes.push(dt);
+    }
+    const activeDocTypes = mergedDocTypes.filter((d: any) => d.provider !== 'CUSTOMER' && !['DT-1', 'DT-2', 'DT-3'].includes(d.id));
     const dummyCtx: SpecialistData = {
       trips: mergedTrips,
       docTypes: activeDocTypes,
@@ -539,12 +648,12 @@ async function loadAll(targetUser?: string) {
       setState({
         trips: mergedTrips,
         customerDocs: mergedDocs,
-        documents: (documents || []).filter((d) => visibleTrips.has(cleanId(d.tripId))),
+        documents: ((documents && documents.length > 0) ? documents : clone(mockDocuments)).filter((d) => visibleTrips.has(cleanId(d.tripId))),
         requests: (requests || []).filter((r) => visibleTrips.has(cleanId(r.tripId))),
         bookings: (bookings || []).filter((b) => visibleTrips.has(cleanId(b.tripId))),
         docTypes: activeDocTypes,
         regulations: activeRegs,
-        packages,
+        packages: activePackages,
         audit: auditLog || [],
         loading: false,
         loaded: true,
@@ -562,7 +671,7 @@ async function loadAll(targetUser?: string) {
       bookings: bookings?.length ? bookings : clone(mockBookings),
       docTypes: activeDocTypes,
       regulations: activeRegs,
-      packages,
+      packages: activePackages,
       audit: auditLog?.length ? auditLog : clone(mockAudit),
       loading: false,
       loaded: true,
@@ -589,6 +698,21 @@ async function loadAll(targetUser?: string) {
 }
 
 const specialistActions = {
+  markNotificationRead(id: string): void {
+    persistSpecialistReadNotifIds([id]);
+    setState((s) => ({
+      notifications: (s.notifications || []).map((n) => (n.id === id || cleanId(n.id) === cleanId(id) ? { ...n, read: true } : n)),
+    }));
+  },
+  markAllNotificationsRead(): void {
+    setState((s) => {
+      const allIds = (s.notifications || []).map((n) => n.id);
+      persistSpecialistReadNotifIds(allIds);
+      return {
+        notifications: (s.notifications || []).map((n) => ({ ...n, read: true })),
+      };
+    });
+  },
   reload: () => { loadVersion++; setState({ ...emptyData(), loaded: false, loadedFor: '', loading: false }); void loadAll(); },
   clearToast: () => setState({ toast: null }),
   showToast: (m: string) => toast(m),
@@ -923,13 +1047,14 @@ const specialistActions = {
     if (!dt.name.trim()) return fail('Nhập tên loại giấy tờ.');
     if (state.docTypes.some((x) => x.id !== dt.id && x.name.trim().toLowerCase() === dt.name.trim().toLowerCase())) return fail('Tên loại giấy tờ đã tồn tại.');
     const id = dt.id || nextId('DT', state.docTypes.map((x) => x.id));
+    const next: DocType = { ...dt, id, name: dt.name.trim() };
     mutate((d) => {
       const i = d.docTypes.findIndex((x) => x.id === id);
-      const next = { ...dt, id, name: dt.name.trim() };
       if (i >= 0) d.docTypes[i] = next; else d.docTypes.unshift(next);
       audit(d, i >= 0 ? 'Sửa loại giấy tờ' : 'Thêm loại giấy tờ', id, next.name);
+      saveCustomDocTypes(d.docTypes);
     });
-    void specialistApi.saveDocType({ ...dt, id });
+    void specialistApi.saveDocType(next);
     return ok(`Đã lưu loại giấy tờ ${id}.`, id);
   },
   saveRegulation(reg: Regulation): ActionResult {
@@ -940,14 +1065,15 @@ const specialistActions = {
     const id = reg.id || nextId('REG', state.regulations.map((x) => x.id));
     const old = state.regulations.find((x) => x.id === id);
     const used = state.trips.some((t) => t.reqSet?.rules.some((r) => r.regId === id));
+    const cleanedLines = reg.lines.filter((l) => l.provider !== 'CUSTOMER').map((l) => ({ ...l, provider: 'CBN' as const }));
+    const next: Regulation = { ...reg, lines: cleanedLines, id, v: old ? (used ? old.v + 1 : old.v) : 1, effectiveFrom: old && !used ? old.effectiveFrom : today(), status: reg.status || 'ACTIVE' };
     mutate((d) => {
-      const cleanedLines = reg.lines.filter((l) => l.provider !== 'CUSTOMER').map((l) => ({ ...l, provider: 'CBN' as const }));
-      const next: Regulation = { ...reg, lines: cleanedLines, id, v: old ? (used ? old.v + 1 : old.v) : 1, effectiveFrom: old && !used ? old.effectiveFrom : today() };
       const i = d.regulations.findIndex((x) => x.id === id);
       if (i >= 0) d.regulations[i] = next; else d.regulations.unshift(next);
       audit(d, old ? 'Sửa yêu cầu theo quốc gia/tuyến' : 'Thêm yêu cầu theo quốc gia/tuyến', id, `v${next.v}`);
+      saveCustomRegulations(d.regulations);
     });
-    void specialistApi.saveRegulation({ ...reg, id });
+    void specialistApi.saveRegulation(next);
     return ok(old && used ? `Đã lưu ${id} thành phiên bản mới; chuyến đã áp dụng giữ phiên bản cũ.` : `Đã lưu yêu cầu ${id}.`, id);
   },
   savePackage(p: RegPackage): ActionResult {
@@ -957,13 +1083,14 @@ const specialistActions = {
     const id = p.id || nextId('RP', state.packages.map((x) => x.id));
     const old = state.packages.find((x) => x.id === id);
     const used = state.trips.some((t) => t.reqSet?.pkgId === id);
+    const next: RegPackage = { ...p, id, name: p.name.trim(), v: old ? (used ? old.v + 1 : old.v) : 1, effectiveFrom: old && !used ? old.effectiveFrom : today(), status: p.status || 'ACTIVE' };
     mutate((d) => {
-      const next: RegPackage = { ...p, id, name: p.name.trim(), v: old ? (used ? old.v + 1 : old.v) : 1, effectiveFrom: old && !used ? old.effectiveFrom : today() };
       const i = d.packages.findIndex((x) => x.id === id);
       if (i >= 0) d.packages[i] = next; else d.packages.unshift(next);
       audit(d, old ? 'Sửa bộ yêu cầu hồ sơ' : 'Thêm bộ yêu cầu hồ sơ', id, `${next.name} v${next.v}`);
+      saveCustomPackages(d.packages);
     });
-    void specialistApi.savePackage({ ...p, id });
+    void specialistApi.savePackage(next);
     return ok(old && used ? `Đã lưu ${id} thành phiên bản mới; chuyến đã áp dụng không tự thay đổi.` : `Đã lưu bộ yêu cầu ${id}.`, id);
   },
   toggleConfigStatus(kind: 'type' | 'reg' | 'pkg', id: string): ActionResult {
@@ -975,6 +1102,18 @@ const specialistActions = {
       x.status = x.status === 'ACTIVE' ? 'RETIRED' : 'ACTIVE';
       label = x.status === 'ACTIVE' ? 'Áp dụng lại' : 'Ngừng áp dụng';
       audit(d, label, id);
+      if (kind === 'type') {
+        saveCustomDocTypes(d.docTypes);
+        void specialistApi.saveDocType(x as DocType);
+      }
+      if (kind === 'reg') {
+        saveCustomRegulations(d.regulations);
+        void specialistApi.saveRegulation(x as Regulation);
+      }
+      if (kind === 'pkg') {
+        saveCustomPackages(d.packages);
+        void specialistApi.savePackage(x as RegPackage);
+      }
     });
     return ok(`${label}: ${id}. Lịch sử và chuyến đã dùng được giữ nguyên.`);
   },
@@ -1122,7 +1261,7 @@ export function useSpecialist() {
   /** Mục checklist có trạng thái 'chờ duyệt' của khách hàng được map về loại giấy tờ */
   const customerKeyOf = (typeId: string) => TYPE_CUSTOMER_KEY[typeId];
 
-  return { ...snap, data: { ...snap, trips: sortedTrips } as SpecialistData, trips: sortedTrips, stats, getTrip, getDocument, customerKeyOf, actions };
+  return { ...snap, data: { ...snap, trips: sortedTrips } as SpecialistData, trips: sortedTrips, stats, notifications: snap.notifications || [], unreadNotificationsCount: (snap.notifications || []).filter((n: SpecialistNotification) => !n.read).length, getTrip, getDocument, customerKeyOf, actions };
 }
 
 export default useSpecialist;

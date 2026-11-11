@@ -17,3 +17,4 @@ export * from './pages/trip-detail/TripDetailPage';
 export * from './pages/incidents/IncidentsPage';
 export * from './pages/history/HistoryPage';
 export * from './pages/profile/DriverProfilePage';
+export * from './pages/notifications/DriverNotificationsPage';

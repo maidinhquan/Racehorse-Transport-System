@@ -168,3 +168,56 @@ export const mockIncidents: Incident[] = [
     approvedPlan: 'Giữ ngựa trong xe có thông gió, bác sĩ theo dõi 30 phút/lần; ETA dự kiến trễ 2 giờ.',
   },
 ];
+
+
+export interface DriverNotification {
+  id: string;
+  title: string;
+  text: string;
+  at: string;
+  read: boolean;
+  link?: string;
+}
+
+export const mockDriverNotifications: DriverNotification[] = [
+  {
+    id: 'dnotif-1',
+    title: 'Phân công chuyến đi mới',
+    text: 'Bạn được phân công làm tài xế chính chuyến đi TRP-901 vận chuyển ngựa Thunderbolt đi Bangkok.',
+    at: '2026-10-04 05:30',
+    read: false,
+    link: '/driver/trips/TRP-901',
+  },
+  {
+    id: 'dnotif-2',
+    title: 'Cảnh báo thời tiết tại cửa khẩu',
+    text: 'Cửa khẩu Mộc Bài có mưa lớn và ùn tắc nhẹ, vui lòng chú ý lộ trình an toàn và kiểm tra nhiệt độ khoang xe.',
+    at: '2026-10-04 07:15',
+    read: false,
+    link: '/driver/journey',
+  },
+  {
+    id: 'dnotif-3',
+    title: 'Nhật ký sức khỏe ngựa đã cập nhật',
+    text: 'Bác sĩ thú y Dr. Nguyen Minh Anh đã hoàn tất kiểm tra thể trạng ngựa H-01 (Nhiệt độ 38.2°C, nhịp tim 38 bpm).',
+    at: '2026-10-04 08:30',
+    read: false,
+    link: '/driver/trips/TRP-901',
+  },
+  {
+    id: 'dnotif-4',
+    title: 'Hồ sơ thông quan đã duyệt',
+    text: 'Chuyên viên đã hoàn tất phê duyệt bộ giấy kiểm dịch xuất khẩu cho chuyến TRP-901.',
+    at: '2026-10-03 16:45',
+    read: true,
+    link: '/driver/trips/TRP-901',
+  },
+  {
+    id: 'dnotif-5',
+    title: 'Bàn giao chuyến TRP-899 hoàn tất',
+    text: 'Biên bản bàn giao ngựa Red Comet cho người nhận Le Thi Hoa đã được xác nhận thành công.',
+    at: '2026-09-21 17:10',
+    read: true,
+    link: '/driver/trips/TRP-899',
+  },
+];

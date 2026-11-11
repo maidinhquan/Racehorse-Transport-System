@@ -17,6 +17,7 @@ import {
   nextMilestone,
   tripStops,
 } from '../../../hooks/managerRules';
+import { onSync } from '../../../../../shared/utils/syncChannel';
 
 /** Bước 4: theo dõi mốc hành trình (tổ xe cập nhật thủ công), ETA, sự cố, bàn giao */
 export const ProgressStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
@@ -27,7 +28,8 @@ export const ProgressStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
     const tick = () => { if (document.visibilityState === 'visible') void refreshTripExecution(t.id).catch(() => undefined); };
     tick();
     const id = window.setInterval(tick, 15000);
-    return () => window.clearInterval(id);
+    const stopSync = onSync(tick);
+    return () => { window.clearInterval(id); stopSync(); };
   }, [t.id]);
   const departed = t.milestones.find((x) => x.type === 'DEPARTED');
   const reached = (i: number) => t.milestones.some((x) => x.stopIndex === i && ['DEPARTED', 'ARRIVED_STOP', 'LEFT_STOP', 'ARRIVED_DESTINATION'].includes(x.type));
@@ -52,7 +54,7 @@ export const ProgressStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
             <div><span>ETA hiện tại</span><b>{fmtDateTime(t.eta)}</b></div>
             <div><span>Mốc gần nhất</span><b>{m ? `${milestoneLabel(t, m.type)} • ${fmtDateTime(m.at)}` : '—'}</b></div>
           </div>
-          {stops.some((s) => s.lat != null && s.lng != null) && <ManagerRouteMap stops={stops} tripId={t.id} focus={m ? Math.min(m.stopIndex, stops.length - 1) : null} />}
+          {stops.length >= 2 && <ManagerRouteMap stops={stops} tripId={t.id} current={m ? Math.min(m.stopIndex, stops.length - 1) : -1} />}
           <div className="mgr-section-title">Các điểm trên tuyến</div>
           {stops.map((s, i) => {
             const at = t.milestones.filter((x) => x.stopIndex === i);

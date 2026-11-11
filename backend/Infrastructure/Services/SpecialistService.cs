@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -877,71 +877,99 @@ namespace Infrastructure.Services
         // 7. CATALOGUES & AUDIT
         // =========================================================================
 
+        private static readonly object _catalogLock = new();
+        private static readonly List<DocTypeDto> _inMemoryDocTypes = new()
+        {
+            new DocTypeDto { Id = "DT-4", Name = "Giấy phép xuất khẩu", Group = "CUSTOMS", Scope = "PER_TRIP", Provider = "CBN", ValidityDays = 30, Status = "ACTIVE" },
+            new DocTypeDto { Id = "DT-5", Name = "Giấy phép nhập khẩu", Group = "CUSTOMS", Scope = "PER_TRIP", Provider = "CBN", ValidityDays = 30, Status = "ACTIVE" },
+            new DocTypeDto { Id = "DT-6", Name = "Giấy chứng nhận kiểm dịch", Group = "QUARANTINE", Scope = "PER_HORSE", Provider = "CBN", ValidityDays = 14, Status = "ACTIVE" },
+            new DocTypeDto { Id = "DT-7", Name = "Tờ khai hải quan", Group = "CUSTOMS", Scope = "PER_TRIP", Provider = "CBN", ValidityDays = 30, Status = "ACTIVE" },
+            new DocTypeDto { Id = "DT-8", Name = "Giấy phép vận chuyển nội địa", Group = "CUSTOMS", Scope = "PER_TRIP", Provider = "CBN", ValidityDays = 30, Status = "ACTIVE" },
+        };
+        private static readonly List<RegulationDto> _inMemoryRegulations = new()
+        {
+            new RegulationDto
+            {
+                Id = "REG-1", Country = "VN", Direction = "EXPORT", V = 1, EffectiveFrom = "2026-08-12", Status = "ACTIVE",
+                Note = "Thủ tục kiểm dịch và hải quan xuất khẩu qua Cục Thú y và Hải quan Việt Nam.",
+                Lines = new List<RequirementLineDto>
+                {
+                    new RequirementLineDto { TypeId = "DT-4", Provider = "CBN", Scope = "PER_TRIP", Stage = "BEFORE_DEPART", Level = "REQUIRED" },
+                    new RequirementLineDto { TypeId = "DT-7", Provider = "CBN", Scope = "PER_TRIP", Stage = "BEFORE_DEPART", Level = "REQUIRED" },
+                }
+            },
+            new RegulationDto
+            {
+                Id = "REG-5", Country = "VN", Direction = "DOMESTIC", V = 1, EffectiveFrom = "2026-05-10", Status = "ACTIVE",
+                Note = "Giấy phép vận chuyển thú y cấp tỉnh.",
+                Lines = new List<RequirementLineDto>
+                {
+                    new RequirementLineDto { TypeId = "DT-8", Provider = "CBN", Scope = "PER_TRIP", Stage = "BEFORE_DEPART", Level = "REQUIRED" },
+                }
+            },
+            new RegulationDto
+            {
+                Id = "REG-2", Country = "JP", Direction = "IMPORT", V = 1, EffectiveFrom = "2026-06-01", Status = "ACTIVE",
+                Note = "Quy định kiểm dịch động vật của AQS Nhật Bản.",
+                Lines = new List<RequirementLineDto>
+                {
+                    new RequirementLineDto { TypeId = "DT-5", Provider = "CBN", Scope = "PER_TRIP", Stage = "BEFORE_DEPART", Level = "REQUIRED" },
+                    new RequirementLineDto { TypeId = "DT-6", Provider = "CBN", Scope = "PER_HORSE", Stage = "BEFORE_DEPART", Level = "REQUIRED" }
+                }
+            }
+        };
+        private static readonly List<RegPackageDto> _inMemoryPackages = new()
+        {
+            new RegPackageDto
+            {
+                Id = "RP-1", Name = "Nội địa Việt Nam", Items = new List<string[]> { new[] { "VN", "DOMESTIC" } },
+                Origin = "VN", Dest = "VN", Modes = new List<string> { "ROAD" }, Note = "Giấy phép vận chuyển thú y cấp tỉnh cho tuyến trong nước.",
+                V = 1, EffectiveFrom = "2026-09-15", Status = "ACTIVE"
+            },
+            new RegPackageDto
+            {
+                Id = "RP-2", Name = "Việt Nam → Nhật Bản (hàng không)", Items = new List<string[]> { new[] { "VN", "EXPORT" }, new[] { "JP", "IMPORT" } },
+                Origin = "VN", Dest = "JP", Modes = new List<string> { "AIR" }, Note = "Xuất khẩu từ Việt Nam (Cục Thú y) và nhập khẩu Nhật Bản (AQS).",
+                V = 1, EffectiveFrom = "2026-09-15", Status = "ACTIVE"
+            }
+        };
+
         public Task<List<DocTypeDto>> GetDocTypesAsync()
         {
-            return Task.FromResult(new List<DocTypeDto>
+            lock (_catalogLock)
             {
-                new DocTypeDto { Id = "DT-4", Name = "Giấy phép xuất khẩu", Group = "CUSTOMS", Scope = "PER_TRIP", Provider = "CBN", ValidityDays = 30, Status = "ACTIVE" },
-                new DocTypeDto { Id = "DT-5", Name = "Giấy phép nhập khẩu", Group = "CUSTOMS", Scope = "PER_TRIP", Provider = "CBN", ValidityDays = 30, Status = "ACTIVE" },
-                new DocTypeDto { Id = "DT-6", Name = "Giấy chứng nhận kiểm dịch", Group = "QUARANTINE", Scope = "PER_HORSE", Provider = "CBN", ValidityDays = 14, Status = "ACTIVE" },
-                new DocTypeDto { Id = "DT-7", Name = "Tờ khai hải quan", Group = "CUSTOMS", Scope = "PER_TRIP", Provider = "CBN", ValidityDays = 30, Status = "ACTIVE" },
-                new DocTypeDto { Id = "DT-8", Name = "Giấy phép vận chuyển nội địa", Group = "CUSTOMS", Scope = "PER_TRIP", Provider = "CBN", ValidityDays = 30, Status = "ACTIVE" },
-            });
+                return Task.FromResult(_inMemoryDocTypes.Select(d => new DocTypeDto
+                {
+                    Id = d.Id, Name = d.Name, Group = d.Group, Scope = d.Scope,
+                    Provider = d.Provider, ValidityDays = d.ValidityDays, Status = d.Status, Note = d.Note
+                }).ToList());
+            }
         }
 
         public Task<List<RegulationDto>> GetRegulationsAsync()
         {
-            return Task.FromResult(new List<RegulationDto>
+            lock (_catalogLock)
             {
-                new RegulationDto
+                return Task.FromResult(_inMemoryRegulations.Select(r => new RegulationDto
                 {
-                    Id = "REG-1", Country = "VN", Direction = "EXPORT", V = 1, EffectiveFrom = "2026-08-12", Status = "ACTIVE",
-                    Note = "Thủ tục kiểm dịch và hải quan xuất khẩu qua Cục Thú y và Hải quan Việt Nam.",
-                    Lines = new List<RequirementLineDto>
-                    {
-                        new RequirementLineDto { TypeId = "DT-4", Provider = "CBN", Scope = "PER_TRIP", Stage = "BEFORE_DEPART", Level = "REQUIRED" },
-                        new RequirementLineDto { TypeId = "DT-7", Provider = "CBN", Scope = "PER_TRIP", Stage = "BEFORE_DEPART", Level = "REQUIRED" },
-                    }
-                },
-                new RegulationDto
-                {
-                    Id = "REG-5", Country = "VN", Direction = "DOMESTIC", V = 1, EffectiveFrom = "2026-05-10", Status = "ACTIVE",
-                    Note = "Giấy phép vận chuyển thú y cấp tỉnh.",
-                    Lines = new List<RequirementLineDto>
-                    {
-                        new RequirementLineDto { TypeId = "DT-8", Provider = "CBN", Scope = "PER_TRIP", Stage = "BEFORE_DEPART", Level = "REQUIRED" },
-                    }
-                },
-                new RegulationDto
-                {
-                    Id = "REG-2", Country = "JP", Direction = "IMPORT", V = 1, EffectiveFrom = "2026-06-01", Status = "ACTIVE",
-                    Note = "Quy định kiểm dịch động vật của AQS Nhật Bản.",
-                    Lines = new List<RequirementLineDto>
-                    {
-                        new RequirementLineDto { TypeId = "DT-5", Provider = "CBN", Scope = "PER_TRIP", Stage = "BEFORE_DEPART", Level = "REQUIRED" },
-                        new RequirementLineDto { TypeId = "DT-6", Provider = "CBN", Scope = "PER_HORSE", Stage = "BEFORE_DEPART", Level = "REQUIRED" }
-                    }
-                }
-            });
+                    Id = r.Id, Country = r.Country, Direction = r.Direction, V = r.V,
+                    EffectiveFrom = r.EffectiveFrom, Status = r.Status, Note = r.Note,
+                    Lines = (r.Lines ?? new()).Select(l => new RequirementLineDto { TypeId = l.TypeId, Provider = l.Provider, Scope = l.Scope, Stage = l.Stage, Level = l.Level }).ToList()
+                }).ToList());
+            }
         }
 
         public Task<List<RegPackageDto>> GetPackagesAsync()
         {
-            return Task.FromResult(new List<RegPackageDto>
+            lock (_catalogLock)
             {
-                new RegPackageDto
+                return Task.FromResult(_inMemoryPackages.Select(p => new RegPackageDto
                 {
-                    Id = "RP-1", Name = "Nội địa Việt Nam", Items = new List<string[]> { new[] { "VN", "DOMESTIC" } },
-                    Origin = "VN", Dest = "VN", Modes = new List<string> { "ROAD" }, Note = "Giấy phép vận chuyển thú y cấp tỉnh cho tuyến trong nước.",
-                    V = 1, EffectiveFrom = "2026-09-15", Status = "ACTIVE"
-                },
-                new RegPackageDto
-                {
-                    Id = "RP-2", Name = "Việt Nam → Nhật Bản (hàng không)", Items = new List<string[]> { new[] { "VN", "EXPORT" }, new[] { "JP", "IMPORT" } },
-                    Origin = "VN", Dest = "JP", Modes = new List<string> { "AIR" }, Note = "Xuất khẩu từ Việt Nam (Cục Thú y) và nhập khẩu Nhật Bản (AQS).",
-                    V = 1, EffectiveFrom = "2026-09-15", Status = "ACTIVE"
-                }
-            });
+                    Id = p.Id, Name = p.Name, Items = (p.Items ?? new()).Select(i => (string[])i.Clone()).ToList(),
+                    Origin = p.Origin, Dest = p.Dest, Modes = (p.Modes ?? new()).ToList(), Note = p.Note,
+                    V = p.V, EffectiveFrom = p.EffectiveFrom, Status = p.Status
+                }).ToList());
+            }
         }
 
         public async Task<List<AuditEntryDto>> GetAuditLogsAsync(string? tripId = null)
@@ -966,9 +994,56 @@ namespace Infrastructure.Services
             }).ToList();
         }
 
-        public Task<bool> SaveDocTypeAsync(DocTypeDto input, string userId) => Task.FromResult(true);
-        public Task<bool> SaveRegulationAsync(RegulationDto input, string userId) => Task.FromResult(true);
-        public Task<bool> SavePackageAsync(RegPackageDto input, string userId) => Task.FromResult(true);
+        public Task<bool> SaveDocTypeAsync(DocTypeDto input, string userId)
+        {
+            lock (_catalogLock)
+            {
+                var idx = _inMemoryDocTypes.FindIndex(d => d.Id == input.Id);
+                if (idx >= 0)
+                {
+                    _inMemoryDocTypes[idx] = input;
+                }
+                else
+                {
+                    _inMemoryDocTypes.Add(input);
+                }
+                return Task.FromResult(true);
+            }
+        }
+
+        public Task<bool> SaveRegulationAsync(RegulationDto input, string userId)
+        {
+            lock (_catalogLock)
+            {
+                var idx = _inMemoryRegulations.FindIndex(r => r.Id == input.Id);
+                if (idx >= 0)
+                {
+                    _inMemoryRegulations[idx] = input;
+                }
+                else
+                {
+                    _inMemoryRegulations.Add(input);
+                }
+                return Task.FromResult(true);
+            }
+        }
+
+        public Task<bool> SavePackageAsync(RegPackageDto input, string userId)
+        {
+            lock (_catalogLock)
+            {
+                var idx = _inMemoryPackages.FindIndex(p => p.Id == input.Id);
+                if (idx >= 0)
+                {
+                    _inMemoryPackages[idx] = input;
+                }
+                else
+                {
+                    _inMemoryPackages.Add(input);
+                }
+                return Task.FromResult(true);
+            }
+        }
 
         private async Task LogAuditAsync(string? tripId, string actorId, string role, string action, string entity, string? detail)
         {

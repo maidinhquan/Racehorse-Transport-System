@@ -14,12 +14,10 @@ interface DocumentRowsProps {
   editable: boolean;
   /** Đường dẫn quay lại sau khi sửa thông tin ngựa */
   backTo?: string;
-  /** Callback mở form sửa ngựa trực tiếp tại chỗ (in-place) */
-  onEditHorse?: (horseId: string) => void;
 }
 
 /** Các dòng giấy tờ: trạng thái, lý do từ chối, xem tệp, tải tệp / sửa thông tin */
-export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, editable, backTo, onEditHorse }) => {
+export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, editable, backTo }) => {
   const navigate = useNavigate();
   const { actions } = useCustomer();
   const [preview, setPreview] = React.useState<{ file: import('../../types').FileRef; title: string } | null>(null);
@@ -35,9 +33,9 @@ export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, ed
               <TripStatusBadge kind="doc" status={it.status} />
               <div className="cus-doc__actions">
                 {it.file && <button type="button" className="cus-btn cus-btn--sm" onClick={() => setPreview({ file: it.file!, title: it.name })}>Xem tệp</button>}
-                {editable && (it.kind === 'info' || it.key === 'passport') && (
+                {editable && it.kind === 'info' && (
                   <button type="button" className="cus-btn cus-btn--sm"
-                    onClick={() => onEditHorse ? onEditHorse(it.scope) : navigate(`/customer/horses/${it.scope}/edit${backTo ? `?back=${encodeURIComponent(backTo)}` : ''}`)}>
+                    onClick={() => navigate(`/customer/horses/${it.scope}/edit${backTo ? `?back=${encodeURIComponent(backTo)}` : ''}`)}>
                     {rejected ? 'Cập nhật thông tin' : 'Sửa thông tin'}
                   </button>
                 )}
@@ -72,21 +70,79 @@ interface RequestDocumentsProps {
   perHorse: Array<{ horse: Horse; items: DocItem[] }>;
   editable: boolean;
   backTo?: string;
-  onEditHorse?: (horseId: string) => void;
 }
 
 /** Danh sách ngựa và hồ sơ từng ngựa */
-export const RequestDocuments: React.FC<RequestDocumentsProps> = ({ requestId, perHorse, editable, backTo, onEditHorse }) => (
-  <div className="cus-req-docs">
-    <div className="cus-doc-group">Danh sách ngựa và hồ sơ từng ngựa</div>
-    {perHorse.length === 0 && <p className="cus-subtitle">Chưa chọn ngựa.</p>}
-    {perHorse.map(({ horse, items }) => (
-      <div key={horse.id} className="cus-doc-horse">
-        <div className="cus-eyebrow">{horse.name} • {horse.id}</div>
-        <DocumentRows requestId={requestId} items={items} editable={editable} backTo={backTo} onEditHorse={onEditHorse} />
+export const RequestDocuments: React.FC<RequestDocumentsProps> = ({ requestId, perHorse, editable, backTo }) => {
+  const [openHorses, setOpenHorses] = React.useState<Record<string, boolean>>({});
+  const toggleHorse = (id: string) => {
+    setOpenHorses((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  return (
+    <div className="cus-req-docs">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div className="cus-doc-group" style={{ margin: 0, border: 0, padding: 0 }}>
+          Danh sách ngựa và hồ sơ từng ngựa ({perHorse.length} con)
+        </div>
+        {perHorse.length > 1 && (() => {
+          const allExpanded = perHorse.every((h) => !!openHorses[h.horse.id]);
+          return (
+            <button
+              type="button"
+              className="cus-link"
+              style={{ fontSize: 12 }}
+              onClick={() => {
+                if (allExpanded) {
+                  setOpenHorses({});
+                } else {
+                  const allOpen: Record<string, boolean> = {};
+                  perHorse.forEach((h) => {
+                    allOpen[h.horse.id] = true;
+                  });
+                  setOpenHorses(allOpen);
+                }
+              }}
+            >
+              {allExpanded ? 'Thu gọn tất cả' : 'Mở tất cả'}
+            </button>
+          );
+        })()}
       </div>
-    ))}
-  </div>
-);
+
+      {perHorse.length === 0 && <p className="cus-subtitle">Chưa chọn ngựa.</p>}
+      {perHorse.map(({ horse, items }, idx) => {
+        const isOpen = perHorse.length === 1 || !!openHorses[horse.id];
+        return (
+          <div key={horse.id} className={`cus-doc-horse-card ${isOpen ? 'is-open' : ''}`}>
+            <button
+              type="button"
+              className="cus-doc-horse-toggle"
+              onClick={() => toggleHorse(horse.id)}
+              aria-expanded={isOpen}
+            >
+              <div className="cus-doc-horse-info">
+                <span className="cus-doc-horse-index">{idx + 1}</span>
+                <div>
+                  <b className="cus-doc-horse-name">{horse.name}</b>
+                  <span className="cus-doc-horse-chip">{horse.microchip || horse.id}</span>
+                </div>
+              </div>
+              <div className="cus-doc-horse-actions">
+                <span className="cus-doc-horse-count">{items.length} giấy tờ</span>
+                <span className="cus-badge-hint">{isOpen ? 'Thu gọn ▲' : 'Xem hồ sơ ▼'}</span>
+              </div>
+            </button>
+            {isOpen && (
+              <div className="cus-doc-horse-body">
+                <DocumentRows requestId={requestId} items={items} editable={editable} backTo={backTo} />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 export default RequestDocuments;

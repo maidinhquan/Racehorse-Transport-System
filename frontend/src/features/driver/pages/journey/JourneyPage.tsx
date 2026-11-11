@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useIncidentPins } from '../../../../shared/utils/sharedIncidentPins';
+import { getUserFullName } from '../../../../shared/utils/userNameResolver';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DriverLayout, Icon } from '../../components/DriverLayout';
 import { TripHero } from '../../components/TripHero/TripHero';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { RouteMap } from '../../components/RouteMap/RouteMap';
-import { DelayModal, MilestoneModal, HorseDetailModal } from '../../components/Modals';
+import { MilestoneModal, HorseDetailModal } from '../../components/Modals';
 import { useDriver } from '../../hooks/useDriver';
 import {
   CLEARANCE_LABEL,
@@ -14,6 +15,7 @@ import {
   delayPending,
   fmtDateTime,
   handoverReady,
+  horsesMissingHealth,
   lastMilestone,
   milestoneText,
   myPosition,
@@ -26,11 +28,43 @@ import './JourneyPage.css';
 // ---------------------------------------------------------------------------
 // Ô ghi nhận mốc tiếp theo – nằm cạnh bản đồ
 // ---------------------------------------------------------------------------
+/** Kiểm tra sức khỏe bắt buộc trước khi xuất phát và trước khi rời mỗi điểm dừng: hiện từng ngựa đã/chưa kiểm tra */
+const HealthCheckCard: React.FC<{ trip: Trip; canRecord: boolean }> = ({ trip, canRecord }) => {
+  const navigate = useNavigate();
+  const { horse } = useDriver();
+  const n = nextMilestone(trip);
+  if (!n || (n.type !== 'DEPARTED' && n.type !== 'LEFT_STOP')) return null;
+  const since = n.type === 'DEPARTED' ? '' : lastMilestone(trip)?.at ?? '';
+  const missing = horsesMissingHealth(trip, since);
+  const title = n.type === 'DEPARTED' ? 'Kiểm tra sức khỏe trước khi xuất phát' : 'Kiểm tra sức khỏe trước khi rời điểm dừng';
+  return (
+    <div className="drv-note drv-note--yellow" style={{ marginBottom: 12, flexDirection: 'column', alignItems: 'stretch' }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <Icon name={missing.length ? 'clock' : 'check'} />
+        <b>{title}</b>
+      </div>
+      <ul style={{ listStyle: 'none', margin: '8px 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {trip.horses.map((id) => {
+          const done = !missing.includes(id);
+          return (
+            <li key={id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <span>{horse(id)?.name ?? id}</span>
+              <span className={`drv-badge drv-badge--${done ? 'ok' : 'warn'}`}>{done ? 'Đã kiểm tra' : 'Chưa kiểm tra'}</span>
+            </li>
+          );
+        })}
+      </ul>
+      {missing.length > 0 && (canRecord
+        ? <button type="button" className="drv-btn drv-btn--solid drv-btn--block" onClick={() => navigate(`/driver/trips/${trip.id}?tab=health`)}>Báo sức khỏe ngựa</button>
+        : <small>Chờ bác sĩ thú y báo sức khỏe cho các ngựa còn lại; sau đó mới ghi được mốc.</small>)}
+    </div>
+  );
+};
+
 const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
   const navigate = useNavigate();
   const { actions, isEscort } = useDriver();
   const [msOpen, setMsOpen] = useState(false);
-  const [delayOpen, setDelayOpen] = useState(false);
   const delayed = delayPending(trip);
   const n = nextMilestone(trip);
 
@@ -42,18 +76,19 @@ const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
         <>
           <div className="drv-note drv-note--grey">
             <Icon name="clock" />
-            <div><b>Lịch khởi hành: {fmtDateTime(trip.plannedDepart)}</b>Chỉ bấm xuất phát khi thực tế bắt đầu đi trong hoặc sau ngày đã lên lịch. Nếu không thể đi đúng ngày, hãy báo chậm khởi hành.</div>
+            <div><b>Lịch khởi hành: {fmtDateTime(trip.plannedDepart)}</b>Chỉ bấm xuất phát khi thực tế bắt đầu đi trong hoặc sau ngày đã lên lịch.</div>
           </div>
-          <button type="button" className="drv-btn drv-btn--block" style={{ marginTop: 10 }} disabled={delayed} onClick={() => setDelayOpen(true)}>Báo chậm khởi hành</button>
         </>
       )}
+
+      {trip.status !== 'COMPLETED' && <HealthCheckCard trip={trip} canRecord={isEscort} />}
 
       {isEscort ? (
         <div className="drv-note drv-note--grey"><Icon name="check" /><div><b>Bác sĩ thú y không ghi mốc hành trình</b>Mốc hành trình do tài xế cập nhật. Bạn ghi nhật ký sức khỏe ngựa ở mục Chuyến đi, thẻ Sức khỏe.</div></div>
       ) : n ? (
         <>
           <button type="button" className="drv-btn drv-btn--solid drv-btn--lg drv-btn--block drv-journey__record"
-            disabled={!!n.blocked || (n.type === 'DEPARTED' && delayed)} title={n.healthCheckRequired ? 'Cần ghi nhật ký sức khỏe cho ngựa tại trạm dừng này trước khi tiếp tục' : undefined} onClick={() => setMsOpen(true)}>
+            disabled={!!n.blocked || (n.type === 'DEPARTED' && delayed)} title={n.healthCheckRequired ? (n.type === 'DEPARTED' ? 'Cần kiểm tra sức khỏe toàn bộ ngựa trước khi xuất phát' : 'Cần kiểm tra sức khỏe toàn bộ ngựa trước khi rời điểm dừng') : undefined} onClick={() => setMsOpen(true)}>
             {milestoneText(trip, n)}
           </button>
           {n.blocked && n.healthCheckRequired && (
@@ -62,7 +97,7 @@ const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
                 <Icon name="clock" />
                 <div>
                   <b>Yêu cầu kiểm tra sức khỏe ngựa</b>
-                  Trạm dừng này yêu cầu ghi nhận nhật ký sức khỏe cho ngựa trước khi rời trạm. Nút rời điểm dừng sẽ mở sau khi hoàn tất kiểm tra y tế.
+                  {n.type === 'DEPARTED' ? 'Phải ghi nhật ký sức khỏe cho toàn bộ ngựa trước khi xuất phát. Nút xuất phát sẽ mở sau khi hoàn tất kiểm tra.' : 'Phải ghi nhật ký sức khỏe cho toàn bộ ngựa trước khi rời điểm dừng. Nút rời điểm dừng sẽ mở sau khi hoàn tất kiểm tra.'}
                 </div>
               </div>
               <button
@@ -107,7 +142,6 @@ const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
       )}
 
       {msOpen && n && <MilestoneModal trip={trip} next={n} onClose={() => setMsOpen(false)} onSubmit={(at, note) => actions.recordMilestone(trip.id, at, note)} />}
-      {delayOpen && <DelayModal trip={trip} onClose={() => setDelayOpen(false)} onSubmit={(reason) => actions.reportDepartureDelay(trip.id, reason)} />}
     </div>
   );
 };
@@ -125,7 +159,7 @@ const MilestoneHistory: React.FC<{ trip: Trip }> = ({ trip }) => {
           {[...trip.milestones].reverse().map((x, i) => (
             <li key={x.type + x.at + x.stopIndex} className={i ? 'green' : 'orange'}>
               <b>{MILESTONE_LABEL[x.type]}{trip.stops[x.stopIndex] ? ' – ' + cleanStopName(trip.stops[x.stopIndex].name) : ''}</b>
-              <span>{fmtDateTime(x.at)} • {crewMember(x.by)?.name ?? x.by}{x.note ? ' • ' + x.note : ''}</span>
+              <span>{fmtDateTime(x.at)} • {getUserFullName(crewMember(x.by)?.name || x.by)}{x.note ? ' • ' + x.note : ''}</span>
             </li>
           ))}
         </ul>
@@ -236,7 +270,7 @@ const Journey: React.FC<{ trip: Trip }> = ({ trip }) => {
             <b>{`${trip.id} • ${trip.origin} → ${trip.destination}`}</b>
           </div>
           {trip.stops.length
-            ? <RouteMap stops={trip.stops} mode={trip.mode} current={m ? m.stopIndex : -1} height={440} pins={pins} />
+            ? <RouteMap stops={trip.stops} current={m ? m.stopIndex : -1} height={440} pins={pins} />
             : <div className="drv-empty"><b>Chưa có tuyến</b>Điều phối viên chưa thêm điểm dừng.</div>}
         </div>
         <div className="drv-journey__side drv-stack">

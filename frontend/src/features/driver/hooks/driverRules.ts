@@ -119,51 +119,9 @@ export const clearanceFor = (t: Trip, stopIndex: number) =>
   [...t.clearances].reverse().find((c) => c.stopIndex === stopIndex);
 
 
-export function stopRequiresHealthCheck(stop?: RouteStop): boolean {
-  if (!stop) return false;
-  return !!stop.requiresHealthCheck || stop.type === 'QUARANTINE_STATION';
-}
-
-export function hasHealthLogForStop(t: Trip, stopIndex: number, horseId?: string): boolean {
-  const stop = t.stops[stopIndex];
-  if (!stop) return false;
-  const arrived = t.milestones.find((m) =>
-    (m.type === 'ARRIVED_STOP' || m.type === 'ARRIVED_CHECKPOINT' || (m.type === 'DEPARTED' && stopIndex === 0)) &&
-    m.stopIndex === stopIndex
-  );
-  if (!arrived) return false;
-
-  const norm = (id?: string) => (id || '').trim().toLowerCase();
-  const ids = [stop.id, stop.departureMilestoneId].filter(Boolean).map(norm);
-  const horses = horseId ? [horseId] : t.horses;
-
-  const safeMs = (s?: string) => {
-    if (!s) return 0;
-    const ms = stampMs(s);
-    return isNaN(ms) ? 0 : ms;
-  };
-
-  const arrivedStamp = safeMs(arrived.at);
-  const nextStop = t.stops[stopIndex + 1];
-  const nextMilestoneRecorded = nextStop ? t.milestones.find((m) => m.stopIndex === stopIndex + 1) : null;
-  const nextStamp = nextMilestoneRecorded ? safeMs(nextMilestoneRecorded.at) : Infinity;
-
-  return horses.length > 0 && horses.every((id) => t.health.some((h) => {
-    if (h.horseId !== id) return false;
-    // 1. Khi co milestoneId (du lieu backend/that): BAT BUOC phai khop ma moc den hoac moc roi cua chinh tram nay
-    if (h.milestoneId) {
-      return ids.includes(norm(h.milestoneId));
-    }
-    // 2. Du phong khi khong co milestoneId (demo/mock): so sanh thoi diem trong thoi gian dung tai tram nay
-    if (arrivedStamp > 0 && h.at) {
-      const logStamp = safeMs(h.at);
-      if (logStamp > 0) {
-        return logStamp >= (arrivedStamp - 60 * 1000) && (nextStamp === Infinity || logStamp < nextStamp);
-      }
-      return h.at.slice(0, 16) >= arrived.at.slice(0, 16);
-    }
-    return false;
-  }));
+/** Ngựa của chuyến chưa có nhật ký sức khỏe nào ghi từ mốc `since` trở đi (since rỗng = tính mọi nhật ký) */
+export function horsesMissingHealth(t: Trip, since: string): string[] {
+  return (t.horses || []).filter((id) => !t.health.some((h) => h.horseId === id && (!since || h.at >= since)));
 }
 
 const CROSSING: StopType[] = ['CHECKPOINT', 'AIRPORT', 'QUARANTINE_STATION'];
@@ -171,16 +129,21 @@ const CROSSING: StopType[] = ['CHECKPOINT', 'AIRPORT', 'QUARANTINE_STATION'];
 /** Mốc tiếp theo dựa trên mốc vừa xác nhận; qua cửa khẩu cần có kết quả thông quan */
 export function nextMilestone(t: Trip): NextMilestone | null {
   const m = lastMilestone(t);
-  if (t.status === 'READY_TO_DEPART' && !m) return { type: 'DEPARTED', stopIndex: 0 };
+  if (t.status === 'READY_TO_DEPART' && !m) {
+    // Mở tuyến chỉ được khi đã kiểm tra sức khỏe toàn bộ ngựa
+    const first: NextMilestone = { type: 'DEPARTED', stopIndex: 0 };
+    if (horsesMissingHealth(t, '').length) {
+      first.blocked = true;
+      first.healthCheckRequired = true;
+    }
+    return first;
+  }
   if (t.status !== 'IN_TRANSIT' || !m) return null;
   if (m.type === 'ARRIVED_DESTINATION') return null;
   if (m.type === 'ARRIVED_STOP') {
-    const stop = t.stops[m.stopIndex];
-    const reqHealth = stopRequiresHealthCheck(stop);
-    const hasHealth = reqHealth ? hasHealthLogForStop(t, m.stopIndex) : true;
-    const blocked = reqHealth && !hasHealth;
+    // Rời điểm dừng nào cũng phải kiểm tra sức khỏe toàn bộ ngựa sau khi đến điểm đó
     const res: NextMilestone = { type: 'LEFT_STOP', stopIndex: m.stopIndex };
-    if (blocked) {
+    if (horsesMissingHealth(t, m.at).length) {
       res.blocked = true;
       res.healthCheckRequired = true;
     }

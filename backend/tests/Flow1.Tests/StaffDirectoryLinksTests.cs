@@ -14,6 +14,8 @@ public class StaffDirectoryLinksTests
     [InlineData("EMP-26", "USER_017")]
     [InlineData("EMP-31", "USER_018")]
     [InlineData("EMP-32", "USER_019")]
+    [InlineData("EMP-28", "USER_030")]
+    [InlineData("EMP-36", "USER_031")]
     [InlineData(" emp-21 ", "USER_012")]
     public void Directory_staff_maps_to_their_login_account(string code, string userId)
     {

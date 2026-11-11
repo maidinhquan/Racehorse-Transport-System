@@ -60,6 +60,19 @@ public class HealthLogInputDto
     [JsonPropertyName("incidentId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? IncidentId { get; set; }
+
+    /// <summary>Vị trí tổ xe đang ở lúc báo sức khỏe (nếu có).</summary>
+    [JsonPropertyName("latitude")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public decimal? Latitude { get; set; }
+
+    [JsonPropertyName("longitude")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public decimal? Longitude { get; set; }
+
+    [JsonPropertyName("locationLabel")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public string? LocationLabel { get; set; }
 }
 
 public class HealthLogDto

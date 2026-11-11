@@ -12434,6 +12434,12 @@
             "pattern": "^USER_\\d{3,}$",
             "maxLength": 50
           },
+          "coordinatorName": {
+            "type": ["string", "null"]
+          },
+          "specialistName": {
+            "type": ["string", "null"]
+          },
           "selectedOptionId": {
             "anyOf": [
               {

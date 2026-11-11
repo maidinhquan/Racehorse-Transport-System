@@ -250,7 +250,13 @@ namespace Infrastructure.Services
                 {
                     var client = _httpClientFactory.CreateClient();
                     client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) RaceHorseTransport/1.0");
-                    var url = $"https://router.project-osrm.org/route/v1/driving/{fromLngStr},{fromLatStr};{toLngStr},{toLatStr}?overview=full&geometries=geojson";
+                    var waypoints = new List<(double lat, double lng)> { (fromLat, fromLng) };
+                    var corridors = GetDomesticCorridors(fromLat, fromLng, toLat, toLng);
+                    waypoints.AddRange(corridors);
+                    waypoints.Add((toLat, toLng));
+
+                    var pathQuery = string.Join(";", waypoints.Select(w => $"{w.lng.ToString(CultureInfo.InvariantCulture)},{w.lat.ToString(CultureInfo.InvariantCulture)}"));
+                    var url = $"https://router.project-osrm.org/route/v1/driving/{pathQuery}?overview=full&geometries=geojson";
 
                     using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     cts.CancelAfter(TimeSpan.FromSeconds(8));
@@ -481,6 +487,41 @@ namespace Infrastructure.Services
         // =========================================================================
         // 3. TOÁN HỌC ĐỊA LÝ & NỘI SUY TỌA ĐỘ
         // =========================================================================
+        private static readonly (double lat, double lng)[] VnCorridors = new[]
+        {
+            (18.6800, 105.6800), // Vinh - Nghệ An
+            (16.0500, 108.2000), // Đà Nẵng
+            (13.7800, 109.2200), // Quy Nhơn - Bình Định
+            (12.2400, 109.1900), // Nha Trang - Khánh Hòa
+            (10.9300, 108.1000)  // Phan Thiết - Bình Thuận
+        };
+
+        private static bool IsInVietnam(double lat, double lng) =>
+            lat >= 8.2 && lat <= 23.5 && lng >= 102.1 && lng <= 109.8;
+
+        private static List<(double lat, double lng)> GetDomesticCorridors(double fromLat, double fromLng, double toLat, double toLng)
+        {
+            if (!IsInVietnam(fromLat, fromLng) || !IsInVietnam(toLat, toLng))
+                return new List<(double lat, double lng)>();
+
+            var minLat = Math.Min(fromLat, toLat);
+            var maxLat = Math.Max(fromLat, toLat);
+            if (maxLat - minLat < 2.5)
+                return new List<(double lat, double lng)>();
+
+            var goingSouth = fromLat > toLat;
+            var filtered = VnCorridors
+                .Where(c => c.lat > minLat + 0.3 && c.lat < maxLat - 0.3)
+                .ToList();
+
+            if (goingSouth)
+                filtered = filtered.OrderByDescending(c => c.lat).ToList();
+            else
+                filtered = filtered.OrderBy(c => c.lat).ToList();
+
+            return filtered;
+        }
+
         public double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
         {
             const double r = 6371; // Earth radius in km

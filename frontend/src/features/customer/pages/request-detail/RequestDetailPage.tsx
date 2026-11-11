@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { onSync } from '../../../../shared/utils/syncChannel';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
@@ -61,7 +62,7 @@ function statusBanner(r: TransportRequest): [Tone, string, string] {
         : ['green', 'Yêu cầu đã được kích hoạt', 'Hợp đồng có hiệu lực. CBN Transport đang lập kế hoạch và chuẩn bị chuyến đi.'];
     case 'SCHEDULED': return ['green', 'Đã lên lịch vận chuyển', r.trip ? `Dự kiến xuất phát ${fmtDateTime(r.trip.plannedDepart)}.` : ''];
     case 'IN_TRANSIT': return ['blue', 'Ngựa của bạn đang trên đường', r.trip ? `Dự kiến đến ${fmtDateTime(r.trip.eta)}.` : ''];
-    case 'DELIVERED': return ['green', 'Đã giao – yêu cầu chưa đóng', 'Nghiệm thu, thanh toán số dư và đóng yêu cầu được xử lý riêng.'];
+    case 'DELIVERED': return ['green', 'Đã giao hàng thành công', ''];
     case 'CLOSED': return ['green', 'Yêu cầu đã đóng', `Đủ mọi điều kiện đóng${r.closedAt ? ` • ${fmtDateTime(r.closedAt)}` : ''}.`];
     case 'CANCELLED': return ['grey', 'Yêu cầu đã hủy', r.reason ?? ''];
   }
@@ -77,7 +78,8 @@ export const RequestDetailPage: React.FC = () => {
   useEffect(() => {
     void actions.loadRequest(requestId);
     const timer = setInterval(() => { void actions.loadRequest(requestId); }, 15000);
-    return () => clearInterval(timer);
+    const stopSync = onSync(() => { void actions.loadRequest(requestId); });
+    return () => { clearInterval(timer); stopSync(); };
   }, [requestId, actions]);
   useClock(30000); // cập nhật thời gian còn lại của hạn ký
   const r = getRequest(requestId);

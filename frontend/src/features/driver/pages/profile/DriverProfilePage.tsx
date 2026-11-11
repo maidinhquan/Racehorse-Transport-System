@@ -35,14 +35,11 @@ export const DriverProfilePage: React.FC = () => {
   const completedCount = trips.filter((t) => t.status === 'COMPLETED').length;
 
   const handleLogout = () => {
-    sessionStorage.removeItem('accessToken');
-    sessionStorage.removeItem('user');
-    sessionStorage.removeItem('userFullName');
-    sessionStorage.removeItem('userEmail');
-    sessionStorage.removeItem('userRole');
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
-    navigate('/login');
+    ['accessToken', 'user', 'userFullName', 'userEmail', 'userRole', 'token'].forEach((k) => {
+      sessionStorage.removeItem(k);
+      localStorage.removeItem(k);
+    });
+    window.location.href = '/login';
   };
 
   return (

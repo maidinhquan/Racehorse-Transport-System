@@ -5,6 +5,7 @@ import type { Horse, Trip } from '../../../types';
 import { useDriver } from '../../../hooks/useDriver';
 import { Icon } from '../../../components/DriverLayout';
 import { SLOT_LABEL, crewList, fmtDateTime } from '../../../hooks/driverRules';
+import { getUserFullName } from '../../../../../shared/utils/userNameResolver';
 
 /** Ngựa, điểm nhận/giao, người nhận, tổ xe và phương tiện */
 export const OverviewTab: React.FC<{ trip: Trip }> = ({ trip }) => {
@@ -56,7 +57,7 @@ export const OverviewTab: React.FC<{ trip: Trip }> = ({ trip }) => {
         {crewList(trip).map(([slot, id]) => (
           <div key={slot} className="drv-row">
             <div className="drv-row__text">
-              <b>{crewMember(id)?.name ?? id}{id === userId ? ' (bạn)' : ''}</b>
+              <b>{getUserFullName(crewMember(id)?.name || id)}{id === userId ? ' (bạn)' : ''}</b>
               <span>{SLOT_LABEL[slot]} • <a href={`tel:${crewMember(id)?.phone.replace(/\s/g, '') ?? ''}`}>{crewMember(id)?.phone}</a></span>
             </div>
           </div>

@@ -9,7 +9,7 @@ import type { Any } from '../../../store/coordinatorStore';
 import { commit, go, openModal, toast, useCoordinatorStore } from '../../../store/coordinatorStore';
 import { addHours, dt, human, stampMs } from '../../../utils/format';
 import { airportLabel, selectAirportsModal } from '../../../workflows/airOperations';
-import { fmtMin, PF, PF_COLOR, PLACE_ST, plannerMap, ROUTE_POLICY, routeNew, routeSubmitError, ROUTING, RP, rpAdd, rpAutoSort, rpCalc, rpCandidates, rpDeadline, rpDel, rpDeletable, rpDetour, rpEditable, rpEnsure, rpFixDomesticRoute, rpFlightKey, rpFocus, rpGroups, rpMove, rpOpenAddStop, rpPolicy, rpPolicyModal, rpRetry, rpRoute, rpRouteKey, rpRoutingModal, rpSave, rpSeg, rpSetAirCare, rpSetFilter, rpSetPurpose, rpSetStop, rpUseSim } from '../../../workflows/routePlanner';
+import { fmtMin, PF, PF_COLOR, PLACE_ST, plannerMap, ROUTE_POLICY, routeNew, routeSubmitError, RP, rpAdd, rpAutoSort, rpCalc, rpCandidates, rpDeadline, rpDel, rpDeletable, rpDetour, rpEditable, rpEnsure, rpFixDomesticRoute, rpFlightKey, rpFocus, rpGroups, rpMove, rpOpenAddStop, rpPolicy, rpPolicyModal, rpRetry, rpRoute, rpRouteKey, rpSave, rpSeg, rpSetAirCare, rpSetFilter, rpSetPurpose, rpSetStop, rpUseSim } from '../../../workflows/routePlanner';
 
 /** Căn lùi giờ xuất phát sao cho xe vừa kịp đến sân bay trước giờ bay đúng số giờ quy định */
 function calcIdealDepart(t: Any, rt: Any) {
@@ -228,7 +228,7 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
                 </span>
               ) : segIss.length ? (
                 <span style={{ color: '#dc2626', fontSize: 11, fontWeight: 700 }}>
-                  Cần thêm điểm dừng
+                  ⚠️ Cần thêm điểm dừng
                 </span>
               ) : null}
             </div>
@@ -273,29 +273,26 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
                 borderRadius: 6,
                 border: '1px solid ' + (isLegOk ? '#bbf7d0' : '#fecaca'),
                 fontSize: 11.5,
-                boxSizing: 'border-box',
-                width: '100%',
-                overflow: 'hidden',
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
-                <span style={{ fontWeight: 700, color: '#334155', flex: '1 1 auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <span style={{ fontWeight: 700, color: '#334155' }}>
                   Kiểm tra chi tiết: {s.name} → {rt.stops[i + 1]?.name}
                 </span>
-                <span style={{ color: isLegOk ? '#16a34a' : '#dc2626', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                  {isLegOk ? '✓ Đạt chính sách (≤ 4 giờ lái liên tục)' : 'Chưa đạt chính sách nghỉ'}
+                <span style={{ color: isLegOk ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
+                  {isLegOk ? '✓ Đạt chính sách (≤ 4 giờ lái liên tục)' : '⚠️ Chưa đạt chính sách nghỉ'}
                 </span>
               </div>
-              <div style={{ color: '#64748b', lineHeight: 1.4 }}>
+              <div style={{ color: '#64748b' }}>
                 Thời gian lái xe: <b>{fmtMin(legDuration)}</b> (quy định tối đa: <b>{ROUTE_POLICY.careIntervalH} giờ</b> giữa 2 lần nghỉ chăm sóc).
               </div>
 
               {segIss.map((x: Any, k: number) => (
-                <div key={k} className="rp-leg-err" style={{ display: 'flex', gap: 6, color: '#b42318', marginTop: 4, flexWrap: 'wrap' }}>
+                <div key={k} className="rp-leg-err" style={{ display: 'flex', gap: 6, color: '#b42318', marginTop: 4 }}>
                   <Icon name="alert" />
                   <span>{x.msg}</span>
-                  {Boolean(x.msg?.includes('lãnh thổ')) && edit ? (
+                  {x.msg.includes('lãnh thổ') && edit ? (
                     <button
                       type="button"
                       style={{
@@ -308,7 +305,6 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
                         fontSize: 10.5,
                         border: 'none',
                         cursor: 'pointer',
-                        whiteSpace: 'nowrap',
                       }}
                       onClick={() => rpFixDomesticRoute(t.id, i)}
                     >
@@ -319,19 +315,19 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
               ))}
 
               {edit ? (
-                <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
                   <button
                     type="button"
                     className="btn solid sm"
-                    style={{ fontSize: 11, padding: '4px 10px', flex: '1 1 auto', whiteSpace: 'nowrap' }}
+                    style={{ fontSize: 11, padding: '3px 10px' }}
                     onClick={() => rpOpenAddStop(t.id, i)}
                   >
-                    ＋ Chọn điểm dừng cho đoạn này
+                    ＋ Mở danh mục chọn điểm dừng cho đoạn này
                   </button>
                   <button
                     type="button"
                     className="btn ghost sm"
-                    style={{ fontSize: 11, padding: '4px 10px', flex: '0 0 auto', whiteSpace: 'nowrap' }}
+                    style={{ fontSize: 11, padding: '3px 10px' }}
                     onClick={() => rpSeg(t.id, i)}
                   >
                     Đóng kiểm tra
@@ -562,7 +558,7 @@ function Summary({ t }: { t: Any }) {
                   ＋ Thêm điểm dừng vào đoạn này
                 </button>
               ) : null}
-              {segIssues.some((x: Any) => Boolean(x.msg?.includes('lãnh thổ'))) && edit ? (
+              {segIssues.some((x: Any) => x.msg.includes('lãnh thổ')) && edit ? (
                 <button
                   type="button"
                   className="btn sm"
@@ -604,7 +600,7 @@ function Summary({ t }: { t: Any }) {
             <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
               <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Đánh giá đoạn này</span>
               <b style={{ fontSize: 13, color: isSegOk ? '#16a34a' : '#dc2626' }}>
-                {isSegOk ? '✓ Đạt chuẩn (≤ 4h)' : `Chưa đạt (${segIssues.length} lỗi)`}
+                {isSegOk ? '✓ Đạt chuẩn (≤ 4h)' : `⚠️ Chưa đạt (${segIssues.length} lỗi)`}
               </b>
             </div>
           </div>
@@ -894,7 +890,6 @@ export function RouteTab({ t }: { t: Any }) {
         <button type="button" className="btn ghost lg" onClick={() => rpSave(t.id)}>Lưu bản nháp</button>
         <button type="button" className="btn solid lg" onClick={() => { rpSave(t.id); go(`f/trip/${t.id}/resources`); }}>Lưu &amp; phân công xe, nhân sự →</button>
       </> : canPlan(t) && ['APPROVED', 'RETURNED'].includes(rt.status) ? <button type="button" className="btn solid lg" onClick={() => routeNew(t.id)}>Tạo phiên bản điều chỉnh v{rt.v + 1}</button> : null}
-      <span className="hint">{t.demoFlow3 ? 'Routing: Mô phỏng riêng chuyến Demo · không phải đường thực tế' : <>Routing: {ROUTING.provider === 'SIM' ? 'Mô phỏng (dữ liệu mẫu)' : 'OSRM – ' + ROUTING.url.replace(/^https?:\/\//, '').split('/')[0]} • <button type="button" className="link" onClick={rpRoutingModal}>Đổi</button></>}</span>
     </div>
     <p className="au-error" id="f-route-error" hidden={!routeSubmitError || !edit}>{routeSubmitError}</p>
   </>);

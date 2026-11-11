@@ -26,3 +26,26 @@
 .cus-map__legend span { display: inline-flex; align-items: center; gap: 6px; }
 .cus-map__legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 .cus-map--empty { padding: 36px; text-align: center; color: #64748b; font-size: 13px; }
+
+.cus-map .rp-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  background: #f08a2b;
+}
+.cus-map .rp-pin.end { background: #0f172a; }
+.cus-map .rp-pin.req { background: #dc2626; border-radius: 6px; }
+.cus-map .rp-pin.sel { background: #f08a2b; }
+.cus-map .rp-pin.cur {
+  background: #f57c00;
+  outline: 3px solid #fde047;
+  box-shadow: 0 0 10px rgba(245, 124, 0, 0.85);
+}

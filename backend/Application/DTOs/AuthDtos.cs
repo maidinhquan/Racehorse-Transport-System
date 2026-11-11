@@ -146,6 +146,13 @@ namespace Application.DTOs
         public bool? IsSmtpValid { get; set; }
     }
 
+    public class CheckEmailAvailabilityResponseData
+    {
+        public bool IsAvailable { get; set; }
+        public bool ExistsInSystem { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+
     public class QuickLoginAccountDto
     {
         public string Id { get; set; } = null!;

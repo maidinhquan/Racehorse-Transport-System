@@ -28,6 +28,7 @@ import {
   CustomerTrackingPage,
   CustomerHistoryPage,
   CustomerProfilePage,
+  CustomerNotificationsPage,
 } from "../../features/customer";
 
 // ==================== CONTRACT & PAYMENT ====================
@@ -42,6 +43,7 @@ import {
   IncidentsPage as DriverIncidentsPage,
   HistoryPage as DriverHistoryPage,
   DriverProfilePage,
+  DriverNotificationsPage,
 } from "../../features/driver";
 import {
   ManagerDashboardPage,
@@ -57,16 +59,17 @@ import {
   ComplaintDetailPage,
   ReportsPage as ManagerReportsPage,
   ManagerProfilePage,
+  ManagerNotificationsPage,
 } from "../../features/manager";
 import {
   SpecialistDashboardPage,
-  SpecialistIncidentsPage,
   AssignedTripsPage,
   TripDetailPage as SpecialistTripDetailPage,
   DocumentReviewPage,
   RegulationsPage,
   AuditPage,
   SpecialistProfilePage,
+  SpecialistNotificationsPage,
 } from "../../features/specialist";
 import { SpecialistRequestReviewsPage } from "../../features/specialist/pages/request-reviews/SpecialistRequestReviewsPage";
 import { CoordinatorRequestReviewsPage } from "../../features/coordinator/pages/request-reviews/CoordinatorRequestReviewsPage";
@@ -119,11 +122,13 @@ function AppRouter() {
         <Route path="/driver/incidents/:tripId" element={<DriverIncidentsPage />} />
         <Route path="/driver/history" element={<DriverHistoryPage />} />
         <Route path="/driver/profile" element={<DriverProfilePage />} />
+        <Route path="/driver/notifications" element={<DriverNotificationsPage />} />
 
         {/* ==================== MANAGER ==================== */}
         <Route path="/manager" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><Navigate to="/manager/dashboard" replace /></RequireAuth>} />
         <Route path="/manager/dashboard" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><ManagerDashboardPage /></RequireAuth>} />
         <Route path="/manager/profile" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><ManagerProfilePage /></RequireAuth>} />
+        <Route path="/manager/notifications" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><ManagerNotificationsPage /></RequireAuth>} />
         <Route path="/manager/overview" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><Navigate to="/manager/dashboard" replace /></RequireAuth>} />
         <Route path="/manager/requests" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><ManagerRequestsPage /></RequireAuth>} />
         <Route path="/manager/requests/:requestId" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><ManagerRequestDetailPage /></RequireAuth>} />
@@ -165,13 +170,14 @@ function AppRouter() {
         <Route path="/specialist/dashboard" element={<SpecialistDashboardPage />} />
         <Route path="/specialist/request-reviews" element={<SpecialistRequestReviewsPage />} />
         <Route path="/specialist/profile" element={<SpecialistProfilePage />} />
+        <Route path="/specialist/notifications" element={<SpecialistNotificationsPage />} />
         <Route path="/specialist/trips" element={<AssignedTripsPage />} />
         <Route path="/specialist/trips/:tripId" element={<SpecialistTripDetailPage />} />
         <Route path="/specialist/trips/:tripId/:tab" element={<SpecialistTripDetailPage />} />
         <Route path="/specialist/documents/:docId" element={<DocumentReviewPage />} />
         <Route path="/specialist/regulations" element={<RegulationsPage />} />
         <Route path="/specialist/regulations/:tab" element={<RegulationsPage />} />
-        <Route path="/specialist/incidents" element={<SpecialistIncidentsPage />} />
+        <Route path="/specialist/incidents" element={<Navigate to="/specialist/dashboard" replace />} />
         <Route path="/specialist/audit" element={<AuditPage />} />
         {/* Legacy redirects */}
         <Route path="/specialist/master" element={<Navigate to="/specialist/regulations" replace />} />
@@ -186,6 +192,7 @@ function AppRouter() {
         <Route path="/customer/home" element={<RequireAuth allowedRoles={['CUSTOMER']}><CustomerHomePage /></RequireAuth>} />
         <Route path="/customer/dashboard" element={<RequireAuth allowedRoles={['CUSTOMER']}><CustomerHomePage /></RequireAuth>} />
         <Route path="/customer/profile" element={<RequireAuth allowedRoles={['CUSTOMER']}><CustomerProfilePage /></RequireAuth>} />
+        <Route path="/customer/notifications" element={<RequireAuth allowedRoles={['CUSTOMER']}><CustomerNotificationsPage /></RequireAuth>} />
 
         {/* Requests & Wizard Flow */}
         <Route path="/customer/requests" element={<RequireAuth allowedRoles={['CUSTOMER']}><CustomerRequestsPage /></RequireAuth>} />

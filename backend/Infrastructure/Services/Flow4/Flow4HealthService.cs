@@ -64,10 +64,6 @@ public class Flow4HealthService : IFlow4HealthService
                 .FirstOrDefaultAsync() ?? milestoneId;
         }
 
-        var pendingStop = await _context.TripMilestones.FirstOrDefaultAsync(m => m.TripId == tripId && m.MilestoneId == milestoneId && (m.MilestoneKind == "STOP_ARRIVED" || m.MilestoneKind == "STOP_DEPARTED"));
-        if (pendingStop != null && Flow4Helper.HasHealthLogForStop(pendingStop, _context, dto.HorseId))
-            throw new InvalidOperationException("HEALTH_LOG_ALREADY_RECORDED: Ngựa này đã được kiểm tra sức khỏe tại trạm dừng hiện tại.");
-
         var log = new HealthLog
         {
             LogId = $"HL_{Guid.NewGuid():N}"[..20].ToUpper(),
@@ -87,6 +83,9 @@ public class Flow4HealthService : IFlow4HealthService
             IncidentId = dto.IncidentId,
             IncidentRequired = isAbnormal,
             MilestoneId = milestoneId,
+            Latitude = dto.Latitude,
+            Longitude = dto.Longitude,
+            LocationLabel = string.IsNullOrWhiteSpace(dto.LocationLabel) ? null : dto.LocationLabel.Trim(),
             LegType = dto.Leg ?? "road",
             LogTime = DateTime.TryParse(dto.ObservedAt, out var dt) ? dt : DateTime.UtcNow,
             RecordedAt = DateTime.UtcNow
@@ -150,6 +149,9 @@ public class Flow4HealthService : IFlow4HealthService
             SupersedesLogId = healthLogId,
             AmendmentReason = dto.Reason,
             MilestoneId = replacementInput.MilestoneId,
+            Latitude = replacementInput.Latitude,
+            Longitude = replacementInput.Longitude,
+            LocationLabel = string.IsNullOrWhiteSpace(replacementInput.LocationLabel) ? null : replacementInput.LocationLabel.Trim(),
             LegType = replacementInput.Leg ?? "road",
             LogTime = DateTime.TryParse(replacementInput.ObservedAt, out var dt) ? dt : DateTime.UtcNow,
             RecordedAt = DateTime.UtcNow
@@ -276,7 +278,10 @@ public class Flow4HealthService : IFlow4HealthService
                 HeartRateBpm = h.HeartRate,
                 RespiratoryRatePerMin = h.RespiratoryRatePerMin,
                 PhotoFileIds = photoIds,
-                IncidentId = h.IncidentId
+                IncidentId = h.IncidentId,
+                Latitude = h.Latitude,
+                Longitude = h.Longitude,
+                LocationLabel = h.LocationLabel
             },
             RecordedBy = new Flow4ActorDto
             {

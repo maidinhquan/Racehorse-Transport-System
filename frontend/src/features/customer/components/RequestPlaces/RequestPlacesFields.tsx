@@ -77,32 +77,55 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
   const dropdown = useRef<HTMLDivElement>(null);
-
-  const activeCity = search ? (search.key === 'pickup' ? origin : destination) : '';
-  const searchCountry = search ? city(activeCity).country : 'VN';
-  const activePlace = search ? places[search.key] : null;
   const demo = getDemoMode('customer');
-  const searchCityId = activePlace?.cityId || (demo ? getCityId(activeCity) : '');
 
-  useEffect(() => {
-    if (!search || !searchCityId || search.text.trim().length < 3) {
+  const handleSearchLocation = (targetKey: PlaceKey) => {
+    const targetPlace = places[targetKey];
+    const targetCity = targetKey === 'pickup' ? origin : destination;
+    const targetCountry = city(targetCity).country;
+    const targetCityId = targetPlace.cityId || (demo ? getCityId(targetCity) : '');
+    const text = targetPlace.address?.trim() || '';
+
+    if (!text) return;
+    setSearch({ key: targetKey, text });
+
+    if (!targetCity) {
+      setSearchError('Vui lòng chọn Tỉnh/thành phố ở trên trước.');
       setSuggestions([]);
-      setSearching(false);
       return;
     }
-    let active = true;
+    if (!targetCityId && !demo) {
+      setSearchError('Đang xác định tỉnh/thành phố trên bản đồ, vui lòng chờ trong giây lát rồi bấm lại.');
+      setSuggestions([]);
+      return;
+    }
+
     setSearching(true);
-    const timeout = setTimeout(() => {
-      customerApi.searchLocations(search.text.trim(), searchCountry, activeCity, searchCityId)
-        .then(rows => { if (active) { setSuggestions(rows); setSearchError(''); } })
-        .catch(error => { if (active) { setSuggestions([]); setSearchError(apiMessage(error)); } })
-        .finally(() => { if (active) setSearching(false); });
-    }, 900); // Each backend search is rate-limited (~1 req/s plus boundary checks); avoid one per keystroke.
-    return () => { active = false; clearTimeout(timeout); };
-  }, [search, searchCountry, activeCity, searchCityId]);
+    setSearchError('');
+    setSuggestions([]);
+
+    customerApi.searchLocations(text, targetCountry, targetCity, targetCityId)
+      .then(rows => {
+        setSuggestions(rows);
+        setSearchError('');
+      })
+      .catch(error => {
+        setSuggestions([]);
+        setSearchError(apiMessage(error));
+      })
+      .finally(() => {
+        setSearching(false);
+      });
+  };
 
   useEffect(() => {
-    const close = (event: MouseEvent) => { if (!dropdown.current?.contains(event.target as Node)) setSearch(null); };
+    const close = (event: MouseEvent) => {
+      if (!dropdown.current?.contains(event.target as Node)) {
+        setSearch(null);
+        setSuggestions([]);
+        setSearchError('');
+      }
+    };
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, []);
@@ -159,8 +182,11 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
               autoComplete="off"
               placeholder="VD: S1.07 Vinhomes Grand Park"
               value={place.address}
-              onFocus={() => {
-                setSearch({ key, text: place.address || '' });
+              onKeyDown={event => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  handleSearchLocation(key);
+                }
               }}
               onChange={event => {
                 const text = event.target.value;
@@ -172,7 +198,11 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
                   cityId: itemCityId,
                   cityName: selectedCity,
                 });
-                setSearch({ key, text });
+                if (search?.key === key) {
+                  setSearch(null);
+                  setSuggestions([]);
+                  setSearchError('');
+                }
               }}
               onBlur={() => {
                 if (demo && place.address.trim() && (!place.latitude || !place.longitude)) {
@@ -190,19 +220,14 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
             <button
               type="button"
               className="cus-btn-find-loc"
-              disabled={locked('places') || !place.address.trim() || !itemCityId}
-              onClick={() => {
-                const text = place.address.trim();
-                if (!text) return;
-                setSearch({ key, text });
-                setSearching(true);
-                customerApi.searchLocations(text, itemCountry, selectedCity, itemCityId)
-                  .then(rows => { setSuggestions(rows); setSearchError(''); })
-                  .catch(error => { setSuggestions([]); setSearchError(apiMessage(error)); })
-                  .finally(() => setSearching(false));
-              }}
+              disabled={locked('places') || !place.address.trim() || (!demo && !itemCityId) || (searching && search?.key === key)}
+              onClick={() => handleSearchLocation(key)}
             >
-              <Icon name="pin" /> Tìm vị trí
+              {searching && search?.key === key ? (
+                <>Đang tìm…</>
+              ) : (
+                <><Icon name="pin" /> Tìm vị trí</>
+              )}
             </button>
           </div>
           <p className="cus-create__address-hint">
@@ -225,11 +250,12 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
                   });
                   setSearch(null);
                   setSuggestions([]);
+                  setSearchError('');
                 }}
               >
                 <Icon name="pin" />{item.label}
               </button>
-            )) : <p role={searchError ? 'alert' : undefined}>{searchError ? `Không tìm được địa chỉ: ${searchError}` : 'Không tìm thấy. Thử nhập số nhà và tên đường (VD: 12 Nguyễn Huệ, Quận 1) thay vì tên quán/cửa hàng.'}</p>}
+            )) : <p role={searchError ? 'alert' : undefined}>{searchError ? `Không tìm được địa chỉ: ${searchError}` : 'Không tìm thấy vị trí phù hợp trong tỉnh/thành phố đã chọn. Thử nhập số nhà và tên đường (VD: 12 Nguyễn Huệ, Quận 1).'}</p>}
           </div>}
           <div style={{ marginTop: 10, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--cus-line)' }}>
             <LocationMap height={200} center={getDefaultCoordinates(selectedCity)} points={[

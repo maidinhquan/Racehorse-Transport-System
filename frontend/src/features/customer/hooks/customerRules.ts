@@ -162,7 +162,7 @@ export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
   ACTIVATED: 'Đã kích hoạt – chuẩn bị',
   SCHEDULED: 'Đã lên lịch',
   IN_TRANSIT: 'Đang vận chuyển',
-  DELIVERED: 'Đã giao – chưa đóng',
+  DELIVERED: 'Đã giao',
   CLOSED: 'Đã đóng',
   CANCELLED: 'Đã hủy',
 };
@@ -237,8 +237,8 @@ export function horseIssues(h: Horse) {
   if (ps === 'MISSING') list.push('Hộ chiếu ngựa còn thiếu số hoặc bản scan');
   if (ps === 'EXPIRED') list.push('Hộ chiếu ngựa đã hết hạn');
   if (!h.ownership) list.push('Chưa có giấy chứng nhận sở hữu');
-
-
+  if (!h.unsupportedFields?.includes('fluDate') && !h.fluDate) list.push('Chưa có ngày tiêm cúm gần nhất');
+  else if (h.fluDate && (stampToMs(today()) - stampToMs(h.fluDate)) / 86400000 > 365) list.push('Tiêm phòng cúm đã quá 12 tháng');
   return list;
 }
 export function profileStatus(h: Horse): HorseProfileStatus {
@@ -399,8 +399,10 @@ export const depositAmount = (r: TransportRequest) => {
   return v ? v.depositAmount ?? Math.round((v.total * v.depositPct) / 100) : 0;
 };
 export const contractTotal = (r: TransportRequest) => curVersion(r)?.total ?? 0;
-export const signedVersion = (r: TransportRequest) => (r.versions || []).find((v) => v && ['SIGNED', 'EFFECTIVE', 'FULFILLED'].includes(v.state));
-export const isSigned = (r: TransportRequest) => !!signedVersion(r);
+export const signedVersion = (r: TransportRequest) =>
+  (r.versions || []).find((v) => v && (['SIGNED', 'EFFECTIVE', 'FULFILLED'].includes(v.state) || !!v.signedAt));
+export const isSigned = (r: TransportRequest) =>
+  !!signedVersion(r) || ['ACTIVATED', 'SCHEDULED', 'IN_TRANSIT', 'DELIVERED', 'CLOSED'].includes(r.status);
 
 export const depositPayments = (r: TransportRequest) => {
   const v = curVersion(r);
@@ -463,7 +465,8 @@ export const canRequestContractChange = (r: TransportRequest) => {
   return !!v && r.status === 'CONTRACT_READY' && ['ISSUED', 'EXPIRED'].includes(versionState(v)) && !hasReceivedDeposit(r);
 };
 export const canCancel = (r: TransportRequest) =>
-  ['DRAFT', 'PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED', 'AWAITING_DEPOSIT']
+  !isSigned(r) &&
+  ['DRAFT', 'PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED']
     .includes(r.status);
 
 // ============================================================================
@@ -532,7 +535,7 @@ export function horseDocItems(r: TransportRequest, h: Horse): DocItem[] {
       `Giá trị khai báo: ${h.value ? `${Number(h.value).toLocaleString('en-US')} ${h.currency}` : '—'}`, true), [
       [!h.value, 'giá trị khai báo'],
     ]),
-    withMissing(item('flu', 'file', fileOf('flu') ? 'SUBMITTED' : h.unsupportedFields?.includes('flu') ? 'NOT_REQUIRED_YET' : 'MISSING', h.fluDate ? `Tiêm cúm gần nhất: ${fmtDate(h.fluDate)}` : 'Sổ tiêm ngừa'), [
+    withMissing(item('flu', 'file', fileOf('flu') ? 'SUBMITTED' : h.unsupportedFields?.includes('flu') ? 'NOT_REQUIRED_YET' : 'MISSING', `Tiêm cúm gần nhất: ${fmtDate(h.fluDate)}`), [
       [!fileOf('flu') && !h.unsupportedFields?.includes('flu'), 'tệp sổ tiêm ngừa'],
     ]),
     item('health', 'file', fileOf('health') ? 'SUBMITTED' : 'NOT_REQUIRED_YET',
@@ -708,7 +711,7 @@ export const DEMO_GUIDE: Record<'active' | 'history', Array<[string, string, str
     ['TRN-8924', 'Đang chuẩn bị – có giấy tờ bị từ chối', 'Xem lý do từ chối / yêu cầu bổ sung và tải lại giấy tờ.'],
     ['TRN-8945', 'Đã lên lịch', 'Dùng nút demo tổ xe xuất phát để bắt đầu hành trình.'],
     ['TRN-8923', 'Đang vận chuyển', 'Theo dõi các mốc hành trình đã được xác nhận; nút demo chạy tiếp tới bàn giao.'],
-    ['TRN-8810', 'Đã giao – chưa đóng', 'Nghiệm thu, thanh toán số dư bằng VNPay hoặc gửi khiếu nại.'],
+    ['TRN-8810', 'Đã giao', 'Xác nhận nghiệm thu hoặc gửi khiếu nại nếu có.'],
   ],
   history: [
     ['TRN-8750', 'Đã đóng – hợp đồng đã hoàn thành', 'Đã giao, thanh toán đủ, hết 24 giờ phản hồi; hợp đồng hết hiệu lực, chỉ xem.'],

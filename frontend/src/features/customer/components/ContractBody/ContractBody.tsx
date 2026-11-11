@@ -263,7 +263,7 @@ export const ContractBody: React.FC<{ request: TransportRequest; v: ContractVers
               <div className="cus-card" style={{ margin: 0 }}>
                 <h3 className="cus-card__title">Tiêm ngừa & sức khỏe</h3>
                 <div className="cus-kv">
-                  {full?.fluDate ? <div><span>Tiêm cúm gần nhất</span><b>{fluDate}</b></div> : null}
+                  <div><span>Tiêm cúm gần nhất</span><b>{fluDate}</b></div>
                   <div><span>Ghi chú sức khỏe</span><b>{conditions}</b></div>
                 </div>
                 {fileRow('Sổ tiêm ngừa', flu)}

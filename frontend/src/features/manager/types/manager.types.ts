@@ -51,24 +51,21 @@ export interface HorseRef {
   passportNo: string;
   sex?: string | null;
   dob?: string | null;
-  color?: string | null;
-  value?: string | number | null;
-  currency?: string | null;
+  weight?: number | null;
+  reproductiveStatus?: string | null;
   healthNotes?: string | null;
-  conditions?: string | null;
-  fluDate?: string | null;
+  value?: string | null;
+  currency?: string;
   passport?: {
     number?: string | null;
     authority?: string | null;
     issueDate?: string | null;
     expiryDate?: string | null;
-    scan?: { name?: string; url?: string } | string | null;
+    scan?: { name?: string; url?: string } | null;
   } | null;
-  photo?: { name?: string; url?: string } | string | null;
-  ownership?: { name?: string; url?: string } | string | null;
-  valueProof?: { name?: string; url?: string } | string | null;
-  flu?: { name?: string; url?: string } | string | null;
-  health?: { name?: string; url?: string } | string | null;
+  photo?: { name?: string; url?: string } | null;
+  ownership?: { name?: string; url?: string } | null;
+  valueProof?: { name?: string; url?: string } | null;
 }
 
 export interface Place {
@@ -414,7 +411,7 @@ export interface Trip {
 // ---------------------------------------------------------------------------
 export type IncidentType = 'DELAY' | 'HORSE_HEALTH' | 'VEHICLE' | 'BORDER' | 'OTHER';
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type IncidentStatus = 'NEW' | 'IN_PROGRESS' | 'CLOSED';
+export type IncidentStatus = 'NEW' | 'IN_PROGRESS' | 'CLOSED' | 'ESCALATED' | 'RESOLVED';
 export type PlanStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
 export type Payer = 'COMPANY' | 'CUSTOMER' | 'INSURANCE';
 

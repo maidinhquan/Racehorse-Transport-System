@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Modal } from './Modal';
 import { useSpecialist } from '../../hooks/useSpecialist';
-import type { CountryCode, Direction, DocGroup, DocScope, DocType, Provider, RegPackage, Regulation, RequirementLine, TransportMode } from '../../types';
+import type { CountryCode, Direction, DocGroup, DocType, RegPackage, Regulation, RequirementLine, TransportMode } from '../../types';
 import {
   DIRECTION_VI,
   MODE_VI,
-  PROVIDER_VI,
-  SCOPE_VI,
+
+
   getAllCountries,
   getAllGroups,
   regFor,
@@ -273,10 +273,10 @@ export const DocTypeModal: React.FC<{ open: boolean; value?: DocType; onClose: (
         </div>
         <div className="spc-field"><label htmlFor="dt-valid">Hiệu lực mặc định (ngày)</label>
           <input id="dt-valid" className="spc-input" type="number" min={0} value={f.validityDays ?? ''} placeholder="Theo hạn trên giấy tờ" onChange={(e) => setF({ ...f, validityDays: e.target.value ? Number(e.target.value) : null })} /></div>
-        <div className="spc-field"><label htmlFor="dt-prov">Bên cung cấp mặc định</label>
-          <select id="dt-prov" className="spc-select" value={f.provider} onChange={(e) => setF({ ...f, provider: e.target.value as Provider })}>{keys(PROVIDER_VI).map((k) => <option key={k} value={k}>{PROVIDER_VI[k]}</option>)}</select></div>
-        <div className="spc-field"><label htmlFor="dt-scope">Phạm vi mặc định</label>
-          <select id="dt-scope" className="spc-select" value={f.scope} onChange={(e) => setF({ ...f, scope: e.target.value as DocScope })}>{keys(SCOPE_VI).map((k) => <option key={k} value={k}>{SCOPE_VI[k]}</option>)}</select></div>
+
+
+
+
       </div>
       <div className="spc-field" style={{ marginTop: 12 }}>
         <label htmlFor="dt-note">Ghi chú / chú thích loại giấy tờ (tùy chọn)</label>
@@ -288,7 +288,7 @@ export const DocTypeModal: React.FC<{ open: boolean; value?: DocType; onClose: (
           onChange={(e) => setF({ ...f, note: e.target.value })}
         />
       </div>
-      <p className="spc-muted">Bên cung cấp và phạm vi là giá trị mặc định khi thêm loại giấy tờ này vào một yêu cầu; có thể chỉnh trong từng yêu cầu.</p>
+
     </Modal>
   );
 };

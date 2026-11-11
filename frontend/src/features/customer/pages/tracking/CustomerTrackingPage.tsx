@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { onSync } from '../../../../shared/utils/syncChannel';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { RouteMap } from '../../components/RouteMap/RouteMap';
@@ -13,6 +14,7 @@ import { flow4Api } from '../../../tracking/api/flow4Api';
 import type * as T from '../../../tracking/types/flow4.types';
 import { progressFromMilestones } from '../../../tracking/utils/progress';
 import { getSharedTrips } from '../../../../shared/utils/sharedTrips';
+import { getUserFullName } from '../../../../shared/utils/userNameResolver';
 import './CustomerTrackingPage.css';
 
 const ORDER: Record<TripStatus, number> = { IN_TRANSIT: 0, READY_TO_DEPART: 1, PLANNING: 2, COMPLETED: 3 };
@@ -83,7 +85,8 @@ export const CustomerTrackingPage: React.FC = () => {
     };
     load();
     const timer = window.setInterval(load, 15000);
-    return () => { active = false; window.clearInterval(timer); };
+    const stopSync = onSync(load);
+    return () => { active = false; window.clearInterval(timer); stopSync(); };
   }, [r?.id]);
 
   const head = (
@@ -186,7 +189,7 @@ export const CustomerTrackingPage: React.FC = () => {
     };
   }
 
-  const t: Trip | undefined = baseTrip && effectiveLive
+  const tBase: Trip | undefined = baseTrip && effectiveLive
     ? {
         ...baseTrip,
         routeApproved: true,
@@ -202,6 +205,10 @@ export const CustomerTrackingPage: React.FC = () => {
         milestones: effectiveLive.milestones.map((m) => ({ ...m, note: m.note ?? '' })),
       }
     : baseTrip;
+
+  // Trạng thái thật của chuyến theo dữ liệu theo dõi (Flow 4); bản sao trên yêu cầu có thể còn ở "Lập kế hoạch" sau khi chuyến đã xuất phát
+  const liveStatus = isMatchingLive ? (liveTracking?.trip?.tripStatus as TripStatus | undefined) : undefined;
+  const t: Trip | undefined = tBase && liveStatus && liveStatus !== tBase.status ? { ...tBase, status: liveStatus } : tBase;
 
   if (!t || t.status === 'PLANNING') {
     return (
@@ -265,6 +272,7 @@ export const CustomerTrackingPage: React.FC = () => {
 
           <div className="cus-card">
             <h3 className="cus-card__title">Các điểm dừng & cửa khẩu theo kế hoạch</h3>
+            <div className="cus-track__stops-list">
             {t.stops.map((x, i) => {
               const st = stopState(i), at = confirmedAt(i);
               return (
@@ -276,6 +284,7 @@ export const CustomerTrackingPage: React.FC = () => {
                 </div>
               );
             })}
+            </div>
           </div>
         </div>
 
@@ -283,7 +292,7 @@ export const CustomerTrackingPage: React.FC = () => {
           <div className="cus-card">
             <div className="cus-eyebrow">Mốc xác nhận gần nhất</div>
             {s.m ? (
-              <div className="cus-track__status"><span><Icon name="pin" /></span><div><b>{s.lastLabel}</b><small>Xác nhận {fmtDateTime(s.m.at)}{s.m.by ? ` bởi ${s.m.by}` : ''}</small></div></div>
+              <div className="cus-track__status"><span><Icon name="pin" /></span><div><b>{s.lastLabel}</b><small>Xác nhận {fmtDateTime(s.m.at)}{s.m.by ? ` bởi ${getUserFullName(s.m.by)}` : ''}</small></div></div>
             ) : <p className="cus-subtitle">Chưa xuất phát.</p>}
             <div className="cus-summary" style={{ marginTop: 12 }}>
               <div><span>Dự kiến xuất phát</span><b>{fmtDateTime(t.plannedDepart)}</b></div>

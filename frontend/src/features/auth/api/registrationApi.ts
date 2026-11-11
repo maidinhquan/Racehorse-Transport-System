@@ -42,6 +42,26 @@ export async function resendRegistrationOtp(registrationToken: string): Promise<
   return response.data.data;
 }
 
+export interface CheckEmailAvailabilityResponse {
+  isAvailable: boolean;
+  existsInSystem: boolean;
+  message: string;
+}
+
+export async function checkEmailAvailability(email: string): Promise<CheckEmailAvailabilityResponse> {
+  const response = await registrationApi.post<ApiResponse<CheckEmailAvailabilityResponse>>(
+    "/auth/check-email-availability",
+    { email }
+  );
+  return (
+    response.data.data ?? {
+      isAvailable: false,
+      existsInSystem: false,
+      message: response.data.message || "Không thể kiểm tra tính khả dụng của email",
+    }
+  );
+}
+
 export interface ValidateEmailResponse {
   isValid: boolean;
   existsInSystem: boolean;

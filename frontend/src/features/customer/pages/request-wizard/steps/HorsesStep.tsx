@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Horse, HorseInput, TransportRequest } from '../../../types';
+import type { HorseInput, TransportRequest } from '../../../types';
 import { customerApi } from '../../../api/customerApi';
 import { useCustomer } from '../../../hooks/useCustomer';
 import { emptyHorse, horseDocItems, horseLine, activeHorseRequests, validateHorseForm, HORSE_FIELD_ELEMENT_IDS } from '../../../hooks/customerRules';
 import { Icon } from '../../../components/CustomerLayout';
 import { DocumentRows } from '../../../components/DocumentList/DocumentList';
 import { HorseForm } from '../../../components/HorseForm/HorseForm';
-import { Modal } from '../../../components/Modals';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
 import { getDemoMode } from '../../../../../shared/context/DemoModeContext';
 import { apiMessage } from '../../../../../shared/api/apiError';
@@ -25,21 +24,6 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
   const [conflicts, setConflicts] = useState<Record<string, string>>({});
   const [availabilityError, setAvailabilityError] = useState('');
 
-  // Chỉnh sửa trực tiếp hồ sơ ngựa ngay tại đơn
-  const [editingHorse, setEditingHorse] = useState<Horse | null>(null);
-  const [editDraft, setEditDraft] = useState<HorseInput>(emptyHorse());
-  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
-  const [editErrorMsg, setEditErrorMsg] = useState('');
-
-  const startEdit = (h: Horse) => {
-    const { id: _id, ...rest } = h;
-    void _id;
-    setEditDraft(JSON.parse(JSON.stringify(rest)) as HorseInput);
-    setEditErrors({});
-    setEditErrorMsg('');
-    setEditingHorse(h);
-  };
-
   const handleClearDraftError = (key: string) => {
     setDraftErrors((prev) => {
       if (!prev[key]) return prev;
@@ -48,16 +32,6 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
       return next;
     });
   };
-
-  const handleClearEditError = (key: string) => {
-    setEditErrors((prev) => {
-      if (!prev[key]) return prev;
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
-  };
-
   useEffect(() => {
     let active = true;
     if (getDemoMode('customer')) { setSelectable(horses.map(h => h.id)); return; }
@@ -81,7 +55,6 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
       });
     return () => { active = false; };
   }, [r.date, r.pickupAt, r.id, horses.length]);
-
   const selectedId = r.horses[slot] ?? '';
   const selected = horses.find((h) => h.id === selectedId);
   const backTo = `/customer/requests/${r.id}/wizard/2`;
@@ -90,7 +63,6 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
     if (id && !selectable?.includes(id)) { actions.showToast('Ngựa chưa được xác nhận khả dụng cho ngày này.'); return; }
     actions.setHorseSlot(r.id, slot, id);
   };
-
   const saveNew = async () => {
     const errMap = validateHorseForm(draft);
     if (Object.keys(errMap).length > 0) {
@@ -113,34 +85,6 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
     setDraft(emptyHorse());
     setMode('existing');
   };
-
-  const saveEdit = async () => {
-    if (!editingHorse) return;
-    const errMap = validateHorseForm(editDraft);
-    if (Object.keys(errMap).length > 0) {
-      setEditErrors(errMap);
-      const firstKey = Object.keys(errMap)[0];
-      const elId = HORSE_FIELD_ELEMENT_IDS[firstKey];
-      if (elId) {
-        const el = document.getElementById(elId);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          el.focus();
-        }
-      }
-      return;
-    }
-    setEditErrors({});
-    setEditErrorMsg('');
-    const res = await actions.updateHorse(editingHorse.id, editDraft);
-    if (!res.ok) {
-      setEditErrorMsg(res.message || 'Không thể lưu hồ sơ.');
-      return;
-    }
-    actions.showToast(`Đã cập nhật hồ sơ cho ${editingHorse.name}.`);
-    setEditingHorse(null);
-  };
-
   const next = async () => {
     const empty = r.horses.findIndex((h) => !h);
     if (empty >= 0) { setSlot(empty); actions.showToast(`Hãy chọn ngựa cho vị trí ${empty + 1}.`); return; }
@@ -255,7 +199,7 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
                     <input type="radio" name="pick-horse" checked={selectedId === h.id} disabled={taken || unavailable || locked} onChange={() => pick(h.id)} />
                     <span className="cus-pick__thumb"><AuthImage src={h.photo?.url} fallback={<Icon name="horse" />} /></span>
                     <span className="cus-pick__text"><b>{h.name}</b><small>{horseLine(h)}{taken ? ' • Đã chọn ở vị trí khác' : conflicts[h.id] ? ' • Đang thuộc đơn chưa hoàn tất' : ''}</small></span>
-                    <TripStatusBadge label={conflicts[h.id] ? 'Đang trong đơn' : activeHorseRequests(h, requests).length ? 'Đang trong đơn' : 'Khả dụng'} tone={conflicts[h.id] || activeHorseRequests(h, requests).length ? 'info' : 'ok'} />
+                    <TripStatusBadge label={activeHorseRequests(h, requests).length ? 'Đã dùng trong đơn' : 'Chưa dùng'} tone={activeHorseRequests(h, requests).length ? 'info' : 'muted'} />
                   </label>
                 );
               })}
@@ -264,35 +208,11 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
             {selected && (
               <div className="cus-wizard__profile">
                 <div className="cus-wizard__profile-head">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <b>{selected.name}</b>
-                    <span style={{ color: 'var(--cus-muted)', fontSize: '13px' }}>{selected.microchip || selected.id}</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
-                    <button
-                      type="button"
-                      className="cus-btn cus-btn--sm"
-                      onClick={() => startEdit(selected)}
-                    >
-                      Sửa hồ sơ ngựa
-                    </button>
-                    <button
-                      type="button"
-                      className="cus-btn cus-btn--sm"
-                      onClick={() => actions.setHorseSlot(r.id, slot, '')}
-                    >
-                      Bỏ khỏi yêu cầu
-                    </button>
-                  </div>
+                  <b>{selected.name}</b><span>{selected.microchip || selected.id}</span>
+                  <button type="button" className="cus-btn cus-btn--sm" onClick={() => actions.setHorseSlot(r.id, slot, '')}>Bỏ khỏi yêu cầu</button>
                 </div>
                 <p className="cus-subtitle">Thông tin hộ chiếu, sở hữu, giá trị và y tế lấy từ “Ngựa của tôi”. Có thể sửa thông tin hoặc tải tệp ngay bên dưới.</p>
-                <DocumentRows
-                  requestId={r.id}
-                  items={horseDocItems(r, selected)}
-                  editable
-                  backTo={backTo}
-                  onEditHorse={() => startEdit(selected)}
-                />
+                <DocumentRows requestId={r.id} items={horseDocItems(r, selected)} editable backTo={backTo} />
                 <div className="cus-field" style={{ marginTop: 12 }}>
                   <label htmlFor="horse-note">Yêu cầu chăm sóc riêng cho {selected.name} trong chuyến (không bắt buộc)</label>
                   <textarea id="horse-note" className="cus-textarea" rows={2} value={r.horseNotes[selected.id] ?? ''} disabled={r.status === 'CHANGES_REQUESTED' && !(r.revisionFields ?? ['notes']).includes('notes')}
@@ -330,31 +250,6 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
           Tiếp tục: Kiểm tra & gửi →
         </button>
       </div>
-
-      {/* Modal chỉnh sửa hồ sơ ngựa trực tiếp ngay tại đơn */}
-      <Modal
-        open={!!editingHorse}
-        title={editingHorse ? `Sửa hồ sơ ngựa • ${editingHorse.name}` : ''}
-        wide
-        okText="Lưu hồ sơ"
-        cancelText="Hủy"
-        onOk={saveEdit}
-        onClose={() => setEditingHorse(null)}
-        error={editErrorMsg}
-      >
-        {Object.keys(editErrors).length > 0 && (
-          <div className="cus-horse-form-page__alert" role="alert" style={{ marginBottom: 16 }}>
-            <Icon name="alert" />
-            <span>Có <strong>{Object.keys(editErrors).length}</strong> trường thông tin cần hoàn thiện (được đánh dấu đỏ bên dưới).</span>
-          </div>
-        )}
-        <HorseForm
-          value={editDraft}
-          onChange={setEditDraft}
-          errors={editErrors}
-          onClearError={handleClearEditError}
-        />
-      </Modal>
     </div>
   );
 };

@@ -8454,7 +8454,7 @@
       "post": {
         "operationId": "F4-J23",
         "summary": "Ghi chăm sóc và quan sát sức khỏe",
-        "description": "Mọi nhân sự được giao ở chặng, gồm bác sĩ, được ghi; khi blocker hành trình còn mở vẫn cho chăm sóc. Mỗi ngựa chỉ có một nhật ký sức khỏe tại cùng trạm; gửi trùng trả 409 HEALTH_LOG_ALREADY_RECORDED. Checklist máy chủ quyết định ảnh/chỉ số cần có. ABNORMAL lưu ngay và trả incidentRequired=true nếu chưa liên kết incident; tự động kích hoạt chốt chặn an toàn cho chuyến đi.",
+        "description": "Mọi nhân sự được giao ở chặng, gồm bác sĩ, được ghi; khi blocker hành trình còn mở vẫn cho chăm sóc. Checklist máy chủ quyết định ảnh/chỉ số cần có. ABNORMAL lưu ngay và trả incidentRequired=true nếu chưa liên kết incident; tự động kích hoạt chốt chặn an toàn cho chuyến đi.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -16201,6 +16201,45 @@
                 "example": "INCIDENT_001",
                 "pattern": "^INCIDENT_\\d{3,}$",
                 "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90,
+                "example": 10.9289
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180,
+                "example": 108.1021
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "locationLabel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255,
+                "example": "Gần Phan Thiết rest area"
               },
               {
                 "type": "null"

@@ -187,6 +187,17 @@ namespace WebApi.Controllers
         }
 
         // =========================================================================
+        // AUTH: CHECK EMAIL AVAILABILITY (DUPLICATE CHECK ONLY)
+        // POST /api/auth/check-email-availability
+        // =========================================================================
+        [HttpPost("check-email-availability")]
+        public async Task<IActionResult> CheckEmailAvailability([FromBody] ValidateEmailRequestDto dto, CancellationToken cancellationToken)
+        {
+            var data = await _registrationService.CheckEmailAvailabilityAsync(dto.Email, cancellationToken);
+            return Ok(ApiResponse<CheckEmailAvailabilityResponseData>.Ok(data, data.Message));
+        }
+
+        // =========================================================================
         // AUTH: VALIDATE EMAIL EXISTENCE (FOR DEMO/TESTING PURPOSE)
         // POST /api/auth/validate-email
         // =========================================================================

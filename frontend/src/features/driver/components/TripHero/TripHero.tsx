@@ -42,7 +42,7 @@ export const TripHero: React.FC<TripHeroProps> = ({ trip, compact, actions }) =>
       </div>
       <div className="drv-hero__route">{trip.origin} <span>→</span> {trip.destination}</div>
 
-      {!compact && trip.stops.length > 0 && <RouteMap stops={trip.stops} mode={trip.mode} current={m ? m.stopIndex : -1} height={260} compact />}
+      {!compact && trip.stops.length > 0 && <RouteMap stops={trip.stops} current={m ? m.stopIndex : -1} height={260} compact />}
 
       <div className="drv-stats">
         <div className="drv-stat"><span>Khởi hành</span><b>{fmtDate(trip.plannedDepart)}</b><small>{fmtTime(trip.plannedDepart)} • ETA {fmtDateTime(trip.eta)}</small></div>
@@ -56,7 +56,7 @@ export const TripHero: React.FC<TripHeroProps> = ({ trip, compact, actions }) =>
           <Icon name={n.blocked ? 'clock' : 'pin'} />
           <div>
             <b>Mốc tiếp theo: {milestoneText(trip, n)}</b>
-            {n.blocked ? 'Đang chờ ghi nhận kết quả thông quan.'
+            {n.blocked ? (n.healthCheckRequired ? 'Cần kiểm tra sức khỏe toàn bộ ngựa trước khi đi tiếp.' : 'Đang chờ ghi nhận kết quả thông quan.')
               : 'Ghi nhận khi sự kiện thực tế xảy ra.'}
           </div>
         </div>

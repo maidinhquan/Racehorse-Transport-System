@@ -29,9 +29,9 @@ public sealed class ContractLifecycleService(IDataSession data, AccessService ac
         var contract = await access.ContractAsync(id, actor, true, token);
         Require(contract.SignedAt is null && contract.ContractStatus == "ISSUED" && contract.CompletionDeadline > clock.GetUtcNow().UtcDateTime, "INVALID_STATE", "Contract is not open for reminders.");
         var cutoff = clock.GetUtcNow().UtcDateTime.AddMinutes(-1);
-        Require(!(await data.ListAsync<Notification>(n => (n.ReferenceID == id || n.ReferenceID == contract.RequestID) && n.Type == "CONTRACT_REMINDER" && n.SentAt > cutoff, token)).Any(), "RATE_LIMITED", "Wait before sending another reminder.", 429);
-        var notification = new Notification { UserID = contract.CustomerID, ReferenceID = contract.RequestID ?? id, Type = "CONTRACT_REMINDER", Channel = "IN_APP",
-            Title = "Nhắc nhở hoàn tất hợp đồng & cọc", Message = "Vui lòng xem lại hợp đồng, thanh toán tiền cọc và ký xác nhận trước thời hạn.", SentAt = clock.GetUtcNow().UtcDateTime };
+        Require(!(await data.ListAsync<Notification>(n => n.ReferenceID == id && n.Type == "CONTRACT_REMINDER" && n.SentAt > cutoff, token)).Any(), "RATE_LIMITED", "Wait before sending another reminder.", 429);
+        var notification = new Notification { UserID = contract.CustomerID, ReferenceID = id, Type = "CONTRACT_REMINDER", Channel = "IN_APP",
+            Title = "Complete your contract", Message = "Review your current contract, pay the deposit and sign before the deadline.", SentAt = clock.GetUtcNow().UtcDateTime };
         data.Add(notification); await data.SaveAsync(token);
         return new { contractId = id, versionNo = contract.CurrentVersionNo, notificationId = notification.NotificationID, queued = true };
     }, ct);

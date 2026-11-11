@@ -189,6 +189,7 @@ namespace Application.DTOs
         public string Provider { get; set; } = "CUSTOMER"; // CUSTOMER, CBN
         public int? ValidityDays { get; set; }
         public string Status { get; set; } = "ACTIVE"; // ACTIVE, RETIRED
+        public string? Note { get; set; }
     }
 
     public class RequirementLineDto

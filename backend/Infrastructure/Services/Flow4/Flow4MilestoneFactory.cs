@@ -66,7 +66,7 @@ public static class Flow4MilestoneFactory
                         Label = $"Xuất phát từ {name}",
                         Status = "PENDING",
                         PlannedTime = arrivePlanned,
-                        RequiresHealthCheck = false,
+                        RequiresHealthCheck = true,
                         Latitude = lat,
                         Longitude = lng,
                     });

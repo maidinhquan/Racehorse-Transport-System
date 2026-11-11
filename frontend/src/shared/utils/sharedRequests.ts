@@ -44,20 +44,12 @@ const DEFAULT_SEEDED_REQUESTS = [
     },
     versions: [],
     dossier: [
-      { name: 'Hộ chiếu ngựa', scope: 'HOR_1029', status: 'PENDING_REVIEW', file: 'passport.png' },
-      { name: 'Chứng nhận sở hữu ngựa', scope: 'HOR_1029', status: 'PENDING_REVIEW', file: 'ownership.png' },
-      { name: 'Thông tin sinh học', scope: 'HOR_1029', status: 'PENDING_REVIEW', file: 'bio.png' },
-      { name: 'Giá trị thương mại', scope: 'HOR_1029', status: 'PENDING_REVIEW', file: 'valuation.png' },
       { name: 'Sổ tiêm ngừa cúm', scope: 'HOR_1029', status: 'PENDING_REVIEW', file: 'sotienngua.png' },
-      { name: 'Giấy chứng nhận sức khỏe', scope: 'HOR_1029', status: 'PENDING_REVIEW', file: 'health_cert.png' },
+      { name: 'Hộ chiếu ngựa', scope: 'HOR_1029', status: 'PENDING_REVIEW', file: 'passport.png' },
     ],
     docs: [
-      { key: 'passport', scope: 'HOR_1029', status: 'SUBMITTED', file: { name: 'passport.png' }, updatedAt: '2026-10-28 12:42', note: 'Số hộ chiếu: VN_EQ_2020_1029', expiry: '2028-02-11' },
-      { key: 'ownership', scope: 'HOR_1029', status: 'SUBMITTED', file: { name: 'ownership.png' }, updatedAt: '2026-10-28 12:42', note: 'Chứng nhận sở hữu ngựa' },
-      { key: 'bio', scope: 'HOR_1029', status: 'SUBMITTED', file: { name: 'bio.png' }, updatedAt: '2026-10-28 12:42', note: 'Màu: Nâu hạt dẻ, Giống: Thoroughbred, Vi mạch: 985112004571029' },
-      { key: 'valueProof', scope: 'HOR_1029', status: 'SUBMITTED', file: { name: 'valuation.png' }, updatedAt: '2026-10-28 12:42', note: 'Giá trị khai báo: 500,000,000 VND' },
-      { key: 'flu', scope: 'HOR_1029', status: 'SUBMITTED', file: { name: 'sotienngua.png' }, updatedAt: '2026-10-28 12:42', note: 'Tiêm vắc xin cúm định kỳ' },
-      { key: 'health', scope: 'HOR_1029', status: 'SUBMITTED', file: { name: 'health_cert.png' }, updatedAt: '2026-10-28 12:42', note: 'Chứng nhận kiểm dịch thú y đủ điều kiện di chuyển' },
+      { key: 'flu', scope: 'HOR_1029', status: 'SUBMITTED', file: { name: 'sotienngua.png' }, updatedAt: '2026-10-28 12:42' },
+      { key: 'passport', scope: 'HOR_1029', status: 'SUBMITTED', file: { name: 'passport.png' }, updatedAt: '2026-10-28 12:42' },
     ],
     history: [
       { at: '2026-10-28 12:40', actor: 'Nguyễn Văn A', role: 'CUSTOMER', action: 'Tạo bản nháp', detail: 'Ho Chi Minh City → Sapporo • 1 ngựa' },

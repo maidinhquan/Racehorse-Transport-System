@@ -7,13 +7,12 @@ import { STOP_LABEL } from '../../hooks/driverRules';
 import { addGeoapifyTiles } from '../../../../shared/maps/GeoapifyTiles';
 import { drawIncidentPins } from '../../../../shared/maps/incidentPinLayer';
 import type { IncidentPin } from '../../../../shared/utils/sharedIncidentPins';
-import { roadLegGeometry } from '../../api/driverApi';
+import { fetchRoadRoute, fetchTripSegments, inferStopCoords } from '../../../../shared/maps/roadRouting';
 
 type GeoPoint = { lat: number; lng: number };
 
 interface RouteMapProps {
   stops: RouteStop[];
-  mode?: 'ROAD' | 'AIR';
   current?: number;
   height?: number;
   onPick?: (point: GeoPoint) => void;
@@ -25,18 +24,22 @@ interface RouteMapProps {
   draggablePin?: boolean;
 }
 
-function hasCoordinates(stop: RouteStop) {
-  return typeof stop.lat === 'number' && Number.isFinite(stop.lat)
+function getStopPosition(stop: RouteStop): L.LatLngTuple | null {
+  if (
+    typeof stop.lat === 'number' && Number.isFinite(stop.lat)
     && stop.lat >= -90 && stop.lat <= 90
     && typeof stop.lng === 'number' && Number.isFinite(stop.lng)
-    && stop.lng >= -180 && stop.lng <= 180;
+    && stop.lng >= -180 && stop.lng <= 180
+  ) {
+    return [stop.lat, stop.lng];
+  }
+  return inferStopCoords(stop.name);
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
 /** Bản đồ lộ trình cho Tài xế: đồng bộ bố cục và giao diện như trang Khách hàng */
 export const RouteMap: React.FC<RouteMapProps> = ({
   stops,
-  mode = 'ROAD',
   current = -1,
   height = 280,
   onPick,
@@ -49,23 +52,10 @@ export const RouteMap: React.FC<RouteMapProps> = ({
   const layersRef = useRef<L.LayerGroup | null>(null);
   const lastBounds = useRef('');
   const [tileError, setTileError] = useState(false);
-  const [routeError, setRouteError] = useState(false);
-  const [roadLegs, setRoadLegs] = useState<Array<Array<[number, number]>>>([]);
   const [isMaximized, setIsMaximized] = useState(false);
-  const missing = stops.filter((stop) => !hasCoordinates(stop));
+  const missing = stops.filter((stop) => !getStopPosition(stop));
   const pinsKey = JSON.stringify(pins ?? []);
-  const routeKey = JSON.stringify(stops.map((stop) => [stop.lat, stop.lng]));
-
-  useEffect(() => {
-    if (mode !== 'ROAD' || stops.length < 2 || stops.some((stop) => !hasCoordinates(stop))) { setRoadLegs([]); setRouteError(false); return; }
-    let active = true;
-    setRoadLegs([]);
-    setRouteError(false);
-    void roadLegGeometry(stops.map((stop) => [stop.lat!, stop.lng!])).then((legs) => {
-      if (active) setRoadLegs(legs);
-    }).catch(() => { if (active) { setRoadLegs([]); setRouteError(true); } });
-    return () => { active = false; };
-  }, [routeKey, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hasAir = stops.some((s, i) => i > 0 && stops[i - 1].type === 'AIRPORT' && s.type === 'AIRPORT');
 
   useEffect(() => {
     if (!isMaximized) return;
@@ -124,39 +114,78 @@ export const RouteMap: React.FC<RouteMapProps> = ({
     const layers = layersRef.current;
     if (!map || !layers) return;
     layers.clearLayers();
-    const located = stops.flatMap((stop, index) =>
-      hasCoordinates(stop)
-        ? [{ stop, index, position: [stop.lat!, stop.lng!] as L.LatLngTuple }]
-        : []
-    );
+    let isCancelled = false;
+
+    const located = stops.flatMap((stop, index) => {
+      const position = getStopPosition(stop);
+      return position ? [{ stop, index, position }] : [];
+    });
     const lastConfirmed =
       Number.isInteger(current) && current >= 0 && current < stops.length ? current : -1;
 
+    const polylines: Array<{ legIndex: number; poly: L.Polyline; prevPos: L.LatLngTuple; nextPos: L.LatLngTuple; confirmed: boolean; flight: boolean }> = [];
     for (let i = 1; i < located.length; i++) {
       const previous = located[i - 1], next = located[i];
       if (next.index !== previous.index + 1) continue;
       const confirmed = next.index <= lastConfirmed;
-      L.polyline(mode === 'ROAD' && roadLegs.length === stops.length - 1 && roadLegs[previous.index]?.length > 1
-        ? roadLegs[previous.index] : [previous.position, next.position], {
-        color: confirmed ? '#f57c00' : '#2563eb',
-        weight: 5,
-        dashArray: confirmed ? undefined : '7 8',
+      const flight = previous.stop.type === 'AIRPORT' && next.stop.type === 'AIRPORT';
+      const poly = L.polyline([previous.position, next.position], {
+        color: flight ? '#ea580c' : confirmed ? '#f57c00' : '#2563eb',
+        weight: flight ? 3 : 5,
+        opacity: 0.88,
+        dashArray: flight ? '2 10' : confirmed ? undefined : '6 8',
         interactive: false,
       }).addTo(layers);
+      polylines.push({
+        legIndex: i - 1,
+        poly,
+        prevPos: previous.position,
+        nextPos: next.position,
+        confirmed,
+        flight,
+      });
+    }
+
+    if (!hasAir && located.length === stops.length && located.length >= 2) {
+      const roadPoints = located.map((p) => ({ lat: p.position[0], lng: p.position[1] }));
+      void fetchTripSegments(roadPoints).then((segments) => {
+        if (isCancelled) return;
+        polylines.forEach(({ legIndex, poly, confirmed }) => {
+          const seg = segments[legIndex];
+          if (seg && seg.length > 1) {
+            (poly as any).setLatLngs?.(seg);
+            if (!confirmed) poly.setStyle({ dashArray: undefined });
+          }
+        });
+      });
+    } else {
+      polylines.forEach(({ poly, prevPos, nextPos, confirmed, flight }) => {
+        if (flight) return;
+        void fetchRoadRoute([
+          { lat: prevPos[0], lng: prevPos[1] },
+          { lat: nextPos[0], lng: nextPos[1] },
+        ]).then((roadCoords) => {
+          if (!isCancelled && roadCoords && roadCoords.length > 1) {
+            (poly as any).setLatLngs?.(roadCoords);
+            if (!confirmed) poly.setStyle({ dashArray: undefined });
+          }
+        });
+      });
     }
 
     located.forEach(({ stop, index, position }) => {
       const latest = index === lastConfirmed;
-      const isEnd = index === 0 || index === stops.length - 1;
+      const isEnd = index === 0 || index === stops.length - 1 || stop.type === 'ORIGIN' || stop.type === 'DESTINATION';
       const isReq =
         stop.type === 'CHECKPOINT' ||
+        stop.type === 'QUARANTINE_STATION' ||
         stop.type === 'AIRPORT' ||
         Boolean((stop as unknown as { required?: boolean }).required);
       const pinClass = `rp-pin ${isEnd ? 'end' : isReq ? 'req' : 'sel'} ${latest ? 'cur' : ''}`;
       const html = `<div class="${pinClass}">${index + 1}</div>`;
       const marker = L.marker(position, {
         icon: L.divIcon({ html, className: '', iconSize: [26, 26], iconAnchor: [13, 13] }),
-        zIndexOffset: latest ? 1200 : 1000,
+        zIndexOffset: stop.type === 'AIRPORT' ? 1100 : latest ? 1200 : 1000,
       }).addTo(layers);
       const tooltip = document.createElement('span');
       tooltip.textContent = `${index + 1}. ${stop.name}`;
@@ -192,7 +221,11 @@ export const RouteMap: React.FC<RouteMapProps> = ({
       }
       lastBounds.current = boundsKey;
     }
-  }, [stops, current, pinsKey, draggablePin, onPick, roadLegs, mode]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [stops, current, pinsKey, draggablePin, onPick]);
 
   return (
     <div className={`drv-geo-map ${isMaximized ? 'is-maximized' : ''}`}>
@@ -246,15 +279,14 @@ export const RouteMap: React.FC<RouteMapProps> = ({
           Chưa tải được nền bản đồ Geoapify. Vui lòng thử lại sau.
         </p>
       )}
-      {routeError && <p className="drv-geo-map__notice" role="status">Chưa tải được tuyến đường bộ. Đang nối tạm các điểm dừng.</p>}
-      <p className="drv-geo-map__notice">{mode === 'ROAD' && roadLegs.length === stops.length - 1 ? 'Đường vẽ theo tuyến đường bộ; vị trí theo mốc được xác nhận.' : 'Đường nối tạm thể hiện thứ tự điểm dừng; vị trí theo mốc được xác nhận.'}</p>
+      <p className="drv-geo-map__notice">Đường nối thể hiện thứ tự điểm dừng, vị trí theo mốc được xác nhận.</p>
 
       {!compact && (
         <div className="drv-geo-map__legend">
-          <span><i style={{ background: '#0f172a' }} />Điểm nhận</span>
-          <span><i style={{ background: '#2563eb' }} />Sân bay</span>
-          <span><i style={{ background: '#16a34a' }} />Điểm giao</span>
-          <span><i style={{ background: '#f57c00' }} />Mốc xác nhận gần nhất</span>
+          <span><i style={{ background: '#0f172a' }} />Điểm nhận/giao</span>
+          <span><i style={{ background: '#dc2626', borderRadius: 3 }} />Điểm bắt buộc</span>
+          <span><i style={{ background: '#f08a2b' }} />Điểm dừng</span>
+          <span><i style={{ background: '#f57c00', outline: '2px solid #fde047' }} />Mốc xác nhận gần nhất</span>
           {pins && pins.length > 0 && <span><i style={{ background: '#dc2626' }} />Vị trí sự cố</span>}
         </div>
       )}

@@ -11,6 +11,7 @@ import { fmtMin, kmBetween, PF, PF_COLOR, RP, plannerMap, ROUTE_POLICY, rpCalc, 
 import { Empty } from '../common/ui';
 import { drawIncidentPins } from '../../../../shared/maps/incidentPinLayer';
 import { getIncidentPins, useIncidentPins } from '../../../../shared/utils/sharedIncidentPins';
+import { fetchRoadRoute, fetchTripSegments } from '../../../../shared/maps/roadRouting';
 
 // Cấu hình icon mặc định Leaflet để tương thích Vite
 delete (L.Icon.Default.prototype as Any)._getIconUrl;
@@ -56,6 +57,7 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
   const rt = t ? (t.routes || []).find((r: Any) => r.stops === stops) || curRoute(t) : null;
   if (t && rt) rpCoords(t, rt);
   const ps = t ? RP(t.id) : null;
+  const routeKey = t && rt ? rpRouteKey(t, rt) : '';
   const geom = (rt && rt.geom && Array.isArray(rt.geom) && rt.geom.length === stops.length - 1)
     ? rt.geom
     : (rt && rt.routingSnapshot?.legs && Array.isArray(rt.routingSnapshot.legs) && rt.routingSnapshot.legs.length === stops.length - 1)
@@ -66,10 +68,10 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
   const missing = (stops || []).filter((x: Any) => x?.lat == null || !Number.isFinite(Number(x?.lat))).length;
 
   useEffect(() => {
-    if (!geom && t && rt && (!ps || ps.routing?.status === 'idle') && missing === 0) {
+    if (!geom && t && rt && (!ps || ps.routing?.status === 'idle' || ps.routing?.key !== routeKey) && missing === 0) {
       void rpRoute(t);
     }
-  }, [t, rt, geom, ps, missing]);
+  }, [t, rt, geom, ps, missing, routeKey]);
 
   useEffect(() => {
     if (!isMaximized) return;
@@ -118,20 +120,53 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
     });
     const air = t && t.mode === 'AIR';
     const hasAirports = stops.some((s: Any) => s.type === 'AIRPORT');
+    let isCancelled = false;
 
+    const missingGeomPolylines: Array<{ index: number; poly: L.Polyline; a: [number, number]; b: [number, number]; done: boolean }> = [];
     for (let i = 1; i < pts.length; i++) {
       if (!pts[i - 1] || !pts[i]) continue;
       if (air && !hasAirports) continue;
       const done = current >= 0 && i <= current;
-      const flight = air && stops[i - 1]?.type === 'AIRPORT' && stops[i]?.type === 'AIRPORT';
-      const segmentGeom = geom && Array.isArray(geom[i - 1]) ? geom[i - 1] : null;
-      L.polyline(segmentGeom && !flight ? segmentGeom : [pts[i - 1]!, pts[i]!], {
+      const flight = (air || hasAirports) && stops[i - 1]?.type === 'AIRPORT' && stops[i]?.type === 'AIRPORT';
+      const segmentGeom = geom && Array.isArray(geom[i - 1]) && geom[i - 1].length > 1 ? geom[i - 1] : null;
+      const poly = L.polyline(segmentGeom && !flight ? segmentGeom : [pts[i - 1]!, pts[i]!], {
         color: flight ? '#ea580c' : done ? '#f57c00' : '#2563eb',
-        weight: done ? 5 : 5,
-        opacity: 0.85,
+        weight: flight ? 3 : 5,
+        opacity: 0.88,
         dashArray: flight ? '2 10' : (!segmentGeom && !done) ? '6 8' : undefined,
         interactive: false,
       }).addTo(map);
+      if (!flight && !segmentGeom) {
+        missingGeomPolylines.push({ index: i - 1, poly, a: pts[i - 1]!, b: pts[i]!, done });
+      }
+    }
+
+    if (missingGeomPolylines.length > 0) {
+      if (!air && !hasAirports && pts.every(Boolean)) {
+        const roadPoints = (pts as [number, number][]).map(([lat, lng]) => ({ lat, lng }));
+        void fetchTripSegments(roadPoints).then((segments) => {
+          if (isCancelled) return;
+          missingGeomPolylines.forEach(({ index, poly, done }) => {
+            const seg = segments[index];
+            if (seg && seg.length > 1) {
+              (poly as Any).setLatLngs?.(seg);
+              if (!done) poly.setStyle({ dashArray: undefined });
+            }
+          });
+        });
+      } else {
+        missingGeomPolylines.forEach(({ poly, a, b, done }) => {
+          void fetchRoadRoute([
+            { lat: a[0], lng: a[1] },
+            { lat: b[0], lng: b[1] },
+          ]).then((roadCoords) => {
+            if (!isCancelled && roadCoords && roadCoords.length > 1) {
+              (poly as Any).setLatLngs?.(roadCoords);
+              if (!done) poly.setStyle({ dashArray: undefined });
+            }
+          });
+        });
+      }
     }
 
     stops.forEach((x: Any, i: number) => {
@@ -180,6 +215,7 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
     ro.observe(el.current);
 
     return () => {
+      isCancelled = true;
       ro.disconnect();
       cancelTiles();
       try {

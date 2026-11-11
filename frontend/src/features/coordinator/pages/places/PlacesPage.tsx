@@ -4,7 +4,7 @@ import { CoordinatorLayout } from '../../components/layout/CoordinatorLayout';
 import type { Any } from '../../store/coordinatorStore';
 import { db, ui, useCoordinatorStore } from '../../store/coordinatorStore';
 import { dt } from '../../utils/format';
-import { PF, PF_COLOR, PLACE_ST, placeDelete, placeEdit, placeUsedIn } from '../../workflows/routePlanner';
+import { PF, PF_COLOR, PLACE_ST, placeDelete, placeEdit, placeStatus, placeUsedIn } from '../../workflows/routePlanner';
 import './PlacesPage.css';
 
 export function PlacesPage() {
@@ -62,6 +62,7 @@ export function PlacesPage() {
           { label: 'Trạng thái', sort: (p: Any) => -(p.lastModified || (p.updatedAt ? new Date(p.updatedAt.replace(' ', 'T')).getTime() : 0)), render: (p: Any) => <div className="place-status"><Pill v={PLACE_ST[p.status][0]} label={PLACE_ST[p.status][1]} /><small className="muted">Cập nhật {dt(p.updatedAt)}</small></div> },
           { label: 'Thao tác', render: (p: Any) => <span className="btn-row place-actions">
             <button type="button" className="btn ghost sm" onClick={() => placeEdit(p.id)}>Xem/sửa</button>
+            <button type="button" className="btn ghost sm" onClick={() => placeStatus(p.id)}>Trạng thái</button>
             {placeUsedIn(p).length ? null : <button type="button" className="btn danger sm" onClick={() => placeDelete(p.id)}>Xóa</button>}</span> },
         ]} />
       </div>

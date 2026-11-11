@@ -121,8 +121,8 @@ public sealed class LifecycleTests : IAsyncLifetime
         var again=await Ok(await Post(manager,$"manager/flow6/settlements/{s}/final-invoice",due));Assert.Equal(changed["data"]!["id"]!.GetValue<string>(),again["data"]!["id"]!.GetValue<string>());
         var paidId=changed["data"]!["id"]!.GetValue<string>();var session=await Ok(await Post(customer,$"customer/flow6/invoices/{paidId}/payment-session"));var payment=session["data"]!["paymentId"]!.GetValue<string>();
         Assert.Equal(HttpStatusCode.NotFound,(await customer.GetAsync($"/api/customer/payments/{payment}")).StatusCode);
-        await Ok(await Post(manager,$"manager/flow6/settlements/{s}/adjustments",b,Guid.NewGuid().ToString()));
-        Assert.Equal(HttpStatusCode.Conflict,(await Post(manager,$"manager/flow6/settlements/{s}/final-invoice",due)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,(await Post(manager,$"manager/flow6/settlements/{s}/adjustments",b,Guid.NewGuid().ToString())).StatusCode);
+        var locked=await Ok(await Post(manager,$"manager/flow6/settlements/{s}/final-invoice",due));Assert.Equal(paidId,locked["data"]!["id"]!.GetValue<string>());
         Assert.Equal(HttpStatusCode.BadRequest,(await Post(manager,$"manager/flow6/settlements/{s}/settle",new JsonObject())).StatusCode);
     }
     [Fact]

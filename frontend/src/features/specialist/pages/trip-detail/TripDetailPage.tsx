@@ -6,12 +6,11 @@ import { LockedCard, Note } from '../../components/Common/Common';
 import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import type { SpecTrip, TripDetailTab } from '../../types';
-import { CHECKLIST_LABEL, CUSTOMER_DOC_LABEL, CUSTOMER_DOC_NAME, checklist, horseName, itemName, tripTotals, type SpecialistData } from '../../hooks/specialistRules';
+import { CHECKLIST_LABEL, CUSTOMER_DOC_LABEL, CUSTOMER_DOC_NAME, MODE_VI, checklist, fmtDateTime, horseName, itemName, tripTotals, type SpecialistData } from '../../hooks/specialistRules';
 import { DocsReadyCard } from './sections/DocsReadyCard';
 import { CustomerDocsTab } from './tabs/CustomerDocsTab';
 import { CompanyDocsTab } from './tabs/CompanyDocsTab';
 import { InsuranceTab } from './tabs/InsuranceTab';
-import { IncidentsTab } from './tabs/IncidentsTab';
 import './TripDetailPage.css';
 
 /** Tải danh mục hồ sơ đi đường (CSV) để in và bàn giao cho tổ xe */
@@ -42,7 +41,7 @@ export const TripDetailPage: React.FC = () => {
   if (!t) {
     return <SpecialistLayout title="Chuyến được giao"><Note tone="grey" title="Không tìm thấy chuyến">Chuyến {tripId} không có trong danh sách được giao.</Note></SpecialistLayout>;
   }
-  const active: TripDetailTab = (['customer', 'required', 'insurance', 'incidents'] as const).includes(tab as TripDetailTab) ? (tab as TripDetailTab) : 'customer';
+  const active: TripDetailTab = (['customer', 'required', 'insurance'] as const).includes(tab as TripDetailTab) ? (tab as TripDetailTab) : 'customer';
   const x = tripTotals(data, t);
 
   return (
@@ -50,9 +49,9 @@ export const TripDetailPage: React.FC = () => {
       <button type="button" className="spc-back" onClick={() => navigate('/specialist/trips')}><Icon name="back" />Chuyến được giao</button>
       <div className="spc-head">
         <div>
-          <h2 className="spc-title spc-trip__title">{t.id} <TripStatusBadge kind="trip" status={t.status} /> <TripStatusBadge kind="deployment" status={t.deployment} /></h2>
-          <p className="spc-subtitle">{t.requestId} • {t.customerName} • {t.origin} → {t.destination}</p>
-
+          <h2 className="spc-title spc-trip__title">{t.id} <TripStatusBadge kind="trip" status={t.status} />{t.deployment !== 'CONFIRMED' && <TripStatusBadge kind="deployment" status={t.deployment} />}</h2>
+          <p className="spc-subtitle">{t.requestId} • {t.customerName} • {t.origin} → {t.destination} • {MODE_VI[t.mode]} • khởi hành {fmtDateTime(t.plannedDepart)} • dự kiến đến {fmtDateTime(t.eta)}</p>
+          <p className="spc-muted" style={{ marginTop: 4 }}>Ngựa: {t.horses.map((h) => `${h.name} (${h.microchip || 'chưa có microchip'})`).join(', ')}</p>
         </div>
         <div className="spc-btn-row" style={{ margin: 0, alignItems: 'center' }}>
           <TripStatusBadge label={`Tổng giấy tờ ${x.done}/${x.total}`} tone={x.done === x.total ? 'ok' : 'warn'} />
@@ -74,7 +73,6 @@ export const TripDetailPage: React.FC = () => {
               {active === 'customer' && <CustomerDocsTab trip={t} />}
               {active === 'required' && <CompanyDocsTab trip={t} />}
               {active === 'insurance' && <InsuranceTab trip={t} />}
-              {active === 'incidents' && <IncidentsTab trip={t} />}
             </div>
             <DemoPanel trip={t} />
           </div>

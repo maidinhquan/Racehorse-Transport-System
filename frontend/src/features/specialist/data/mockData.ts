@@ -194,6 +194,9 @@ const doc = (id: string, tripId: string, typeId: string, horseId: string | null,
 });
 
 export const mockDocuments: TripDocument[] = [
+  doc('DOC-502', 'TRIP_002', 'DT-8', null, 'APPROVED', { issuer: 'Chi cục Thú y TP.HCM', issuedAt: '2026-11-04', expiry: '2026-12-04' }),
+  doc('DOC-504', 'TRIP_004', 'DT-8', null, 'APPROVED', { issuer: 'Chi cục Thú y TP.HCM', issuedAt: '2026-11-04', expiry: '2026-12-04' }),
+  doc('DOC-505', 'TRIP_005', 'DT-8', null, 'APPROVED', { issuer: 'Chi cục Thú y Hà Nội', issuedAt: '2026-11-04', expiry: '2026-12-04' }),
   doc('DOC-501', 'TRP-904', 'DT-8', null, 'SUBMITTED', { issuer: 'Chi cục Thú y TP.HCM', versions: [{ v: 1, file: 'trp-904-giay-phep-noi-dia.pdf', at: '2026-10-04 09:20', by: SPECIALIST_NAME }] }),
   doc('DOC-480', 'TRP-903', 'DT-8', null, 'APPROVED', { issuer: 'Chi cục Thú y TP.HCM' }),
   doc('DOC-460', 'TRP-901', 'DT-4', null, 'APPROVED'),
@@ -227,4 +230,21 @@ export const mockAudit: AuditEntry[] = [
   { at: '2026-10-03 14:10', actor: SPECIALIST_NAME, role: 'TRANSPORT_SPECIALIST', action: 'Từ chối giấy tờ khách hàng', entity: 'TRP-902', detail: 'Sổ tiêm ngừa – Shadowfax' },
   { at: '2026-10-03 14:00', actor: SPECIALIST_NAME, role: 'TRANSPORT_SPECIALIST', action: 'Xác nhận hồ sơ sẵn sàng (Docs READY)', entity: 'TRP-903' },
   { at: '2026-10-02 10:00', actor: 'Linh Pham', role: 'LOGISTICS_MANAGER', action: 'Giao chuyến cho Specialist', entity: 'TRP-902' },
+];
+
+export interface SpecialistNotification {
+  id: string;
+  at: string;
+  title: string;
+  text: string;
+  link?: string;
+  read: boolean;
+}
+
+export const mockSpecialistNotifications: SpecialistNotification[] = [
+  { id: 'SN-1', at: '2026-10-04 11:20', title: 'Hồ sơ cần thẩm định', text: 'HOR-1092 • Sổ tiêm phòng cúm & Chứng nhận sức khỏe cần rà soát.', link: '/specialist/request-reviews', read: false },
+  { id: 'SN-2', at: '2026-10-04 10:45', title: 'Sự cố cần kiểm tra pháp lý', text: 'INC-301 • TRP-901 – Chuyển đổi phương án y tế và quy định tại Phnom Penh.', link: '/specialist/incidents', read: false },
+  { id: 'SN-3', at: '2026-10-04 09:30', title: 'Giấy phép kiểm dịch sắp hết hạn', text: 'DOC-510 • TRP-906 – Giấy phép xuất khẩu cần gia hạn trước 10/11.', link: '/specialist/trips/TRP-906', read: false },
+  { id: 'SN-4', at: '2026-10-03 16:00', title: 'Khách hàng đã nộp giấy tờ mới', text: 'TRP-902 • shadowfax-health-cert.pdf đã được khách hàng tải lên.', link: '/specialist/trips/TRP-902', read: true },
+  { id: 'SN-5', at: '2026-10-03 14:10', title: 'Chuyến đi được phân công mới', text: 'TRP-904 • Tuyến nội địa TP.HCM → Hà Nội đã được phân công phụ trách hồ sơ.', link: '/specialist/trips/TRP-904', read: true },
 ];

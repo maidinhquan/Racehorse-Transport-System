@@ -92,7 +92,6 @@ export interface SpecTrip {
   mode: 'ROAD' | 'AIR';
   status: 'PLANNING' | 'READY_TO_DEPART' | 'IN_TRANSIT' | 'COMPLETED';
   deployment: 'PENDING' | 'CONFIRMED' | 'ON_HOLD';
-  specialistId?: string;
   plannedDepart: string;
   eta: string;
   horses: SpecHorse[];

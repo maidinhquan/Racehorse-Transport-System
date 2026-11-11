@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal } from './Modal';
 import type { ActualCost, ActualKey, ExtraCost, Payer, Staff } from '../../types';
 import { isQuickLoginAccount } from '../../../auth/quickLoginAccounts';
+import { getUserFullName } from '../../../../shared/utils/userNameResolver';
 import {
   ACTUAL_LABEL,
   PAYER_LABEL,
@@ -51,7 +52,7 @@ export const DeployModal: React.FC<{ open: boolean; tripId: string; staff: Staff
       <label htmlFor={id}>{label} *</label>
       <select id={id} className="mgr-select" value={value} disabled={loading || !!loadError} onChange={(e) => { set(e.target.value); setError(''); }}>
         <option value="">— Chọn —</option>
-        {members(role).map((s) => <option key={s.id} value={s.id}>{s.name} • {s.id}{s.load != null ? ` • đang phụ trách ${s.load} chuyến` : ''}{isQuickLoginAccount(s.id, s.role) ? ' (Recommend)' : ''}</option>)}
+        {members(role).map((s) => <option key={s.id} value={s.id}>{getUserFullName(s.name || s.id)}{s.load != null ? ` • đang phụ trách ${s.load} chuyến` : ''}{isQuickLoginAccount(s.id, s.role) ? ' (Recommend)' : ''}</option>)}
       </select>
       {!loading && !loadError && members(role).length === 0 && <p className="mgr-hint">Database chưa có nhân sự đang hoạt động thuộc vai trò này.</p>}
     </div>
@@ -88,25 +89,26 @@ export const ActualCostModal: React.FC<{ open: boolean; tripId: string; current?
   const [error, setError] = useState('');
   useEffect(() => {
     if (!open) return;
-    setCosts(current ? { ...current.costs } : emptyCosts());
-    setExtra(current ? current.extra.map((e) => ({ ...e })) : []);
+    setCosts(current?.costs ? { ...emptyCosts(), ...current.costs } : emptyCosts());
+    setExtra(Array.isArray(current?.extra) ? current.extra.map((e) => ({ ...e })) : []);
     setError('');
   }, [open, current]);
   const setExtraAt = (i: number, patch: Partial<ExtraCost>) => setExtra((x) => x.map((e, j) => (j === i ? { ...e, ...patch } : e)));
   const submit = async () => {
-    if (KEYS.some((k) => !(costs[k] >= 0))) return setError('Chi phí phải là số không âm.');
+    if (KEYS.some((k) => isNaN(costs[k]) || !(costs[k] >= 0))) return setError('Chi phí phải là số không âm.');
     if (extra.some((e) => !e.label.trim() || !(e.amount > 0))) return setError('Khoản phát sinh cần tên và số tiền lớn hơn 0.');
-    if (onSubmit(costs, extra)) onClose();
+    const res = await onSubmit(costs, extra);
+    if (res) onClose();
   };
   return (
-    <Modal open={open} title={`Chi phí thực tế • ${tripId}`} wide okText="Lưu chi phí" onClose={onClose} onOk={submit} error={error}>
-      <p>Nhập chi phí thực tế (USD) từ hóa đơn của chuyến. Khoản phát sinh do khách hàng hoặc bảo hiểm chi trả không tính vào chi phí của công ty.</p>
+    <Modal open={open} title={`Chi phí thực tế vận hành • ${tripId}`} wide okText="Lưu chi phí" onClose={onClose} onOk={submit} error={error}>
+      <p>Nhập chi phí thực tế phát sinh (VND) từ hóa đơn vận hành chuyến xe (xăng dầu, trạm dừng, ăn nghỉ tài xế...). Khoản này phục vụ quản lý nội bộ và không làm thay đổi giá trị hợp đồng đã ký với khách hàng.</p>
       <div className="mgr-modal__grid">
         {KEYS.map((k) => (
           <div className="mgr-field" key={k}>
             <label htmlFor={`mgr-ac-${k}`}>{ACTUAL_LABEL[k]}</label>
-            <input id={`mgr-ac-${k}`} className="mgr-input" type="number" min={0} step={10} value={costs[k]}
-              onChange={(e) => { setCosts((c) => ({ ...c, [k]: Number(e.target.value) })); setError(''); }} />
+            <input id={`mgr-ac-${k}`} className="mgr-input" type="number" min={0} step={10000} value={costs[k] ?? 0}
+              onChange={(e) => { const val = e.target.value === '' ? 0 : Number(e.target.value); setCosts((c) => ({ ...c, [k]: val })); setError(''); }} />
           </div>
         ))}
       </div>

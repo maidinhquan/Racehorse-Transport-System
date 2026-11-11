@@ -41,7 +41,7 @@ export const OverviewTab: React.FC<{ request: TransportRequest }> = ({ request: 
         <div className="cus-card">
           <h3 className="cus-card__title">Manager xét duyệt <TripStatusBadge label={review[1]} tone={reviewTone[review[0] as keyof typeof reviewTone]} /></h3>
           {review[0] === 'NOT_SUBMITTED' && <p className="cus-subtitle">Yêu cầu đang là bản nháp. Hoàn tất các bước khai báo và gửi để xét duyệt.</p>}
-          {review[0] === 'PENDING' && <p className="cus-subtitle">Yêu cầu đang chờ Logistics Manager xét duyệt.</p>}
+          {review[0] === 'PENDING' && <p className="cus-subtitle">Yêu cầu đang chờ Logistics Manager xét duyệt. Hợp đồng với giá chính thức chỉ được soạn sau khi yêu cầu được chấp nhận.</p>}
           {review[0] === 'CHANGES' && (
             <>
               <Note tone="yellow" title="Góp ý của Manager">{r.feedback}</Note>

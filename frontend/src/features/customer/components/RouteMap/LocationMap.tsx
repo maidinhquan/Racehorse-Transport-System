@@ -4,16 +4,35 @@ import 'leaflet/dist/leaflet.css';
 import { addGeoapifyTiles } from './GeoapifyTiles';
 import { drawIncidentPins } from '../../../../shared/maps/incidentPinLayer';
 import type { IncidentPin } from '../../../../shared/utils/sharedIncidentPins';
+import { fetchRoadRoute, fetchTripSegments, inferStopCoords } from '../../../../shared/maps/roadRouting';
 
 export interface MapPoint {
   latitude?: number;
   longitude?: number;
   label: string;
   color?: string;
+  type?: string;
 }
 
-export const validPoint = (p: MapPoint) => typeof p.latitude === 'number' && Number.isFinite(p.latitude)
-  && Math.abs(p.latitude) <= 90 && typeof p.longitude === 'number' && Number.isFinite(p.longitude) && Math.abs(p.longitude) <= 180;
+export const validPoint = (p: MapPoint) => {
+  if (
+    typeof p.latitude === 'number' && Number.isFinite(p.latitude)
+    && Math.abs(p.latitude) <= 90 && typeof p.longitude === 'number' && Number.isFinite(p.longitude) && Math.abs(p.longitude) <= 180
+  ) {
+    return true;
+  }
+  return Boolean(inferStopCoords(p.label));
+};
+
+function resolvePosition(p: MapPoint): L.LatLngTuple | null {
+  if (
+    typeof p.latitude === 'number' && Number.isFinite(p.latitude)
+    && Math.abs(p.latitude) <= 90 && typeof p.longitude === 'number' && Number.isFinite(p.longitude) && Math.abs(p.longitude) <= 180
+  ) {
+    return [p.latitude, p.longitude];
+  }
+  return inferStopCoords(p.label);
+}
 
 /** Read-only map shared by customer tracking and address previews. */
 export function LocationMap({ points, current = -1, height = 240, center, route = false, incidentPins = [] }: {
@@ -48,37 +67,105 @@ export function LocationMap({ points, current = -1, height = 240, center, route 
   useEffect(() => {
     if (!container.current) return;
     setFailed(false);
+    let isCancelled = false;
     const mapPoints: MapPoint[] = JSON.parse(pointsKey);
     const map = L.map(container.current, { scrollWheelZoom: true }).setView(
       center ? [center.latitude, center.longitude] : [16, 106], center ? 11 : 5);
     mapRef.current = map;
     const cancelTiles = addGeoapifyTiles(map, () => setFailed(true));
-    const located = mapPoints.flatMap((point, index) => validPoint(point)
-      ? [{ point, index, position: [point.latitude!, point.longitude!] as L.LatLngTuple }] : []);
+    const located = mapPoints.flatMap((point, index) => {
+      const position = resolvePosition(point);
+      return position ? [{ point, index, position }] : [];
+    });
+    const hasAir = located.some((item, i) => i > 0 && located[i - 1].point.type === 'AIRPORT' && item.point.type === 'AIRPORT');
+
     if (route) {
+      const polylines: Array<{ legIndex: number; poly: L.Polyline; prevPos: L.LatLngTuple; nextPos: L.LatLngTuple; confirmed: boolean; flight: boolean }> = [];
       for (let i = 1; i < located.length; i++) {
         const previous = located[i - 1], next = located[i];
         if (next.index !== previous.index + 1) continue;
-        const confirmed = next.index <= current;
-        L.polyline([previous.position, next.position], {
-          color: confirmed ? '#f57c00' : '#2563eb', weight: 4,
-          dashArray: confirmed ? undefined : '6 8',
+        const confirmed = current >= 0 && next.index <= current;
+        const flight = previous.point.type === 'AIRPORT' && next.point.type === 'AIRPORT';
+        const poly = L.polyline([previous.position, next.position], {
+          color: flight ? '#ea580c' : confirmed ? '#f57c00' : '#2563eb',
+          weight: flight ? 3 : 5,
+          opacity: 0.88,
+          dashArray: flight ? '2 10' : confirmed ? undefined : '6 8',
+          interactive: false,
         }).addTo(map);
+        polylines.push({
+          legIndex: i - 1,
+          poly,
+          prevPos: previous.position,
+          nextPos: next.position,
+          confirmed,
+          flight,
+        });
+      }
+
+      if (!hasAir && located.length === mapPoints.length && located.length >= 2) {
+        const roadPoints = located.map((p) => ({ lat: p.position[0], lng: p.position[1] }));
+        void fetchTripSegments(roadPoints).then((segments) => {
+          if (isCancelled) return;
+          polylines.forEach(({ legIndex, poly, confirmed }) => {
+            const seg = segments[legIndex];
+            if (seg && seg.length > 1) {
+              (poly as any).setLatLngs?.(seg);
+              if (!confirmed) poly.setStyle({ dashArray: undefined });
+            }
+          });
+        });
+      } else {
+        polylines.forEach(({ poly, prevPos, nextPos, confirmed, flight }) => {
+          if (flight) return;
+          void fetchRoadRoute([
+            { lat: prevPos[0], lng: prevPos[1] },
+            { lat: nextPos[0], lng: nextPos[1] },
+          ]).then((roadCoords) => {
+            if (!isCancelled && roadCoords && roadCoords.length > 1) {
+              (poly as any).setLatLngs?.(roadCoords);
+              if (!confirmed) poly.setStyle({ dashArray: undefined });
+            }
+          });
+        });
       }
     }
     located.forEach(({ point, index, position }) => {
       const label = document.createElement('span');
       label.textContent = point.label;
-      L.circleMarker(position, {
-        radius: index === current ? 11 : 8, color: '#fff', weight: 3, fillOpacity: 1,
-        fillColor: index === current ? '#f57c00' : (index === 0 || index === located.length - 1) ? '#0f172a' : (point.color ?? '#f08a2b'),
-      }).addTo(map).bindTooltip(label);
+      if (route) {
+        const latest = index === current;
+        const isEnd = index === 0 || index === mapPoints.length - 1 || point.type === 'ORIGIN' || point.type === 'DESTINATION';
+        const isReq = point.type === 'CHECKPOINT' || point.type === 'QUARANTINE_STATION' || point.type === 'AIRPORT';
+        const pinClass = `rp-pin ${isEnd ? 'end' : isReq ? 'req' : 'sel'} ${latest ? 'cur' : ''}`;
+        const icon = L.divIcon({
+          className: '',
+          html: `<div class="${pinClass}">${index + 1}</div>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+        });
+        L.marker(position, {
+          icon,
+          zIndexOffset: point.type === 'AIRPORT' ? 1100 : latest ? 1200 : 1000,
+        }).addTo(map).bindTooltip(label, { direction: 'top', offset: [0, -12] });
+      } else {
+        L.circleMarker(position, {
+          radius: index === current ? 11 : 8, color: '#fff', weight: 3, fillOpacity: 1,
+          fillColor: index === current ? '#f57c00' : (index === 0 || index === located.length - 1) ? '#0f172a' : (point.color ?? '#f08a2b'),
+        }).addTo(map).bindTooltip(label);
+      }
     });
     drawIncidentPins(map, JSON.parse(pinsKey) as IncidentPin[]);
     if (located.length) map.fitBounds(L.latLngBounds(located.map(p => p.position)), { padding: [30, 30], maxZoom: 15 });
     const observer = new ResizeObserver(() => map.invalidateSize({ pan: false }));
     observer.observe(container.current);
-    return () => { observer.disconnect(); cancelTiles(); map.remove(); mapRef.current = null; };
+    return () => {
+      isCancelled = true;
+      observer.disconnect();
+      cancelTiles();
+      map.remove();
+      mapRef.current = null;
+    };
   }, [pointsKey, pinsKey, current, center?.latitude, center?.longitude, route]);
 
   return (

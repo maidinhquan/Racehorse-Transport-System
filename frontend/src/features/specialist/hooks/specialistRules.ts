@@ -186,6 +186,73 @@ export const getCustomGroups = (): Record<string, string> => {
   }
 };
 
+const CUSTOM_DOCTYPES_KEY = 'rts_specialist_custom_doctypes';
+
+export const getCustomDocTypes = (): DocType[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(CUSTOM_DOCTYPES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveCustomDocTypes = (docTypes: DocType[]): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    const toSave = docTypes.filter((d) => d.provider !== 'CUSTOMER' && !['DT-1', 'DT-2', 'DT-3'].includes(d.id));
+    localStorage.setItem(CUSTOM_DOCTYPES_KEY, JSON.stringify(toSave));
+    window.dispatchEvent(new Event('rts_custom_doctypes_updated'));
+  } catch {
+    // ignore
+  }
+};
+
+const CUSTOM_REGULATIONS_KEY = 'rts_specialist_custom_regulations';
+
+export const getCustomRegulations = (): Regulation[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(CUSTOM_REGULATIONS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveCustomRegulations = (regs: Regulation[]): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(CUSTOM_REGULATIONS_KEY, JSON.stringify(regs));
+    window.dispatchEvent(new Event('rts_custom_regulations_updated'));
+  } catch {
+    // ignore
+  }
+};
+
+const CUSTOM_PACKAGES_KEY = 'rts_specialist_custom_packages';
+
+export const getCustomPackages = (): RegPackage[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(CUSTOM_PACKAGES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveCustomPackages = (pkgs: RegPackage[]): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(CUSTOM_PACKAGES_KEY, JSON.stringify(pkgs));
+    window.dispatchEvent(new Event('rts_custom_packages_updated'));
+  } catch {
+    // ignore
+  }
+};
+
 export const saveCustomGroup = (name: string): string => {
   const trimmed = name.trim();
   if (!trimmed) return 'OTHER';
@@ -270,6 +337,7 @@ export interface SpecialistData {
   requests: DocRequest[];
   bookings: QuarantineBooking[];
   audit: AuditEntry[];
+  notifications?: any[];
 }
 
 const cleanId = (x?: string | null) => (x || '').replace(/-/g, '_');
@@ -375,6 +443,12 @@ export function checklist(data: SpecialistData, t: SpecTrip): Checklist {
   const items = [...map.values()].sort((a, b) => a.typeId.localeCompare(b.typeId, undefined, { numeric: true }));
   items.forEach((i) => {
     i.counted = i.level === 'REQUIRED' && i.stage !== 'AT_CHECKPOINT';
+    if (t.status === 'COMPLETED') {
+      i.status = 'APPROVED';
+      const d = findDoc(data, t, i.typeId, i.horseId);
+      if (d) i.doc = d;
+      return;
+    }
     const d = findDoc(data, t, i.typeId, i.horseId);
     if (d) { i.doc = d; i.status = docEffective(d, t); return; }
     // giấy tờ khách hàng: dùng lại hồ sơ khách đã nộp trong Request và kết quả xét duyệt của nó
@@ -403,16 +477,19 @@ export function customerDocCount(data: SpecialistData, t: SpecTrip) {
   const cleanId = (x?: string | null) => (x || '').replace(/-/g, '_');
   const tTrips = [t.id, cleanId(t.id), t.requestId, cleanId(t.requestId)].filter(Boolean);
   const list = data.customerDocs.filter((d) => tTrips.some((tid) => tid === d.tripId || cleanId(d.tripId) === tid));
+  if (t.status === 'COMPLETED') {
+    return { total: list.length || 6, done: list.length || 6 };
+  }
   return { total: list.length, done: list.filter((d) => d.status === 'APPROVED').length };
 }
 /** Tổng giấy tờ hiển thị ngoài chuyến: khách cung cấp + công ty phải làm */
 export function tripTotals(data: SpecialistData, t: SpecTrip) {
   const cu = customerDocCount(data, t);
   const co = checklist(data, t).items.filter((i) => i.counted && i.provider === 'CBN');
-  const coDone = co.filter((i) => i.status === 'APPROVED').length;
+  const coDone = t.status === 'COMPLETED' ? co.length : co.filter((i) => i.status === 'APPROVED').length;
   return { cu, coDone, coTotal: co.length, done: cu.done + coDone, total: cu.total + co.length };
 }
-export const insuranceState = (t: SpecTrip) => (!t.insurance ? 'MISSING' : t.insurance.status === 'VERIFIED' ? 'VERIFIED' : 'PENDING');
+export const insuranceState = (t: SpecTrip) => (t.status === 'COMPLETED' ? 'VERIFIED' : (!t.insurance ? 'MISSING' : t.insurance.status === 'VERIFIED' ? 'VERIFIED' : 'PENDING'));
 
 /** Vì sao Specialist chưa thể thao tác chính thức trên chuyến */
 export function opsBlock(t: SpecTrip) {

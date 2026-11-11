@@ -10,7 +10,7 @@ export const WorkflowNav: React.FC<{ request: TransportRequest; trip?: Trip; cur
   const steps: Array<{ key: typeof current; label: string; detail: string; to?: string; done: boolean }> = [
     { key: 'request', label: 'Yêu cầu & xét duyệt', detail: isAccepted(request) ? 'Đã chấp thuận' : 'Thông tin & hồ sơ', to: `/manager/requests/${request.id}`, done: isAccepted(request) },
     { key: 'contract', label: 'Hợp đồng & giá', detail: isSigned(request) ? 'Đã ký hợp đồng' : 'Thỏa thuận & ký kết', to: isAccepted(request) ? `/manager/contracts/${request.id}` : undefined, done: isSigned(request) },
-    { key: 'trip', label: 'Chuyến đi', detail: trip?.id || (isSigned(request) ? 'Chưa có chuyến đi' : 'Tạo sau khi ký hợp đồng'), to: trip ? `/manager/trips/${trip.id}` : undefined, done: trip?.status === 'COMPLETED' },
+    { key: 'trip', label: 'Chuyến đi', detail: trip?.id || 'Tạo sau khi ký hợp đồng', to: trip ? `/manager/trips/${trip.id}` : undefined, done: trip?.status === 'COMPLETED' },
   ];
   return (
     <nav className="mgr-workflow" aria-label="Quy trình yêu cầu">
@@ -19,7 +19,7 @@ export const WorkflowNav: React.FC<{ request: TransportRequest; trip?: Trip; cur
         const inner = <><span className="mgr-workflow__number" aria-hidden="true">{s.done ? '✓' : i + 1}</span><span className="mgr-workflow__text"><b>{s.label}</b><small>{s.detail}</small></span></>;
         return s.to
           ? <Link key={s.key} to={s.to} className={cls} aria-current={s.key === current ? 'step' : undefined}>{inner}</Link>
-          : <button key={s.key} type="button" className={cls} disabled title={i === 1 ? 'Mở sau khi Quản lý chấp thuận yêu cầu' : isSigned(request) ? 'Chuyến đi chưa được tạo hoặc chưa tải xong' : 'Tạo sau khi khách ký OTP'}>{inner}</button>;
+          : <button key={s.key} type="button" className={cls} disabled title={i === 1 ? 'Mở sau khi Manager chấp thuận yêu cầu' : 'Tạo sau khi khách ký OTP'}>{inner}</button>;
       })}
     </nav>
   );

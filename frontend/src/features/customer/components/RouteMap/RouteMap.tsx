@@ -20,6 +20,7 @@ function RouteLeafletMap({ stops, current, height, tripId }: { stops: TripStop[]
     latitude: stop.lat ?? stop.latitude, longitude: stop.lng ?? stop.longitude,
     label: `${index + 1}. ${stop.name}${index === current ? ' • Mốc xác nhận gần nhất' : ''}`,
     color: STOP_COLOR[stop.type],
+    type: stop.type,
   }));
   const missing = points.filter(point => !validPoint(point)).length;
   return <>

@@ -1,4 +1,4 @@
-﻿using Application.DTOs.Flow5;
+using Application.DTOs.Flow5;
 using Application.Interfaces.Flow5;
 using Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -48,6 +48,7 @@ public class IncidentsController : BaseApiController
     /// <summary>
     /// Lấy danh sách sự cố cho tài xế
     /// </summary>
+    
     [HttpGet("driver/incidents")]
     [Authorize(Roles = $"{UserRoles.DriverEscort},{UserRoles.Admin}")]
     public async Task<IActionResult> GetDriverIncidents([FromQuery] string? tripId, [FromQuery] string? status)
@@ -57,6 +58,7 @@ public class IncidentsController : BaseApiController
     }
 
     [HttpGet("incidents")]
+    
     [Authorize]
     public async Task<IActionResult> GetIncidents([FromQuery] string? tripId, [FromQuery] string? status)
     {
@@ -84,6 +86,28 @@ public class IncidentsController : BaseApiController
     {
         var result = await _incidentService.GetIncidentByIdAsync(incidentId);
         return Success(result);
+    }
+
+    /// <summary>
+    /// Áp dụng phương án khôi phục sự cố
+    /// </summary>
+    [HttpPost("incidents/{incidentId}/recovery/apply")]
+    [Authorize(Roles = $"{UserRoles.FleetRouteCoordinator},{UserRoles.Admin}")]
+    public async Task<IActionResult> ApplyRecoveryPlan([FromRoute] string incidentId, [FromBody] ApplyRecoveryPlanInputDto? dto)
+    {
+        var result = await _incidentService.ApplyRecoveryPlanAsync(incidentId, dto, CurrentUserId);
+        return Success(result, "Đã áp dụng phương án khôi phục vào hành trình thực tế");
+    }
+
+    /// <summary>
+    /// Điều phối viên từ chối hỗ trợ tại chỗ và chuyển lên Quản lý xử lý
+    /// </summary>
+    [HttpPost("incidents/{incidentId}/escalate")]
+    [Authorize(Roles = $"{UserRoles.FleetRouteCoordinator},{UserRoles.Admin}")]
+    public async Task<IActionResult> EscalateIncident([FromRoute] string incidentId, [FromBody] EscalateIncidentInputDto dto)
+    {
+        var result = await _incidentService.EscalateIncidentAsync(incidentId, dto, CurrentUserId);
+        return Success(result, "Đã từ chối hỗ trợ tại chỗ và chuyển sự cố lên Quản lý thành công");
     }
 
     /// <summary>

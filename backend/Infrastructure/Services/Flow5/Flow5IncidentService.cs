@@ -23,6 +23,19 @@ public class Flow5IncidentService : IFlow5IncidentService
     private static readonly ConcurrentDictionary<string, List<IncidentCommunicationDto>> _communicationStore = new();
     private static readonly ConcurrentDictionary<string, List<IncidentFileDto>> _fileStore = new();
     private static readonly ConcurrentDictionary<string, List<TerminationProposalDto>> _proposalStore = new();
+    private static readonly ConcurrentDictionary<string, VetIncidentMeta> _vetMetaStore = new();
+
+    public class VetIncidentMeta
+    {
+        public string? ClientTripId { get; set; }
+        public string? HorseId { get; set; }
+        public string? HorseName { get; set; }
+        public string? HealthIssueType { get; set; }
+        public string? VetStatus { get; set; }
+        public string? TargetVetStation { get; set; }
+        public string? VetResolutionNote { get; set; }
+        public string? ImmediateCare { get; set; }
+    }
 
     public Flow5IncidentService(HorseTransportDbContext context)
     {
@@ -40,15 +53,43 @@ public class Flow5IncidentService : IFlow5IncidentService
             throw new ArgumentException("Mã chuyến đi (TripId) là bắt buộc.");
         }
 
-                dto.TripId = dto.TripId.Replace("-", "_");
+        dto.TripId = dto.TripId.Replace("-", "_");
         dto.Category = !string.IsNullOrWhiteSpace(dto.Category) ? dto.Category : (!string.IsNullOrWhiteSpace(dto.Type) ? dto.Type : "OTHER");
         dto.Description = !string.IsNullOrWhiteSpace(dto.Description) ? dto.Description : dto.Location;
         dto.ImageUrl = !string.IsNullOrWhiteSpace(dto.ImageUrl) ? dto.ImageUrl : (dto.Photos != null && dto.Photos.Count > 0 ? dto.Photos[0] : null);
         dto.ImmediateCare = !string.IsNullOrWhiteSpace(dto.ImmediateCare) ? dto.ImmediateCare : dto.Location;
-
+        string targetTripId = dto.TripId;
         var trip = await _context.TripPlans
             .Include(t => t.Request)
             .FirstOrDefaultAsync(t => t.TripId == dto.TripId);
+
+        if (trip == null)
+        {
+            var fallbackTrip = await _context.TripPlans.FirstOrDefaultAsync(t => t.Status == "IN_TRANSIT")
+                               ?? await _context.TripPlans.FirstOrDefaultAsync();
+            if (fallbackTrip != null)
+            {
+                targetTripId = fallbackTrip.TripId;
+                trip = fallbackTrip;
+            }
+        }
+
+        string rawCat = (dto.Category ?? dto.Type ?? "OTHER").Trim().ToUpperInvariant();
+        string normalizedCategory = rawCat switch
+        {
+            "ACCIDENT" or "TRAFFIC_ACCIDENT" => "TRAFFIC_ACCIDENT",
+            "BREAKDOWN" or "VEHICLE" or "VEHICLE_BREAKDOWN" or "VEHICLE_RESOURCE" => "VEHICLE_BREAKDOWN",
+            "HEALTH" or "HORSE_HEALTH" => "HORSE_HEALTH",
+            "DELAY" or "ROAD_CLOSURE" or "DELAY_AIR" => "ROAD_CLOSURE",
+            "BORDER" or "BORDER_DELAY" => "BORDER_DELAY",
+            _ => rawCat
+        };
+        dto.Category = normalizedCategory;
+
+        if (string.IsNullOrWhiteSpace(dto.ImageUrl) && dto.Photos != null && dto.Photos.Count > 0)
+        {
+            dto.ImageUrl = dto.Photos[0];
+        }
 
         string reasonLabel = dto.Category switch
         {
@@ -76,7 +117,7 @@ public class Flow5IncidentService : IFlow5IncidentService
         var incident = new Incident
         {
             IncidentId = incidentId,
-            TripId = dto.TripId,
+            TripId = targetTripId,
             IncidentType = dto.Category,
             Description = finalDescription,
             LocationCoordinates = dto.LocationCoordinates,
@@ -136,22 +177,44 @@ public class Flow5IncidentService : IFlow5IncidentService
             _context.Notifications.Add(notification);
         }
 
+        if (dto.Category == "HORSE_HEALTH" || !string.IsNullOrWhiteSpace(dto.HorseId) || !string.IsNullOrWhiteSpace(dto.HealthIssueType))
+        {
+            _vetMetaStore[incidentId] = new VetIncidentMeta
+            {
+                ClientTripId = dto.TripId,
+                HorseId = dto.HorseId,
+                HorseName = dto.HorseName,
+                HealthIssueType = dto.HealthIssueType ?? "HORSE_FEVER",
+                ImmediateCare = dto.ImmediateCare,
+                VetStatus = "EXAMINING"
+            };
+        }
+
         await _context.SaveChangesAsync();
+
+        var meta = _vetMetaStore.TryGetValue(incidentId, out var vm) ? vm : null;
 
         return new IncidentResponseDto
         {
             IncidentId = incident.IncidentId,
-            TripId = incident.TripId,
+            TripId = meta?.ClientTripId ?? dto.TripId ?? incident.TripId,
             Category = incident.IncidentType ?? "OTHER",
             Status = incident.Status ?? "REPORTED",
             Description = incident.Description,
+            ImmediateCare = dto.ImmediateCare ?? meta?.ImmediateCare,
             LocationCoordinates = incident.LocationCoordinates,
             ImageUrl = incident.ImageUrl,
             CoordinatorId = incident.CoordinatorId,
             ReportedByUserId = reporterUserId,
             ReportedByUserName = reporterName,
             ReportedAt = DateTime.UtcNow,
-            SafetyBlockerActive = true
+            SafetyBlockerActive = true,
+            HorseId = meta?.HorseId,
+            HorseName = meta?.HorseName,
+            HealthIssueType = meta?.HealthIssueType,
+            VetStatus = meta?.VetStatus,
+            TargetVetStation = meta?.TargetVetStation,
+            VetResolutionNote = meta?.VetResolutionNote
         };
     }
 
@@ -162,20 +225,61 @@ public class Flow5IncidentService : IFlow5IncidentService
         if (!string.IsNullOrWhiteSpace(tripId)) query = query.Where(i => i.TripId == tripId);
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(i => i.Status == status);
 
-        var incidents = await query.ToListAsync();
+        var incidents = await query.OrderByDescending(i => i.IncidentId).ToListAsync();
 
-        return incidents.Select(i => new IncidentResponseDto
+        return incidents.Select(i =>
         {
-            IncidentId = i.IncidentId,
-            TripId = i.TripId,
-            Category = i.IncidentType ?? "OTHER",
-            Status = i.Status ?? "REPORTED",
-            Description = i.Description,
-            LocationCoordinates = i.LocationCoordinates,
-            ImageUrl = i.ImageUrl,
-            CoordinatorId = i.CoordinatorId,
-            ReportedAt = DateTime.UtcNow,
-            SafetyBlockerActive = i.SafetyBlockerActive ?? true
+            string? approvedPlan = i.ResolutionNotes;
+            if (string.IsNullOrWhiteSpace(approvedPlan) && _planStore.TryGetValue(i.IncidentId, out var plans) && plans.Count > 0)
+            {
+                var ap = plans.LastOrDefault(p => p.Status == "APPROVED" || p.Status == "APPLIED");
+                approvedPlan = ap?.Summary;
+            }
+
+            bool isSceneReady = false;
+            string? sceneAckRole = null;
+            string? sceneAckByName = null;
+            if (_updateStore.TryGetValue(i.IncidentId, out var upds) && upds != null)
+            {
+                var ackUpd = upds.FirstOrDefault(u =>
+                    (u.Notes?.Contains("tiếp nhận phương án", StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (u.Notes?.Contains("sẵn sàng phối hợp", StringComparison.OrdinalIgnoreCase) ?? false));
+                if (ackUpd != null)
+                {
+                    isSceneReady = true;
+                    sceneAckRole = ackUpd.Notes?.Contains("Bác sĩ", StringComparison.OrdinalIgnoreCase) == true ? "VETERINARIAN" : "MAIN_DRIVER";
+                    sceneAckByName = ackUpd.CreatedByUserName;
+                }
+            }
+
+            var vMeta = _vetMetaStore.TryGetValue(i.IncidentId, out var vm) ? vm : null;
+
+            return new IncidentResponseDto
+            {
+                IncidentId = i.IncidentId,
+                TripId = vMeta?.ClientTripId ?? i.TripId,
+                Category = i.IncidentType ?? "OTHER",
+                Status = i.Status ?? "REPORTED",
+                Description = i.Description,
+                ImmediateCare = vMeta?.ImmediateCare,
+                LocationCoordinates = i.LocationCoordinates,
+                ImageUrl = i.ImageUrl,
+                CoordinatorId = i.CoordinatorId,
+                ReportedAt = DateTime.UtcNow,
+                SafetyBlockerActive = i.SafetyBlockerActive ?? true,
+                ApprovedPlan = approvedPlan ?? i.ResolutionNotes,
+                ResolutionType = i.ResolutionType,
+                ResolutionNotes = i.ResolutionNotes,
+                IsSceneReady = isSceneReady,
+                SceneAckRole = sceneAckRole,
+                SceneAckByName = sceneAckByName,
+                HorseId = vMeta?.HorseId,
+                HorseName = vMeta?.HorseName,
+                HealthIssueType = vMeta?.HealthIssueType,
+                VetStatus = vMeta?.VetStatus,
+                TargetVetStation = vMeta?.TargetVetStation,
+                VetResolutionNote = vMeta?.VetResolutionNote
+            };
         }).ToList();
     }
 
@@ -184,31 +288,76 @@ public class Flow5IncidentService : IFlow5IncidentService
         var incident = await _context.Incidents.AsNoTracking().FirstOrDefaultAsync(i => i.IncidentId == incidentId);
         if (incident == null)
         {
+            var fallbackMeta = _vetMetaStore.TryGetValue(incidentId, out var fvm) ? fvm : null;
             return new IncidentResponseDto
             {
                 IncidentId = incidentId,
                 TripId = "TRIP_DEMO_01",
-                Category = "VEHICLE_BREAKDOWN",
+                Category = fallbackMeta != null ? "HORSE_HEALTH" : "VEHICLE_BREAKDOWN",
                 Status = "IN_PROGRESS",
                 Description = "Sự cố đang được xử lý",
                 LocationCoordinates = "10.7769,106.7009",
                 ReportedAt = DateTime.UtcNow,
-                SafetyBlockerActive = true
+                SafetyBlockerActive = true,
+                HorseId = fallbackMeta?.HorseId,
+                HorseName = fallbackMeta?.HorseName,
+                HealthIssueType = fallbackMeta?.HealthIssueType,
+                VetStatus = fallbackMeta?.VetStatus,
+                TargetVetStation = fallbackMeta?.TargetVetStation,
+                VetResolutionNote = fallbackMeta?.VetResolutionNote
             };
         }
+
+        string? approvedPlan = incident.ResolutionNotes;
+        if (string.IsNullOrWhiteSpace(approvedPlan) && _planStore.TryGetValue(incident.IncidentId, out var plans) && plans.Count > 0)
+        {
+            var ap = plans.LastOrDefault(p => p.Status == "APPROVED" || p.Status == "APPLIED");
+            approvedPlan = ap?.Summary;
+        }
+
+        bool isSceneReady = false;
+        string? sceneAckRole = null;
+        string? sceneAckByName = null;
+        if (_updateStore.TryGetValue(incident.IncidentId, out var upds) && upds != null)
+        {
+            var ackUpd = upds.FirstOrDefault(u =>
+                (u.Notes?.Contains("tiếp nhận phương án", StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (u.Notes?.Contains("sẵn sàng phối hợp", StringComparison.OrdinalIgnoreCase) ?? false));
+            if (ackUpd != null)
+            {
+                isSceneReady = true;
+                sceneAckRole = ackUpd.Notes?.Contains("Bác sĩ", StringComparison.OrdinalIgnoreCase) == true ? "VETERINARIAN" : "MAIN_DRIVER";
+                sceneAckByName = ackUpd.CreatedByUserName;
+            }
+        }
+
+        var vMetaDetail = _vetMetaStore.TryGetValue(incident.IncidentId, out var vmD) ? vmD : null;
 
         return new IncidentResponseDto
         {
             IncidentId = incident.IncidentId,
-            TripId = incident.TripId,
+            TripId = vMetaDetail?.ClientTripId ?? incident.TripId,
             Category = incident.IncidentType ?? "OTHER",
             Status = incident.Status ?? "REPORTED",
             Description = incident.Description,
+            ImmediateCare = vMetaDetail?.ImmediateCare,
             LocationCoordinates = incident.LocationCoordinates,
             ImageUrl = incident.ImageUrl,
             CoordinatorId = incident.CoordinatorId,
             ReportedAt = DateTime.UtcNow,
-            SafetyBlockerActive = incident.SafetyBlockerActive ?? true
+            SafetyBlockerActive = incident.SafetyBlockerActive ?? true,
+            ApprovedPlan = approvedPlan,
+            ResolutionType = incident.ResolutionType,
+            ResolutionNotes = incident.ResolutionNotes,
+            IsSceneReady = isSceneReady,
+            SceneAckRole = sceneAckRole,
+            SceneAckByName = sceneAckByName,
+            HorseId = vMetaDetail?.HorseId,
+            HorseName = vMetaDetail?.HorseName,
+            HealthIssueType = vMetaDetail?.HealthIssueType,
+            VetStatus = vMetaDetail?.VetStatus,
+            TargetVetStation = vMetaDetail?.TargetVetStation,
+            VetResolutionNote = vMetaDetail?.VetResolutionNote
         };
     }
 
@@ -300,6 +449,30 @@ public class Flow5IncidentService : IFlow5IncidentService
         };
 
         _updateStore.AddOrUpdate(incidentId, new List<IncidentUpdateDto> { update }, (_, list) => { list.Insert(0, update); return list; });
+
+        // Tự động nhận diện cập nhật từ Bác sĩ thú y
+        if (!string.IsNullOrWhiteSpace(dto.Notes))
+        {
+            if (dto.Notes.Contains("Sự cố đã được xử lý", StringComparison.OrdinalIgnoreCase) ||
+                dto.Notes.Contains("đã ổn định", StringComparison.OrdinalIgnoreCase))
+            {
+                var meta = _vetMetaStore.GetOrAdd(incidentId, _ => new VetIncidentMeta());
+                meta.VetStatus = "STABILIZED";
+                meta.VetResolutionNote = dto.Notes;
+            }
+            else if (dto.Notes.Contains("Không thể xử lý tại chỗ", StringComparison.OrdinalIgnoreCase) ||
+                     dto.Notes.Contains("Đề xuất chuyển viện", StringComparison.OrdinalIgnoreCase) ||
+                     dto.Notes.Contains("chuyển trạm y tế", StringComparison.OrdinalIgnoreCase))
+            {
+                var meta = _vetMetaStore.GetOrAdd(incidentId, _ => new VetIncidentMeta());
+                meta.VetStatus = "REFERRAL_REQUESTED";
+                meta.VetResolutionNote = dto.Notes;
+                if (!string.IsNullOrWhiteSpace(dto.ImmediateCare))
+                {
+                    meta.TargetVetStation = dto.ImmediateCare;
+                }
+            }
+        }
 
         AddHistoryRecord(incidentId, "UPDATE_LOGGED", $"[Diễn biến] {dto.Notes}", userId);
 
@@ -648,24 +821,72 @@ public class Flow5IncidentService : IFlow5IncidentService
     // J24-J28: APPLY, CONTINUATION & CLOSURE
     // ==========================================
 
-    public async Task<RecoveryApplyDto> ApplyRecoveryPlanAsync(string incidentId, string coordinatorUserId)
+    public async Task<RecoveryApplyDto> ApplyRecoveryPlanAsync(string incidentId, ApplyRecoveryPlanInputDto? dto, string coordinatorUserId)
     {
         string planId = "REC_APPLIED";
+        string planSummary = dto?.PlanSummary ?? "Phương án xử lý sự cố đã được điều phối viên duyệt và áp dụng.";
         if (_planStore.TryGetValue(incidentId, out var plans) && plans.Count > 0)
         {
             var p = plans.Last();
             p.Status = "APPLIED";
             planId = p.PlanId;
+            if (string.IsNullOrWhiteSpace(dto?.PlanSummary) && !string.IsNullOrWhiteSpace(p.Summary))
+            {
+                planSummary = p.Summary;
+            }
         }
 
         var incident = await _context.Incidents.FirstOrDefaultAsync(i => i.IncidentId == incidentId);
         if (incident != null)
         {
             incident.Status = "RECOVERY_APPLIED";
+            incident.ResolutionNotes = dto?.ResolutionNotes ?? planSummary;
+            incident.ResolutionType = dto?.ResolutionType ?? "COORDINATOR_APPLIED";
+
+            // Tự động gửi thông báo trực tiếp đến tài xế / người báo cáo sự cố
+            string? targetUserId = null;
+            if (_historyStore.TryGetValue(incidentId, out var records))
+            {
+                var reportRecord = records.FirstOrDefault(r => r.EventType == "INCIDENT_REPORTED");
+                if (reportRecord != null && !string.IsNullOrWhiteSpace(reportRecord.PerformedByUserId) && reportRecord.PerformedByUserId != "SYSTEM")
+                {
+                    targetUserId = reportRecord.PerformedByUserId;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(targetUserId))
+            {
+                var assignment = await _context.TripVehicleAssignments
+                    .FirstOrDefaultAsync(a => a.TripId == incident.TripId);
+                targetUserId = assignment?.DriverId;
+            }
+
+            if (string.IsNullOrWhiteSpace(targetUserId))
+            {
+                var defaultDriver = await _context.Users.FirstOrDefaultAsync(u => u.Role == "DRIVER_ESCORT" || u.Role == "DRIVER");
+                targetUserId = defaultDriver?.UserId;
+            }
+
+            if (!string.IsNullOrWhiteSpace(targetUserId))
+            {
+                _context.Notifications.Add(new Notification
+                {
+                    NotificationId = $"NOTI_{Guid.NewGuid().ToString("N")[..10]}",
+                    UserId = targetUserId,
+                    ReferenceId = incidentId,
+                    Type = "INCIDENT_RECOVERY_APPROVED",
+                    Channel = "IN_APP",
+                    Title = $"Phương án xử lý sự cố - Chuyến {incident.TripId}",
+                    Message = $"Điều phối viên đã phê duyệt phương án cho sự cố [{incident.IncidentType}]: {planSummary}. Vui lòng phối hợp thực hiện!",
+                    IsRead = false,
+                    SentAt = DateTime.UtcNow
+                });
+            }
+
             await _context.SaveChangesAsync();
         }
 
-        AddHistoryRecord(incidentId, "PLAN_APPLIED", $"Đã áp dụng phương án khôi phục {planId} vào hành trình thực tế", coordinatorUserId);
+        AddHistoryRecord(incidentId, "PLAN_APPLIED", $"Đã áp dụng phương án khôi phục {planId} vào hành trình thực tế: {planSummary}", coordinatorUserId);
 
         return new RecoveryApplyDto
         {
@@ -705,7 +926,7 @@ public class Flow5IncidentService : IFlow5IncidentService
         if (incident != null)
         {
             incident.SafetyBlockerActive = false;
-            incident.Status = "IN_TRANSIT";
+            incident.Status = "CONTINUE_ALLOWED";
             await _context.SaveChangesAsync();
         }
 
@@ -716,7 +937,7 @@ public class Flow5IncidentService : IFlow5IncidentService
             IncidentId = incident?.IncidentId ?? incidentId,
             TripId = incident?.TripId ?? "TRIP_DEMO",
             Category = incident?.IncidentType ?? "OTHER",
-            Status = "IN_TRANSIT",
+            Status = "CONTINUE_ALLOWED",
             Description = incident?.Description,
             CoordinatorId = coordinatorUserId,
             ReportedAt = DateTime.UtcNow,
@@ -750,6 +971,46 @@ public class Flow5IncidentService : IFlow5IncidentService
             ReportedAt = DateTime.UtcNow,
             SafetyBlockerActive = false
         };
+    }
+
+    public async Task<IncidentResponseDto> EscalateIncidentAsync(string incidentId, EscalateIncidentInputDto dto, string coordinatorUserId)
+    {
+        var incident = await _context.Incidents.FirstOrDefaultAsync(i => i.IncidentId == incidentId);
+        if (incident == null)
+        {
+            throw new KeyNotFoundException($"Không tìm thấy sự cố với mã {incidentId}");
+        }
+
+        incident.Status = "ESCALATED";
+        incident.ResolutionNotes = $"Điều phối viên từ chối hỗ trợ tại chỗ: {dto.Reason}";
+        incident.ResolutionType = "ESCALATED_TO_MANAGER";
+
+        AddHistoryRecord(incidentId, "INCIDENT_ESCALATED", $"Điều phối viên {coordinatorUserId} từ chối hỗ trợ tại chỗ và chuyển lên Quản lý giải quyết: {dto.Reason}", coordinatorUserId);
+
+        // Tự động gửi thông báo khẩn cấp đến toàn bộ Logistics Manager
+        var managers = await _context.Users
+            .Where(u => u.Role == Domain.Enums.UserRoles.LogisticsManager || u.Role == "LOGISTICS_MANAGER" || u.Role == "MANAGER")
+            .ToListAsync();
+
+        foreach (var mgr in managers)
+        {
+            _context.Notifications.Add(new Notification
+            {
+                NotificationId = $"NOTI_{Guid.NewGuid().ToString("N")[..10]}",
+                UserId = mgr.UserId,
+                ReferenceId = incidentId,
+                Type = "INCIDENT_ESCALATED",
+                Channel = "IN_APP",
+                Title = $"Khẩn cấp: Sự cố chuyến {incident.TripId} chuyển Quản lý giải quyết",
+                Message = $"Điều phối viên từ chối hỗ trợ tại chỗ cho sự cố [{incident.IncidentType}]. Lý do: {dto.Reason}. Vui lòng can thiệp xử lý ngay!",
+                IsRead = false,
+                SentAt = DateTime.UtcNow
+            });
+        }
+
+        await _context.SaveChangesAsync();
+
+        return await GetIncidentByIdAsync(incidentId);
     }
 
     public async Task<IncidentResponseDto> ReopenIncidentAsync(string incidentId, IncidentReopenInputDto dto, string coordinatorUserId)

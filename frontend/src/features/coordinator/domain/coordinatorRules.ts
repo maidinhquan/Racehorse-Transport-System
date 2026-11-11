@@ -9,8 +9,7 @@ import { QUICK_LOGIN_ACCOUNTS } from '../../auth/quickLoginAccounts';
 
 export const ACTIVE_TRIP = [
   'PLANNING', 'READY_TO_DEPART', 'IN_TRANSIT', 'PENDING_APPROVAL', 'PLAN_APPROVED',
-  'RETURNED', 'ASSIGNED', 'SCHEDULED', 'EN_ROUTE', 'HALTED', 'CUSTOMS_HOLD', 'DELIVERED', 'DRAFT',
-  'COMPLETED'
+  'RETURNED', 'ASSIGNED', 'SCHEDULED', 'EN_ROUTE', 'HALTED', 'CUSTOMS_HOLD', 'DELIVERED', 'DRAFT'
 ];
 export const STALE_H = 3;
 
@@ -23,14 +22,20 @@ export const STAFF_ALIASES: Record<string, string> = {
   'EMP-23': 'USER_015', 'USER_015': 'EMP-23',
   'EMP-25': 'USER_016', 'USER_016': 'EMP-25',
   'EMP-26': 'USER_017', 'USER_017': 'EMP-26',
+  'EMP-28': 'USER_030', 'USER_030': 'EMP-28',
   'EMP-31': 'USER_018', 'USER_018': 'EMP-31',
   'EMP-32': 'USER_019', 'USER_019': 'EMP-32',
   'EMP-35': 'USER_014', 'USER_014': 'EMP-35',
+  'EMP-36': 'USER_031', 'USER_031': 'EMP-36',
   'EMP-07': 'USER_007', 'USER_007': 'EMP-07',
   'EMP-08': 'USER_008', 'USER_008': 'EMP-08',
   'EMP-09': 'USER_009', 'USER_009': 'EMP-09',
   'EMP-10': 'USER_010', 'USER_010': 'EMP-10',
 };
+
+/** Nhân sự đã có tài khoản đăng nhập (mới được hiện trong danh sách để Điều phối chọn); nhân sự của chuyến demo thì miễn */
+export const hasLoginAccount = (e: Any): boolean => !!e && (!!e.demoFlow3 || /^USER_/i.test(String(e.id)) || !!STAFF_ALIASES[e.id]);
+export const selectableStaff = (): Any[] => db.employees.filter(hasLoginAccount);
 
 /** So khớp xem hai mã định danh (hoặc alias) có cùng chỉ một nhân sự hay không */
 export const isSameStaff = (idA?: string, idB?: string): boolean => {
@@ -82,16 +87,32 @@ export const placeById = (id?: string) => (id ? db.places.find((p: Any) => p.id 
 export const checkpoint = placeById;
 export const placeByName = (n: string) => db.places.find((p: Any) => p.name === n || (p.aliases || []).includes(n));
 
-export const curRoute = (t: Any) => (t?.routes?.length ? t.routes[t.routes.length - 1] : null);
-export const approvedRoute = (t: Any) => [...(t.routes || [])].reverse().find((r: Any) => r.status === 'APPROVED') || null;
+export const curRoute = (t: Any) => (Array.isArray(t?.routes) && t.routes.length ? t.routes[t.routes.length - 1] : null);
+export const approvedRoute = (t: Any) => (Array.isArray(t?.routes) ? [...t.routes].reverse().find((r: Any) => r.status === 'APPROVED') || null : null);
 export const tripStops = (t: Any): Any[] => (approvedRoute(t) || curRoute(t) || { stops: [] }).stops || [];
-export const lastMilestone = (t: Any) => (t?.milestones?.length ? t.milestones[t.milestones.length - 1] : null);
-export const tripHorses = (t: Any): string[] => reqOfTrip(t).horses || [];
+export const lastMilestone = (t: Any) => (Array.isArray(t?.milestones) && t.milestones.length ? t.milestones[t.milestones.length - 1] : null);
+export const tripHorses = (t: Any): string[] => reqOfTrip(t)?.horses || [];
 export const horseCount = (r: Any) => r?.count || r?.horses?.length || 1;
-export const crewOf = (t: Any): [string, string][] => Object.entries(t.crew || {}).filter(([, v]) => v) as [string, string][];
+export const crewOf = (t: Any): [string, string][] => (t?.crew ? (Object.entries(t.crew).filter(([, v]) => v) as [string, string][]) : []);
 export const tripLabel = (t: Any) => { const r = reqOfTrip(t); return `${t.id} • ${r.origin === 'Ho Chi Minh City' ? 'HCMC' : r.origin} → ${r.destination === 'Ho Chi Minh City' ? 'HCMC' : r.destination}`; };
+/** Mã người dùng đang đăng nhập, đọc từ token (rỗng nếu chưa đăng nhập hoặc không đọc được) */
+export const loggedInUserId = (): string => {
+  try {
+    const token = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('accessToken')) || (typeof localStorage !== 'undefined' && localStorage.getItem('accessToken')) || '';
+    if (!token) return '';
+    const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const pick = (v: unknown) => (typeof v === 'string' && v ? v : '');
+    return pick(p.sub) || pick(p.nameid) || pick(p['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']);
+  } catch {
+    return '';
+  }
+};
 export const assignedOperator = (t: Any, role: 'coordinator' | 'specialist') => {
   if (role === 'coordinator') {
+    // Chuyến đã có người được giao: chỉ đúng Điều phối đó mới thấy, không so với tài khoản mẫu
+    const me = loggedInUserId();
+    const assigned = [t?.coordinatorId, t?.deployment?.assignees?.coordinator, t?.deployment?.coordinatorId].filter(Boolean);
+    if (me && assigned.length) return assigned.includes(me);
     if (t?.coordinatorId && (t.coordinatorId === db.users.coordinator?.id || t.coordinatorId === 'USER_006')) return true;
     if (t?.deployment?.assignees?.coordinator === db.users.coordinator?.id || t?.deployment?.assignees?.coordinator === 'USER_006') return true;
     if (t?.deployment?.coordinatorId === db.users.coordinator?.id || t?.deployment?.coordinatorId === 'USER_006') return true;
@@ -267,9 +288,15 @@ export const AVAIL: Record<string, [string, string]> = { AVAILABLE: ['AVAILABLE'
 const unavailableIn = (e: Any, from: string, to: string) => e.avail && e.avail.status !== 'AVAILABLE' && (e.avail.status === 'INACTIVE' || !e.avail.from || (e.avail.from <= to && (!e.avail.to || e.avail.to >= from)));
 export const availLabel = (e: Any) => AVAIL[e.avail.status][1] + (e.avail.status !== 'AVAILABLE' && e.avail.status !== 'INACTIVE' && e.avail.from ? ` ${date(e.avail.from)}${e.avail.to ? '–' + date(e.avail.to) : ''}` : '');
 
+/** Nhân sự đang giữ chuyến khác theo máy chủ (máy chủ thấy cả chuyến mà bản sao trên trình duyệt chưa có): [mã nhân sự, mã chuyến đang giữ] */
+let serverBusyCrew: Array<[string, string]> = [];
+export const setServerBusyCrew = (entries: Array<[string, string]>) => { serverBusyCrew = entries; };
+
 /** một tài xế / áp tải / bác sĩ chỉ được gắn vào một chuyến đang hoạt động; người đang nghỉ cũng tính là trùng lịch */
 export function crewConflict(e: Any, t: Any): Any {
   if (!e) return null;
+  const serverHit = serverBusyCrew.find(([id, tripId]) => isSameStaff(e.id, id) && (!t || cleanId(tripId) !== cleanId(t.id)));
+  if (serverHit) return { id: serverHit[1] };
   // Bận cho đến khi chuyến kia bàn giao xong (COMPLETED), không phụ thuộc ngày chuyến: mỗi người chỉ một chuyến chưa bàn giao
   const busy = db.trips.find((u: Any) => {
     if (!u) return false;
@@ -438,7 +465,7 @@ export const holdText = (t: Any) => (tripHalted(t) ? 'Chuyến đang dừng theo
 export function nextMilestone(t: Any): Any {
   const stops = tripStops(t), m = lastMilestone(t);
   let n: Any = null;
-  if (t.status === 'READY_TO_DEPART' && !m) n = { type: 'DEPARTED', stop: 0 };
+  if ((t.status === 'READY_TO_DEPART' || t.status === 'IN_TRANSIT') && !m) n = stops.length ? { type: 'DEPARTED', stop: 0 } : null;
   else if (t.status !== 'IN_TRANSIT' || !m || m.type === 'ARRIVED_DESTINATION') n = null;
   else if (m.type === 'ARRIVED_STOP') n = { type: 'LEFT_STOP', stop: m.stop };
   else if (m.type === 'ARRIVED_CHECKPOINT') { const cp = stops[m.stop]?.cp, cl = cp && clearanceFor(t, cp); n = { type: 'PASSED_CHECKPOINT', stop: m.stop, blocked: !cl || cl.result !== 'PASSED', clearance: cl }; }

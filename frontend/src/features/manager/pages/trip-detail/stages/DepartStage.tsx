@@ -8,6 +8,7 @@ import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
 import { useManager } from '../../../hooks/useManager';
 import type { Trip } from '../../../types';
 import { fmtDateTime, readinessChecks } from '../../../hooks/managerRules';
+import { onSync } from '../../../../../shared/utils/syncChannel';
 
 const TARGET: Record<string, string> = { deploy: 'assign', docs: 'prepare', insurance: 'prepare', quarantine: 'prepare', route: 'prepare', resources: 'prepare', flight: 'prepare' };
 
@@ -20,7 +21,8 @@ export const DepartStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
   useEffect(() => {
     const tick = () => { if (document.visibilityState === 'visible') void actions.refreshReadiness(); };
     const id = window.setInterval(tick, 15000);
-    return () => window.clearInterval(id);
+    const stopSync = onSync(tick);
+    return () => { window.clearInterval(id); stopSync(); };
   }, [t.id]);
   return (
     <div className="mgr-grid-main">

@@ -30,7 +30,9 @@ export interface ScheduleOption extends Schedule {
 }
 export interface ReviewDetail extends QueueItem, Schedule {
   status: string; selectedOptionId: string | null; customerDeadlineUtc: string | null;
-  coordinatorId: string; specialistId: string; horseCount: number; options: ScheduleOption[];
+  coordinatorId: string; coordinatorName?: string | null;
+  specialistId: string; specialistName?: string | null;
+  horseCount: number; options: ScheduleOption[];
   resources: null | {
     vehicles: Array<{ id: string; type: string | null; plateNumber: string | null; operatingCountry: string; capacityStalls: number }>;
     flights: Array<{ id: string; airline: string; providerFlightCode: string; originAirportPlaceId: string; destinationAirportPlaceId: string;

@@ -50,10 +50,11 @@ public interface IFlow5IncidentService
     // ==========================================
     // J24-J28: APPLY, CONTINUATION & CLOSURE
     // ==========================================
-    Task<RecoveryApplyDto> ApplyRecoveryPlanAsync(string incidentId, string coordinatorUserId);
+    Task<RecoveryApplyDto> ApplyRecoveryPlanAsync(string incidentId, ApplyRecoveryPlanInputDto? dto, string coordinatorUserId);
     Task<ContinuationReadinessDto> GetContinuationReadinessAsync(string incidentId);
     Task<IncidentResponseDto> ContinueTripAsync(string incidentId, ContinuationInputDto dto, string coordinatorUserId);
     Task<IncidentResponseDto> ResolveIncidentAsync(string incidentId, IncidentResolutionInputDto dto, string coordinatorUserId);
+    Task<IncidentResponseDto> EscalateIncidentAsync(string incidentId, EscalateIncidentInputDto dto, string coordinatorUserId);
     Task<IncidentResponseDto> ReopenIncidentAsync(string incidentId, IncidentReopenInputDto dto, string coordinatorUserId);
 
     // ==========================================

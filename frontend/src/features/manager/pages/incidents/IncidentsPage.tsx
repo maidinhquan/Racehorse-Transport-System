@@ -57,15 +57,25 @@ export const IncidentsPage: React.FC = () => {
                 <thead><tr><th>Sự cố</th><th>Chuyến</th><th>Loại</th><th>Địa điểm</th><th>Mức độ</th><th>Cần quyết định</th><th>Trạng thái</th></tr></thead>
                 <tbody>
                   {fi.rows.map((i) => {
+                    const isEscalated = i.status === 'ESCALATED' || !!(i as any).escalation;
                     const pending = (i.plans || []).some((p) => p.status === 'PENDING_APPROVAL');
+                    const needsAction = isEscalated || pending;
                     return (
-                      <tr key={i.id} className={`clickable ${pending ? 'mgr-row-attn' : ''}`} onClick={() => navigate(`/manager/incidents/${i.id}`)}>
+                      <tr key={i.id} className={`clickable ${needsAction ? 'mgr-row-attn' : ''}`} onClick={() => navigate(`/manager/incidents/${i.id}`)}>
                         <td><b className="mgr-id">{i.id}</b><div className="mgr-muted">{fmtDateTime(i.at)}</div></td>
                         <td>{i.tripId}</td>
                         <td>{INCIDENT_TYPE_LABEL[i.type] || i.type}</td>
                         <td>{i.location}</td>
                         <td><StatusBadge kind="severity" status={i.severity} /></td>
-                        <td>{pending ? <StatusBadge tone="warn" label="Có phương án chờ" /> : '—'}</td>
+                        <td>
+                          {isEscalated ? (
+                            <StatusBadge tone="bad" label="Điều phối từ chối – Cần can thiệp" />
+                          ) : pending ? (
+                            <StatusBadge tone="warn" label="Có phương án chờ" />
+                          ) : (
+                            '—'
+                          )}
+                        </td>
                         <td><StatusBadge kind="incident" status={i.status} /></td>
                       </tr>
                     );

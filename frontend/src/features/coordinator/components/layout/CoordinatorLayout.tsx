@@ -8,6 +8,8 @@ import '../../styles/coordinator.css';
 import { coordNavCount } from '../../workflows/incidentOperations';
 import { ModalHost } from '../common/ModalHost';
 import { Icon, IconSprite } from '../common/ui';
+import { formatNotification } from '../../../../shared/utils/notificationFormat';
+import { requestReviewApi } from '../../../../shared/api/requestReviewApi';
 
 const NAV: Array<[string, string, string]> = [
   ['/coordinator/dashboard', 'Tổng quan', 'home'],
@@ -41,6 +43,26 @@ export function CoordinatorLayout({ title, children, active }: { title: string; 
   const u = me() || { name: 'Phạm Hải', initials: 'PH' };
   const notes = myNotifs(), unread = notes.filter((n: Any) => !n.read).length;
   const incCount = coordNavCount();
+  const [reviewCount, setReviewCount] = useState<number>(0);
+
+  useEffect(() => {
+    let active = true;
+    const fetchQueue = () => {
+      requestReviewApi.queue('coordinator')
+        .then((rows) => {
+          if (active && Array.isArray(rows)) setReviewCount(rows.length);
+        })
+        .catch(() => {});
+    };
+    fetchQueue();
+    const timer = setInterval(fetchQueue, 15000);
+    window.addEventListener('rts_requests_updated', fetchQueue);
+    return () => {
+      active = false;
+      clearInterval(timer);
+      window.removeEventListener('rts_requests_updated', fetchQueue);
+    };
+  }, []);
   const logout = () => {
     ['accessToken', 'user', 'userFullName', 'userEmail', 'userRole'].forEach((k) => sessionStorage.removeItem(k));
     localStorage.removeItem('accessToken'); localStorage.removeItem('user');
@@ -56,6 +78,9 @@ export function CoordinatorLayout({ title, children, active }: { title: string; 
           {NAV.map(([to, label, ic]) => (
             <NavLink key={to} to={to} className={({ isActive }) => (isActive || active === to ? 'active' : '')}>
               <Icon name={ic} />{label}
+              {to.endsWith('request-reviews') && reviewCount > 0 ? (
+                <span className="badge-count" title={`${reviewCount} yêu cầu chờ thẩm định`}>{reviewCount}</span>
+              ) : null}
               {to.endsWith('incidents') && incCount ? <span className="badge-count">{incCount}</span> : null}
             </NavLink>
           ))}
@@ -65,22 +90,68 @@ export function CoordinatorLayout({ title, children, active }: { title: string; 
         <header className="topbar">
           <h1>{title}</h1>
           <div className="user" ref={userRef}>
-            <button type="button" className="icon-btn" aria-label="Thông báo" onClick={() => setMenu(menu === 'notif' ? '' : 'notif')}>
-              <span className={`bell ${unread ? 'dot' : ''}`} data-count={unread ? (unread > 9 ? '9+' : String(unread)) : ''}><Icon name="bell" /></span>
-            </button>
+            <div className="coord-notif-anchor">
+              <button type="button" className="icon-btn" aria-label="Thông báo" onClick={() => setMenu(menu === 'notif' ? '' : 'notif')}>
+                <span className={`bell ${unread ? 'dot' : ''}`}><Icon name="bell" /></span>
+              </button>
+              {menu === 'notif' && (
+                <div className="coord-notif" role="menu">
+                  <div className="coord-notif__head">
+                    <div className="coord-notif__title-wrap">
+                      <span className="coord-notif__title">Thông báo</span>
+                      {unread > 0 && <span className="coord-notif__badge-count">{unread} mới</span>}
+                    </div>
+                    {unread > 0 && (
+                      <button type="button" className="coord-notif__mark" onClick={() => { notes.forEach((n: Any) => { n.read = true; }); commit(); }}>
+                        Đánh dấu đã đọc
+                      </button>
+                    )}
+                  </div>
+                  <div className="coord-notif__list">
+                    {notes.length === 0 && (
+                      <div className="coord-notif__empty">
+                        <Icon name="bell" />
+                        <p>Bạn không có thông báo nào.</p>
+                      </div>
+                    )}
+                    {notes.slice(0, 8).map((raw: Any) => {
+                      const n = formatNotification({ id: raw.id, title: raw.title, body: raw.body, at: raw.at, read: raw.read, link: raw.go });
+                      return (
+                        <button
+                          type="button"
+                          key={raw.id}
+                          className={`coord-notif__item ${raw.read ? 'read' : 'unread'}`}
+                          onClick={() => { raw.read = true; commit(); setMenu(''); if (raw.go) go(raw.go); }}
+                        >
+                          <span className={`coord-notif__icon-box tone-${n.tone}`}>
+                            <Icon name={n.icon} />
+                          </span>
+                          <div className="coord-notif__content">
+                            <div className="coord-notif__item-head">
+                              <b>{n.title}</b>
+                              {!raw.read && <span className="coord-notif__unread-dot" />}
+                            </div>
+                            <span className="coord-notif__body">{n.body}</span>
+                            <small className="coord-notif__time">
+                              <Icon name="clock" /> {raw.at}
+                            </small>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="coord-notif__foot">
+                    <button type="button" className="coord-notif__view-all-btn" onClick={() => { setMenu(''); go('f/notifications'); }}>
+                      <span>Xem tất cả thông báo ({notes.length})</span>
+                      <Icon name="chev" className="i coord-notif__chevron-right" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
             <button type="button" className="icon-btn" onClick={() => setMenu(menu === 'account' ? '' : 'account')}>
               <span className="avatar">{u.initials}</span><span className="user-name">{u.name}</span><Icon name="chev" className="i chev" />
             </button>
-            <div className={`menu ${menu === 'notif' ? 'open' : ''}`}>
-              <h4>Thông báo</h4>
-              {notes.length ? notes.slice(0, 6).map((n: Any) => (
-                <button type="button" key={n.id} className={n.read ? '' : 'unread'} onClick={() => { n.read = true; setMenu(''); if (n.go) go(n.go); else commit(); }}>
-                  <b>{n.title}</b><span>{n.body}</span>
-                </button>
-              )) : <small>Bạn đã xem hết thông báo.</small>}
-              <hr />
-              <button type="button" className="menu-foot" onClick={() => { setMenu(''); go('f/notifications'); }}>Xem tất cả thông báo</button>
-            </div>
             <div className={`menu ${menu === 'account' ? 'open' : ''}`}>
               <h4>{u.name}</h4><small>Điều phối đội xe &amp; tuyến</small>
               <hr />

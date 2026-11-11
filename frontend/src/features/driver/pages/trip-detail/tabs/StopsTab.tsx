@@ -17,7 +17,7 @@ export const StopsTab: React.FC<{ trip: Trip }> = ({ trip }) => {
       )}
       {trip.status === 'COMPLETED' && trip.stops.length > 0 && (
         <div style={{ marginBottom: 14 }}>
-          <RouteMap stops={trip.stops} mode={trip.mode} current={lastMilestone(trip)?.stopIndex ?? trip.stops.length - 1} height={380} />
+          <RouteMap stops={trip.stops} current={lastMilestone(trip)?.stopIndex ?? trip.stops.length - 1} height={380} />
         </div>
       )}
       {trip.stops.length ? (

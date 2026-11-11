@@ -16,7 +16,7 @@ import {
 import { Icon } from '../../../components/SpecialistLayout';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
 import { ApplySetModal } from '../../../components/Modals';
-import { useSharedIncidents } from '../../../../../shared/utils/sharedIncidents';
+import { getUserFullName } from '../../../../../shared/utils/userNameResolver';
 
 /** Thẻ "Xác nhận hồ sơ sẵn sàng (Docs READY)" + 3 ô chuyển nhóm giấy tờ + thông tin bộ yêu cầu */
 export const DocsReadyCard: React.FC<{ trip: SpecTrip; active: TripDetailTab; onTab: (k: TripDetailTab) => void }> = ({ trip: t, active, onTab }) => {
@@ -27,11 +27,7 @@ export const DocsReadyCard: React.FC<{ trip: SpecTrip; active: TripDetailTab; on
   const co = c.items.filter((i) => i.counted && i.provider === 'CBN');
   const block = docsReadyBlock(data, t), ins = insuranceState(t);
   const blockers = blockingOf(data, t);
-  const incidents = useSharedIncidents(t.id);
-  const hasIncident = (t.status as string) === 'INCIDENT' || incidents.length > 0;
-  const isDocsLocked = Boolean(t.docsReady) && !hasIncident;
-  const can = t.status === 'PLANNING' && !t.docsReady;
-  const unreviewedCount = incidents.filter((i) => !i.complianceReview).length;
+  const can = t.status === 'PLANNING';
 
   const originName = countryName(t.originCountry);
   const destName = countryName(t.destCountry);
@@ -41,7 +37,7 @@ export const DocsReadyCard: React.FC<{ trip: SpecTrip; active: TripDetailTab; on
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
         <h3 className="spc-card__title" style={{ margin: 0 }}>
           <span>Xác nhận hồ sơ sẵn sàng (Docs READY) <span className="spc-muted">• Tổng giấy tờ {totals.done}/{totals.total}</span></span>
-          {t.docsReady ? (
+          {t.docsReady || t.status === 'COMPLETED' ? (
             <TripStatusBadge label="Đã xác nhận" tone="ok" />
           ) : !t.reqSet ? (
             <TripStatusBadge label={`Chưa có giấy tờ đến ${destName}`} tone="bad" />
@@ -136,31 +132,10 @@ export const DocsReadyCard: React.FC<{ trip: SpecTrip; active: TripDetailTab; on
         <button type="button" className={active === 'insurance' ? 'on' : ''} onClick={() => onTab('insurance')}>
           <span>Bảo hiểm vận chuyển</span><b>{ins === 'VERIFIED' ? 'Đã xác minh' : ins === 'PENDING' ? 'Chờ xác minh' : 'Chưa có'}</b><small>{t.insurance?.insurer ?? 'bắt buộc'}</small>
         </button>
-        <button type="button" className={active === 'incidents' ? 'on' : ''} onClick={() => onTab('incidents')}>
-          <span>Sự cố vận chuyển</span><b>{incidents.length ? `${incidents.length} sự cố` : '0 sự cố'}</b><small>{unreviewedCount > 0 ? `${unreviewedCount} cần rà soát` : incidents.length ? 'Đã rà soát' : 'Bình thường'}</small>
-        </button>
       </div>
 
       {t.docsReady ? (
-        <div style={{ marginTop: 10 }}>
-          {isDocsLocked ? (
-            <div className="spc-ready-locked-alert">
-              <Icon name="lock" />
-              <div>
-                <b>Đã xác nhận lúc {fmtDateTime(t.docsReady.at)} bởi {t.docsReady.by}.</b>
-                <div>Hồ sơ và bảo hiểm đã khoá toàn bộ — không thể chỉnh sửa trừ khi có sự cố vận chuyển phát sinh trên tuyến.</div>
-              </div>
-            </div>
-          ) : (
-            <div className="spc-incident-unlocked-alert">
-              <Icon name="alert" />
-              <div>
-                <b>Đã xác nhận lúc {fmtDateTime(t.docsReady.at)} bởi {t.docsReady.by}.</b>
-                <div>Chuyến đang phát sinh sự cố vận chuyển ({incidents.length} sự cố) — mở quyền cập nhật bổ sung hồ sơ & bảo hiểm.</div>
-              </div>
-            </div>
-          )}
-        </div>
+        <p className="spc-subtitle">Đã xác nhận lúc {fmtDateTime(t.docsReady.at)} bởi {getUserFullName(t.docsReady.by)}. Nếu hồ sơ hoặc bảo hiểm thay đổi, xác nhận tự hết hiệu lực.</p>
       ) : (
         <>
           <p className="spc-subtitle">Xác nhận khi toàn bộ hồ sơ đã duyệt và bảo hiểm đã xác minh. Manager chỉ duyệt khởi hành được sau bước này.</p>

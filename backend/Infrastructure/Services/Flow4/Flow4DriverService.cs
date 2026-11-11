@@ -49,14 +49,14 @@ public class Flow4DriverService : IFlow4DriverService
         var h = await AssignedHorseAsync(tripId, horseId, driverId);
         string? key = kind switch { "photo" => h.PhotoUrl, "passport" => h.PassportScanUrl, "ownership" => h.OwnershipCertificateFileUrl, "value-proof" => h.ValuationDocumentFileUrl, _ => null };
         if (kind.StartsWith("medical-", StringComparison.Ordinal))
-            key = await _context.LegalMedicalRecords.Where(r => r.RecordId == kind.Substring(8) && r.HorseId == horseId).Select(r => r.UploadedFileUrl).FirstOrDefaultAsync();
+        {
+            var recordId = kind.Substring(8);
+            key = await _context.LegalMedicalRecords.Where(r => r.RecordId == recordId && r.HorseId == horseId).Select(r => r.UploadedFileUrl).FirstOrDefaultAsync();
+        }
         if (key is null) throw new Application.Common.Exceptions.BusinessRuleException("Không tìm thấy tệp.", 404, "NOT_FOUND");
         return await _files.ReadAsync(key, CancellationToken.None);
     }
 
-    /// <summary>
-    /// Chỉ tài xế chính và phụ lái được cập nhật mốc hành trình. Bác sĩ thú y / hộ tống chỉ ghi nhật ký sức khỏe ngựa.
-    /// </summary>
     /// <summary>
     /// Chỉ tài xế chính và phụ lái được cập nhật mốc hành trình. Bác sĩ thú y / hộ tống chỉ ghi nhật ký sức khỏe ngựa.
     /// </summary>
@@ -158,6 +158,25 @@ public class Flow4DriverService : IFlow4DriverService
             }
         }
 
+        // 4. Kiểm tra sức khỏe toàn bộ ngựa trước khi xuất phát
+        var firstDeparture = await _context.TripMilestones
+            .Where(m => m.TripId == tripId && m.MilestoneKind == "DEPARTED" && m.Status == "PENDING")
+            .OrderBy(m => m.SequenceOrder)
+            .FirstOrDefaultAsync();
+        if (firstDeparture != null)
+        {
+            var missingHorses = await Flow4Helper.HorsesMissingHealthLogAsync(_context, tripId, firstDeparture.MilestoneId);
+            if (missingHorses.Count > 0)
+            {
+                checks.Add(new Flow4BlockerDto
+                {
+                    Code = "HEALTH_CHECK_REQUIRED",
+                    Field = "health",
+                    Message = $"Cần kiểm tra sức khỏe toàn bộ ngựa trước khi xuất phát (còn thiếu: {string.Join(", ", missingHorses)})."
+                });
+            }
+        }
+
         bool canDepart = approvalValid && checks.Count == 0;
 
         return new DepartureCheckResultDto
@@ -202,6 +221,18 @@ public class Flow4DriverService : IFlow4DriverService
             !dto.Acknowledgements.Contains("VEHICLE_VERIFIED"))
         {
             throw new InvalidOperationException("VALIDATION_ERROR: Bắt buộc phải xác nhận HORSES_CHECKED và VEHICLE_VERIFIED.");
+        }
+
+        // Phải kiểm tra sức khỏe toàn bộ ngựa trước khi mở tuyến
+        var departureMilestone = await _context.TripMilestones
+            .Where(m => m.TripId == tripId && m.MilestoneKind == "DEPARTED")
+            .OrderBy(m => m.SequenceOrder)
+            .FirstOrDefaultAsync();
+        if (departureMilestone != null)
+        {
+            var missingHorses = await Flow4Helper.HorsesMissingHealthLogAsync(_context, tripId, departureMilestone.MilestoneId);
+            if (missingHorses.Count > 0)
+                throw new InvalidOperationException($"HEALTH_CHECK_REQUIRED: Phải kiểm tra sức khỏe toàn bộ ngựa trước khi xuất phát (còn thiếu: {string.Join(", ", missingHorses)}).");
         }
 
         // Cập nhật trạng thái chuyến xe và đơn hàng
@@ -281,12 +312,14 @@ public class Flow4DriverService : IFlow4DriverService
             throw new InvalidOperationException("MILESTONE_NOT_NEXT: Bắt buộc phải hoàn tất các mốc trước đó theo đúng trình tự tuần tự.");
 
         // 2. Chốt chặn y tế: Nếu mốc có cờ RequiresHealthCheck
-        if (Flow4Helper.RequiresDepartureHealthCheck(milestone, _context))
+        if (Flow4Helper.NeedsHealthCheck(milestone))
         {
-            var hasLogs = Flow4Helper.HasRequiredHealthLogsForStop(milestone, _context);
-
-            if (!hasLogs)
-                throw new InvalidOperationException("HEALTH_CHECK_REQUIRED: Trạm dừng này yêu cầu ghi nhận nhật ký sức khỏe cho ngựa trước khi hoàn tất.");
+            var missingHorses = await Flow4Helper.HorsesMissingHealthLogAsync(_context, tripId, milestoneId);
+            var noHorseLinked = missingHorses.Count == 0
+                && !await _context.RequestHorseMappings.AnyAsync(m => m.RequestId == trip.RequestId)
+                && !await _context.HealthLogs.AnyAsync(h => h.TripId == tripId && h.MilestoneId == milestoneId);
+            if (missingHorses.Count > 0 || noHorseLinked)
+                throw new InvalidOperationException("HEALTH_CHECK_REQUIRED: Phải kiểm tra sức khỏe cho toàn bộ ngựa" + (missingHorses.Count > 0 ? $" (còn thiếu: {string.Join(", ", missingHorses)})" : "") + " trước khi rời điểm dừng này.");
         }
 
         // 3. Chốt chặn an toàn: Ngựa ABNORMAL phải có xác nhận FIT từ bác sĩ thú y

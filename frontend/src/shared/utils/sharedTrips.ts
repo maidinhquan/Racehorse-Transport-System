@@ -1,4 +1,3 @@
-import { notifySync } from './syncChannel';
 // Đồng bộ dữ liệu Chuyến đi giữa Điều phối (Coordinator), Quản lý (Manager), Chuyên viên (Specialist) và Tài xế (Driver)
 
 const STORAGE_KEY = 'rts_shared_trips';
@@ -187,7 +186,6 @@ export function saveSharedTrip(trip: any): void {
 
     // Phát sự kiện cập nhật chuyến đi toàn hệ thống
     window.dispatchEvent(new CustomEvent('rts_trips_updated', { detail: { id: trip.id, trip: updated } }));
-    notifySync('refresh_all');
   } catch (e) {
     console.error('[sharedTrips] Failed to save shared trip:', e);
   }

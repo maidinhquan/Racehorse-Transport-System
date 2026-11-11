@@ -9,6 +9,9 @@ namespace Application.Flow6.Services;
 public sealed partial class AftercareService
 {
     public IRefundVerifier RefundVerifier { private get; set; } = null!;
+    /// <summary>Hóa đơn đã được cập nhật lại (có khoản CHARGE/DISCOUNT đã áp vào hóa đơn mới) thì coi như đã phát hành cho khách và bị khóa.</summary>
+    private async Task<bool> InvoiceFinalized(string settlementId,CancellationToken ct)=>
+        (await Q("SELECT AdjustmentID FROM SETTLEMENT_ADJUSTMENT WHERE SettlementID=@s AND AdjustmentType IN('CHARGE','DISCOUNT') AND AdjustedInvoiceID IS NOT NULL",ct,("@s",settlementId))).Count>0;
     private async Task<object> AddAdjustment(string id,string actor,JsonObject body,CancellationToken ct)
     {
         var s=await Settlement(id,ct);Require(S(s,"status") is "DRAFT" or "AWAITING_PAYMENT" or "SETTLED","INVALID_STATE","Closed settlement is immutable.");
@@ -23,7 +26,11 @@ public sealed partial class AftercareService
             var refunds=await One("SELECT COALESCE(SUM(Amount),0) amount FROM SETTLEMENT_ADJUSTMENT WHERE SettlementID=@s AND AdjustmentType='REFUND'",ct,("@s",id));
             Require(N(body,"amountVnd")<=N(paid,"amount")-N(refunds,"amount"),"REFUND_EXCEEDS_RECEIPTS","Refund cannot exceed verified final receipts.");
         }
-        else Require(S(s,"status")!="SETTLED","INVALID_STATE","No repricing after settlement.");
+        else
+        {
+            Require(S(s,"status")!="SETTLED","INVALID_STATE","No repricing after settlement.");
+            Require(!await InvoiceFinalized(id,ct),"INVOICE_FINALIZED","Final invoice has been issued to the customer; charges and discounts can no longer be changed.");
+        }
         var key=await Next("SETTLEMENT_ADJUSTMENT","SETTLEMENT_ADJUSTMENT",ct);
         await E("INSERT SETTLEMENT_ADJUSTMENT(AdjustmentID,SettlementID,IncidentID,CostItemID,OriginalInvoiceID,AdjustmentType,Amount,Reason,CreatedBy,CreatedAtUtc,DecidedBy,DecidedAtUtc,DecisionReason,RefundStatus) VALUES(@id,@s,@i,@c,@invoice,@type,@amount,@reason,@a,@now,@a,@now,@decision,@refund)",ct,("@id",key),("@s",id),("@i",incident),("@c",cost),("@invoice",S(s,"finalInvoiceId")),("@type",type),("@amount",N(body,"amountVnd")),("@reason",S(body,"reason")),("@a",actor),("@now",Now),("@decision",S(body,"decisionReason")),("@refund",type=="REFUND"?"REQUESTED":null));
         var balance=await Balance(s,ct);
@@ -40,6 +47,7 @@ public sealed partial class AftercareService
         if(original is not null)
         {
             if(unapplied.Count==0)return await Invoice(s,ct);
+            Require(!await InvoiceFinalized(id,ct),"INVOICE_FINALIZED","Final invoice has been issued to the customer and can no longer be updated.");
             var frozen=await Q("SELECT PaymentID FROM PAYMENT WHERE InvoiceID=@i AND (Status IN('SUCCESS','PENDING_GATEWAY') OR FinancialReviewRequired=1)",ct,("@i",original));
             var previous=await Invoice(s,ct);
             Require(frozen.Count==0 && N(previous,"paidVnd")==0,"INVOICE_RECONCILIATION_REQUIRED","Cannot replace a paid, pending or unreconciled invoice.");
@@ -75,11 +83,19 @@ public sealed partial class AftercareService
         try { await ReconcilePending(ct,invoice); } catch (Exception e) when (e is not OperationCanceledException) { }
         var s=await One(SettlementSql+" WHERE FinalInvoiceID=@i",ct,("@i",invoice));
         Require(S(s,"status")=="AWAITING_PAYMENT","INVALID_STATE","Final settlement is not awaiting payment.");
-        var pending=await Q("SELECT PaymentID FROM PAYMENT WHERE InvoiceID=@i AND (Status='PENDING_GATEWAY' OR FinancialReviewRequired=1)",ct,("@i",invoice));
-        Require(pending.Count==0,"PAYMENT_PENDING","Existing payment must be completed or reconciled.");
+        var review=await Q("SELECT PaymentID FROM PAYMENT WHERE InvoiceID=@i AND FinancialReviewRequired=1",ct,("@i",invoice));
+        Require(review.Count==0,"PAYMENT_PENDING","Existing payment must be completed or reconciled.");
         var unapplied=await Q("SELECT AdjustmentID FROM SETTLEMENT_ADJUSTMENT WHERE SettlementID=@s AND AdjustmentType IN('CHARGE','DISCOUNT') AND AppliedAtUtc IS NULL",ct,("@s",S(s,"id")));
         Require(unapplied.Count==0,"PENDING_ADJUSTMENT","Apply invoice changes first.");
         var b=await Balance(s,ct);Require(N(b,"remainingVnd")>0 && !B(b,"financialReviewRequired"),"INVALID_STATE","No payable balance or reconciliation required.");
+        var pending=await Q("SELECT * FROM PAYMENT WHERE InvoiceID=@i AND Status='PENDING_GATEWAY' ORDER BY VnpayCreatedAtUtc DESC",ct,("@i",invoice));
+        if(pending.Count==1 && N(pending[0],"Amount")==N(b,"remainingVnd") && D(pending[0],"VnpayCreatedAtUtc") is DateTime existingCreated && D(pending[0],"VnpayExpiresAtUtc") is DateTime existingExpires && existingExpires>Now)
+        {
+            var existingKey=S(pending[0],"PaymentID")!;var existingRef="F6"+existingKey.Replace("_","")+"T"+existingCreated.ToString("yyyyMMddHHmmss");
+            var existingSession=await gateway.CreateSessionAsync(new(existingRef,invoice,N(b,"remainingVnd"),"VND",new DateTimeOffset(existingExpires,TimeSpan.Zero),ip,new DateTimeOffset(existingCreated,TimeSpan.Zero)),ct);
+            return J(new{paymentId=existingKey,paymentUrl=existingSession.PaymentUrl.ToString(),expiresAtUtc=existingSession.ExpiresAtUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ")});
+        }
+        if(pending.Count>0)await E("UPDATE PAYMENT SET Status='FAILED',FinancialReviewReason='Abandoned or expired VNPay session superseded by new attempt' WHERE InvoiceID=@i AND Status='PENDING_GATEWAY'",ct,("@i",invoice));
         var key=await Next("PAYMENT","PAYMENT",ct);var created=Now;var reference="F6"+key.Replace("_","")+"T"+created.ToString("yyyyMMddHHmmss");
         var session=await gateway.CreateSessionAsync(new(reference,invoice,N(b,"remainingVnd"),"VND",new DateTimeOffset(created.AddMinutes(15),TimeSpan.Zero),ip,new DateTimeOffset(created,TimeSpan.Zero)),ct);
         Require(session.ProviderReference==reference,"GATEWAY_REFERENCE_MISMATCH","Gateway changed the payment reference.",502);

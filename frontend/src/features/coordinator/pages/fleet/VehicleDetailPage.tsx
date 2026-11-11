@@ -6,7 +6,7 @@ import { reqOfTrip, tripVehicleIds, tripWindow, vehicle } from '../../domain/coo
 import type { Any } from '../../store/coordinatorStore';
 import { db, go, useCoordinatorStore } from '../../store/coordinatorStore';
 import { date } from '../../utils/format';
-import { vehicleEdit } from '../../workflows/coordinatorActions';
+import { vehicleEdit, vehicleStatusModal } from '../../workflows/coordinatorActions';
 
 export function VehicleDetailPage() {
   useCoordinatorStore();
@@ -20,7 +20,8 @@ export function VehicleDetailPage() {
       <div className="head"><div><h2 className="page-title" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>{v.plate} <Pill v={v.status} /></h2><p className="subtitle">{v.model} • đặt tại {v.base}</p></div>
         <div className="btn-row" style={{ margin: 0, gap: 8 }}>
           <button type="button" className="btn ghost" onClick={() => vehicleEdit(v.id)}>Sửa thông tin xe</button>
-          </div></div>
+          <button type="button" className="btn ghost" onClick={() => vehicleStatusModal(v.id)}>Đổi trạng thái</button>
+        </div></div>
       <div className="grid-main">
         <div className="card"><h3 className="card-title">Thông tin xe</h3>
           <div className="kv2"><Cell label="Số ngăn">{v.stalls}</Cell><Cell label="Số km đã chạy">{Number(v.odometer || 0).toLocaleString('en-US')} km</Cell><Cell label="Bảo dưỡng tiếp theo">{v.nextService === '—' ? '—' : date(v.nextService)}</Cell>

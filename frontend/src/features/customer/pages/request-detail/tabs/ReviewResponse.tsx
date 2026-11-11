@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { onSync } from '../../../../../shared/utils/syncChannel';
 import { apiMessage } from '../../../../../shared/api/contractClient';
 import { requestReviewApi } from '../../../../../shared/api/requestReviewApi';
 import type { CustomerReview } from '../../../../../shared/api/requestReviewApi';
@@ -22,7 +23,8 @@ export function ReviewResponse({ requestId }: { requestId: string }) {
       .catch(error => { if (current) setError(apiMessage(error)); });
     void refresh();
     const timer = setInterval(refresh, 15000);
-    return () => { current = false; clearInterval(timer); };
+    const stopSync = onSync(() => void refresh());
+    return () => { current = false; clearInterval(timer); stopSync(); };
   }, [requestId, demo]);
 
   async function respond(decision: 'ACCEPTED' | 'REJECTED') {

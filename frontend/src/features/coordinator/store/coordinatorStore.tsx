@@ -33,8 +33,9 @@ const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 import { getSharedRequests } from '../../../shared/utils/sharedRequests';
 import { getSharedTrips } from '../../../shared/utils/sharedTrips';
 import { apiClient } from '../../../shared/api/apiClient';
+import { progressFromMilestones } from '../../tracking/utils/progress';
 
-const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
+export const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
 
 export const PLACES_STORAGE_KEY = 'rts_coord_places';
 export const VEHICLES_STORAGE_KEY = 'rts_coord_vehicles';
@@ -118,7 +119,7 @@ const emptyDb = (): Db => {
     places: loadedPlaces,
     incidents: [],
     complaints: [],
-    notifications: [],
+    notifications: clone((seed as Any).notifications || []),
     audit: [],
     air: clone((seed as Any).air),
     vetStations: clone((seed as Any).vetStations),
@@ -319,19 +320,31 @@ export async function syncCoordinatorTrips(): Promise<void> {
     if (!Array.isArray(apiTrips)) return;
 
     // The list contains planning summaries only. Addresses and horse IDs live in the trip context.
-    const contexts = await Promise.all(apiTrips.map(async (item: Any) => {
-      try {
-        const response = await apiClient.get<Any>(`/coordinator/trips/${encodeURIComponent(item.tripId || item.id)}`);
-        return response.data?.data ?? response.data;
-      } catch (error) {
-        console.error('[coordinator] Failed to load trip details:', item.tripId || item.id, error);
-        return null;
-      }
-    }));
+    const [contexts, executions] = await Promise.all([
+      Promise.all(apiTrips.map(async (item: Any) => {
+        try {
+          const response = await apiClient.get<Any>(`/coordinator/trips/${encodeURIComponent(item.tripId || item.id)}`);
+          return response.data?.data ?? response.data;
+        } catch (error) {
+          console.error('[coordinator] Failed to load trip details:', item.tripId || item.id, error);
+          return null;
+        }
+      })),
+      Promise.all(apiTrips.map(async (item: Any) => {
+        if (!['READY_TO_DEPART', 'IN_TRANSIT', 'COMPLETED'].includes(item.status)) return null;
+        try {
+          const response = await apiClient.get<Any>(`/trips/${encodeURIComponent(item.tripId || item.id)}/execution`);
+          return response.data?.data ?? response.data;
+        } catch {
+          return null;
+        }
+      })),
+    ]);
 
     const mappedTrips = apiTrips.map((bt: Any, index: number) => {
       const cleanTripId = bt.tripId || bt.id;
       const context = contexts[index];
+      const execData = executions[index];
       const previous = db.trips.find((t: Any) => cleanId(t.id) === cleanId(cleanTripId));
       const requestId = context?.requestId || bt.requestId;
       if (context) {
@@ -392,8 +405,120 @@ export async function syncCoordinatorTrips(): Promise<void> {
         };
       }
 
+      const isApprovedTrip = ['PLAN_APPROVED', 'READY_TO_DEPART', 'IN_TRANSIT', 'COMPLETED'].includes(bt.status) || ['PLANNED', 'READY'].includes(bt.planningState);
+      const planToRoute = (plan: Any, fallbackStatus: string) => {
+        if (!plan || !Array.isArray(plan.stops) || !plan.stops.length) return null;
+        const rawStops = [...plan.stops];
+        if (rawStops.length === 1 && context?.delivery) {
+          rawStops.push({
+            type: 'DESTINATION',
+            name: context.delivery.name || context.delivery.address || 'Điểm giao',
+            geo: context.delivery.geo,
+            arriveAt: plan.eta || context.deliveryDeadline || bt.eta || '',
+          });
+        }
+        const lastIdx = rawStops.length - 1;
+        return {
+          v: Number(plan.planVersion) || 1,
+          status: plan.status === 'WITHDRAWN' ? 'DRAFT' : (isApprovedTrip ? 'APPROVED' : (plan.status || fallbackStatus)),
+          note: plan.note || '',
+          stops: rawStops.map((s: Any, idx: number) => ({
+            ...s,
+            type: idx === 0 ? 'ORIGIN' : idx === lastIdx ? 'DESTINATION' : (s.type || 'REST_STOP'),
+            name: s.name || (idx === 0 ? (context?.pickup?.name || context?.pickup?.address || 'Điểm nhận') : idx === lastIdx ? (context?.delivery?.name || context?.delivery?.address || 'Điểm giao') : `Điểm dừng ${idx + 1}`),
+            placeId: s.placeId || undefined,
+            cp: s.cp || s.placeId || undefined,
+            purposes: Array.isArray(s.purposes) ? s.purposes : [],
+            dwellMin: Number(s.dwellMin) || 0,
+            careNote: s.careNote || '',
+            lat: s.lat != null ? Number(s.lat) : (s.geo?.lat != null ? Number(s.geo.lat) : undefined),
+            lng: s.lng != null ? Number(s.lng) : (s.geo?.lng != null ? Number(s.geo.lng) : undefined),
+            required: s.required ?? (idx === 0 || idx === lastIdx),
+            plannedAt: (idx === 0 ? (s.departAt || s.arriveAt || plan.plannedDepart || bt.plannedDepart) : (s.arriveAt || s.departAt)) || s.plannedAt || '',
+            departAt: s.departAt || '',
+          })),
+        };
+      };
+
+      const backendRoutes: Any[] = [];
+      const approvedRt = planToRoute(context?.approvedPlan, 'APPROVED');
+      const draftFallbackStatus = isApprovedTrip ? 'APPROVED' : bt.planningState === 'ROUTE_PENDING' ? 'PENDING_APPROVAL' : bt.planningState === 'ROUTE_RETURNED' ? 'RETURNED' : 'DRAFT';
+      const draftRt = planToRoute(context?.draft, draftFallbackStatus);
+      if (approvedRt) backendRoutes.push(approvedRt);
+      if (draftRt && (!approvedRt || (draftRt.v > approvedRt.v && !isApprovedTrip))) backendRoutes.push(draftRt);
+      if (!backendRoutes.length && isApprovedTrip && (context?.pickup || context?.delivery)) {
+        backendRoutes.push({
+          v: 1,
+          status: 'APPROVED',
+          note: '',
+          stops: [
+            {
+              type: 'ORIGIN',
+              name: context?.pickup?.name || context?.pickup?.address || 'Điểm nhận',
+              lat: context?.pickup?.geo?.lat,
+              lng: context?.pickup?.geo?.lng,
+              required: true,
+              purposes: [],
+              plannedAt: bt.plannedDepart || `${today()} 06:00`,
+            },
+            {
+              type: 'DESTINATION',
+              name: context?.delivery?.name || context?.delivery?.address || 'Điểm giao',
+              lat: context?.delivery?.geo?.lat,
+              lng: context?.delivery?.geo?.lng,
+              required: true,
+              purposes: [],
+              plannedAt: context?.approvedPlan?.eta || context?.deliveryDeadline || bt.eta || '',
+            },
+          ],
+        });
+      }
+
+      const execProgress = Array.isArray(execData?.milestones) && execData.milestones.length > 0
+        ? progressFromMilestones(execData.milestones)
+        : null;
+
+      if (execProgress && execProgress.stops.length > 0) {
+        const currentBackendStops = backendRoutes[backendRoutes.length - 1]?.stops?.length || 0;
+        if (!backendRoutes.length || execProgress.stops.length > currentBackendStops) {
+          backendRoutes.push({
+            v: (backendRoutes[backendRoutes.length - 1]?.v || 0) + 1,
+            status: 'APPROVED',
+            note: '',
+            stops: execProgress.stops.map((s, idx) => ({
+              type: s.type,
+              name: s.name,
+              lat: s.lat,
+              lng: s.lng,
+              required: idx === 0 || idx === execProgress.stops.length - 1 || ['CHECKPOINT', 'QUARANTINE_STATION', 'AIRPORT'].includes(s.type),
+              purposes: s.type === 'REST_STOP' ? ['REST'] : s.type === 'FUEL_STOP' ? ['FUEL'] : s.type === 'CHECKPOINT' ? ['BORDER'] : s.type === 'QUARANTINE_STATION' ? ['QUARANTINE'] : s.type === 'AIRPORT' ? ['AIRPORT'] : [],
+              plannedAt: s.plannedAt || '',
+            })),
+          });
+        }
+      }
+
+      const prevRoutes = Array.isArray(previous?.routes) ? previous.routes : [];
+      const prevStopsLen = prevRoutes[prevRoutes.length - 1]?.stops?.length || 0;
+      const backendStopsLen = backendRoutes[backendRoutes.length - 1]?.stops?.length || 0;
+      const existingRoutes = bt.routes ?? (prevStopsLen >= backendStopsLen && prevStopsLen > 0 ? prevRoutes : backendRoutes);
+
+      const apiMilestones = execProgress
+        ? execProgress.milestones.map((m) => ({
+            type: m.type,
+            stop: m.stopIndex,
+            at: m.at || nowStamp(),
+            by: m.by || finalCrew?.MAIN_DRIVER || 'Tổ xe',
+            note: m.note || '',
+          }))
+        : [];
+      const finalMilestones = apiMilestones.length >= (previous?.milestones?.length || 0) && apiMilestones.length > 0
+        ? apiMilestones
+        : (bt.milestones ?? previous?.milestones ?? []);
+
       return {
         ...previous,
+        _backendRoutes: backendRoutes,
         id: cleanTripId,
         tripId: cleanTripId,
         binding: context?.binding ?? previous?.binding,
@@ -413,7 +538,7 @@ export async function syncCoordinatorTrips(): Promise<void> {
         specialistId: context?.specialistId || bt.specialistId || previous?.specialistId,
         vehicleId: finalVehicleId,
         groundLegs: finalGroundLegs,
-        routes: (bt.routes ?? previous?.routes ?? []).map((rt: Any) => {
+        routes: existingRoutes.map((rt: Any) => {
           if (!rt?.stops) return rt;
           return {
             ...rt,
@@ -446,7 +571,7 @@ export async function syncCoordinatorTrips(): Promise<void> {
             }),
           };
         }),
-        milestones: bt.milestones ?? previous?.milestones ?? [],
+        milestones: finalMilestones,
         crew: finalCrew,
         horses: context?.horseIds ?? bt.horses ?? previous?.horses ?? [],
         pickupAccess: context?.pickupAccess ?? previous?.pickupAccess,
@@ -458,11 +583,23 @@ export async function syncCoordinatorTrips(): Promise<void> {
 
     const isDemo = getDemoMode('coordinator');
     applyTripStateFromStorage(mappedTrips);
-    // Kết quả duyệt của Quản lý lấy từ backend: chỉ áp vào phiên bản đang chờ duyệt
-    const DECIDED: Record<string, string> = { PLANNED: 'APPROVED', ROUTE_RETURNED: 'RETURNED' };
+    // Kết quả duyệt của Quản lý lấy từ backend: chỉ áp vào phiên bản đang chờ duyệt hoặc chuyến đã duyệt/khởi hành
+    const DECIDED: Record<string, string> = { PLANNED: 'APPROVED', READY: 'APPROVED', ROUTE_RETURNED: 'RETURNED' };
     mappedTrips.forEach((t: Any) => {
+      const localStopsLen = Array.isArray(t.routes) ? (t.routes[t.routes.length - 1]?.stops?.length || 0) : 0;
+      const backendStopsLen = Array.isArray(t._backendRoutes) ? (t._backendRoutes[t._backendRoutes.length - 1]?.stops?.length || 0) : 0;
+      if ((localStopsLen === 0 || (['READY_TO_DEPART', 'IN_TRANSIT', 'COMPLETED'].includes(t.status) && backendStopsLen > localStopsLen)) && backendStopsLen > 0) {
+        t.routes = t._backendRoutes;
+      }
+      delete t._backendRoutes;
       const cur = t.routes?.[t.routes.length - 1], next = DECIDED[t.planningState];
-      if (cur?.status === 'PENDING_APPROVAL' && next) { cur.status = next; cur.decidedAt = cur.decidedAt || nowStamp(); }
+      if (cur && (['READY_TO_DEPART', 'IN_TRANSIT', 'COMPLETED'].includes(t.status) || next === 'APPROVED')) {
+        cur.status = 'APPROVED';
+        cur.decidedAt = cur.decidedAt || nowStamp();
+      } else if (cur?.status === 'PENDING_APPROVAL' && next) {
+        cur.status = next;
+        cur.decidedAt = cur.decidedAt || nowStamp();
+      }
       autoConfirmIfApproved(t);
     });
     if (!isDemo) {
@@ -477,8 +614,162 @@ export async function syncCoordinatorTrips(): Promise<void> {
       db.trips = existing;
     }
     commit();
+    void syncCoordinatorIncidents();
   } catch (err) {
     console.error('[coordinator] Failed to sync trips from API:', err);
+  }
+}
+
+const DELETED_SPAM_IDS = new Set([
+  'INC_20261102_17F406', 'INC_20261106_44A3AF', 'INC_20261107_26EACE', 'INC_20261107_552507',
+  'INC_20261107_59E0B0', 'INC_20261107_619E30', 'INC_20261107_71DBE2', 'INC_20261107_AFD75F',
+  'INC_20261107_BE43C1', 'INC_20261107_E6F8D1', 'INC_20261108_09C04D', 'INC_20261108_1E5D35',
+  'INC_20261108_402208', 'INC_20261108_4C75B1', 'INC_20261108_59699D', 'INC_20261108_63E037',
+  'INC_20261108_9EA7FB', 'INC_20261108_A6D8E9', 'INC_20261108_B18836', 'INC_20261108_BD39EC',
+  'INC_20261108_C40695', 'INC_20261107_D190C1',
+]);
+
+export async function syncCoordinatorIncidents(): Promise<void> {
+  try {
+    const res = await apiClient.get<Any>('/incidents');
+    const apiIncidents = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+    if (!Array.isArray(apiIncidents)) return;
+
+    let hasChange = false;
+    const origLen = db.incidents.length;
+    db.incidents = db.incidents.filter((x: Any) => !DELETED_SPAM_IDS.has(cleanId(x.id)) && !DELETED_SPAM_IDS.has(x.id));
+    if (db.incidents.length !== origLen) hasChange = true;
+
+    for (const bi of apiIncidents) {
+      const id = bi.incidentId || bi.id;
+      if (!id || DELETED_SPAM_IDS.has(cleanId(id)) || DELETED_SPAM_IDS.has(id)) continue;
+      const isApplied = bi.status === 'RECOVERY_APPLIED' || bi.status === 'EXECUTING';
+      const existing = db.incidents.find((x: Any) => cleanId(x.id) === cleanId(id));
+      if (existing) {
+        if (bi.status && existing.status !== bi.status) {
+          existing.status = isApplied ? 'EXECUTING' : bi.status;
+          hasChange = true;
+        }
+        if (bi.status && bi.status !== 'REPORTED' && !existing.ackAt) {
+          existing.ackAt = bi.reportedAt ? bi.reportedAt.replace('T', ' ').slice(0, 16) : nowStamp();
+          hasChange = true;
+        }
+        if (bi.approvedPlan && !existing.approvedPlan) {
+          existing.approvedPlan = bi.approvedPlan;
+          existing.resolutionNotes = bi.resolutionNotes || bi.approvedPlan;
+          existing.resolutionType = bi.resolutionType;
+          hasChange = true;
+        }
+        if (existing.approvedPlan && (!existing.plans || existing.plans.length === 0)) {
+          existing.plans = [{
+            v: 1,
+            kind: existing.resolutionType || 'NO_CHANGE',
+            status: 'APPROVED',
+            desc: existing.approvedPlan,
+            reason: existing.resolutionNotes || '',
+            approvedAt: nowStamp(),
+            approvals: [],
+          }];
+          hasChange = true;
+        }
+        if (!existing.log) {
+          existing.log = [
+            [existing.at || nowStamp(), 'Báo cáo sự cố', existing.description || '', existing.reporterRole || 'DRIVER']
+          ];
+        }
+        if (!existing.updates) {
+          existing.updates = [];
+        }
+        if (!existing.plans) {
+          existing.plans = [];
+        } else {
+          for (const pl of existing.plans) {
+            if (!pl.approvals) pl.approvals = [];
+          }
+        }
+        if (!existing.reporterRole && bi.reportedByUserRole) {
+          existing.reporterRole = bi.reportedByUserRole;
+          hasChange = true;
+        }
+        if (!existing.reporterPhone && bi.reportedByUserPhone) {
+          existing.reporterPhone = bi.reportedByUserPhone;
+          hasChange = true;
+        }
+        if (!existing.immediateCare && bi.immediateCare) {
+          existing.immediateCare = bi.immediateCare;
+          hasChange = true;
+        }
+        if (bi.horseId && !existing.horseId) {
+          existing.horseId = bi.horseId;
+          hasChange = true;
+        }
+        if (bi.horseName && !existing.horseName) {
+          existing.horseName = bi.horseName;
+          hasChange = true;
+        }
+        if (bi.healthIssueType && !existing.healthIssueType) {
+          existing.healthIssueType = bi.healthIssueType;
+          hasChange = true;
+        }
+        if (bi.vetStatus && existing.vetStatus !== bi.vetStatus) {
+          existing.vetStatus = bi.vetStatus;
+          hasChange = true;
+        }
+        if (bi.targetVetStation && !existing.targetVetStation) {
+          existing.targetVetStation = bi.targetVetStation;
+          hasChange = true;
+        }
+        if (bi.vetResolutionNote && !existing.vetResolutionNote) {
+          existing.vetResolutionNote = bi.vetResolutionNote;
+          hasChange = true;
+        }
+      } else {
+        const isPastReported = bi.status && bi.status !== 'REPORTED';
+        const newInc: Any = {
+          id,
+          tripId: bi.tripId,
+          type: bi.category || bi.incidentType || 'OTHER',
+          severity: bi.severity || 'HIGH',
+          status: isApplied ? 'EXECUTING' : (bi.status || 'REPORTED'),
+          ackAt: isPastReported ? (bi.reportedAt ? bi.reportedAt.replace('T', ' ').slice(0, 16) : nowStamp()) : undefined,
+          approvedPlan: bi.approvedPlan,
+          resolutionNotes: bi.resolutionNotes,
+          resolutionType: bi.resolutionType,
+          at: bi.reportedAt ? bi.reportedAt.replace('T', ' ').slice(0, 16) : nowStamp(),
+          by: bi.reportedByUserName || bi.reportedByUserId || 'Tài xế / Áp tải',
+          reporterName: bi.reportedByUserName || '',
+          reporterRole: bi.reportedByUserRole || (bi.category === 'HORSE_HEALTH' ? 'VETERINARIAN' : 'MAIN_DRIVER'),
+          reporterPhone: bi.reportedByUserPhone || '',
+          immediateCare: bi.immediateCare || '',
+          location: bi.location || (bi.locationCoordinates ? `Tọa độ: ${bi.locationCoordinates}` : 'Trên đường vận chuyển'),
+          locationCoordinates: bi.locationCoordinates || '',
+          description: bi.description || '',
+          photos: bi.photos || (bi.imageUrl ? [bi.imageUrl] : []),
+          horseId: bi.horseId || '',
+          horseName: bi.horseName || '',
+          healthIssueType: bi.healthIssueType || '',
+          vetStatus: bi.vetStatus || '',
+          targetVetStation: bi.targetVetStation || '',
+          vetResolutionNote: bi.vetResolutionNote || '',
+          plans: bi.approvedPlan ? [{
+            v: 1,
+            kind: bi.resolutionType || 'NO_CHANGE',
+            status: 'APPROVED',
+            desc: bi.approvedPlan,
+            reason: bi.resolutionNotes || '',
+            approvedAt: nowStamp(),
+            approvals: [],
+          }] : [],
+          updates: [],
+          log: [[nowStamp(), 'Nhân sự tổ xe báo cáo sự cố qua hệ thống', bi.reportedByUserName || 'Driver/Escort', bi.reportedByUserRole || 'DRIVER']],
+        };
+        db.incidents.unshift(newInc);
+        hasChange = true;
+      }
+    }
+    if (hasChange) commit();
+  } catch (err) {
+    console.error('[coordinator] Failed to sync incidents from API:', err);
   }
 }
 
@@ -681,7 +972,7 @@ export interface ModalSpec {
 export const modalState: { spec: ModalSpec | null; key: number } = { spec: null, key: 0 };
 export function openModal(spec: ModalSpec) { modalState.spec = spec; modalState.key++; commit(); }
 export function closeModal() { modalState.spec = null; commit(); }
-export function confirmAction(title: ReactNode, body: ReactNode, ok: string, run: () => string | void | Promise<string | void>, danger = false) {
+export function confirmAction(title: ReactNode, body: ReactNode, ok: string, run: () => string | void, danger = false) {
   openModal({ title, body: () => <p>{body}</p>, ok, danger, onOk: () => run() });
 }
 

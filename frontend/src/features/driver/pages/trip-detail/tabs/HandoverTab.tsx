@@ -206,7 +206,7 @@ const MockDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
 
 /** Tab Bàn giao thực tế của tài xế (CHẾ ĐỘ BACKEND FLOW 6 - OTP & MICROCHIP) */
 const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
-  const { actions: driverActions } = useDriver();
+  const { actions: driverActions, horse } = useDriver();
   const notify = (message: string) => driverActions.showToast(message);
   const [loading, setLoading] = useState(true);
   const [context, setContext] = useState<T6.Context | null>(null);
@@ -232,8 +232,8 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
   const [refuseReason, setRefuseReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const loadBackendData = async () => {
-    setLoading(true);
+  const loadBackendData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const ctx = await flow6Api.getTripContext(trip.id);
       setContext(ctx);
@@ -275,12 +275,12 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
     } catch (e) {
       console.warn('[RealDriverHandoverTab] Error loading baseline', e);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadBackendData();
+    void loadBackendData(false);
   }, [trip.id]);
 
   const buildContent = (): T6.DeliveryContent => ({
@@ -313,7 +313,12 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
       const key = generateUuidV4();
       const deliv = await flow6Api.createDelivery(trip.id, buildContent(), key);
       setDelivery(deliv);
-      await loadBackendData();
+      if (deliv.currentRevisionId) {
+        const rev = await flow6Api.getRevision(deliv.currentRevisionId);
+        setRevision(rev);
+      } else {
+        await loadBackendData(true);
+      }
       notify('Đã tạo biên bản bàn giao bản nháp thành công!');
     } catch (err: any) {
       notify(`Không thể tạo biên bản: ${err?.message || 'Có lỗi xảy ra'}`);
@@ -360,7 +365,8 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
       setRevision(updatedRev);
 
       const otpRes = await flow6Api.sendOtp(revision.id, generateUuidV4());
-      await loadBackendData();
+      setRevision((prev) => prev ? { ...prev, status: 'AWAITING_OTP' } : prev);
+      setDelivery((prev) => prev ? { ...prev, status: 'AWAITING_OTP' } : prev);
       notify(`Mã OTP đã được gửi đến: ${otpEmail}. Mã có hiệu lực đến: ${fmtDateTime(otpRes.expiresAtUtc)}`);
     } catch (err: any) {
       notify(`Không gửi được OTP: ${err?.message || 'Có lỗi xảy ra'}`);
@@ -375,8 +381,9 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
     setSubmitting(true);
     try {
       const key = generateUuidV4();
-      await flow6Api.invalidateOtp(revision.id, key);
-      await loadBackendData();
+      const updated = await flow6Api.invalidateOtp(revision.id, key);
+      setRevision(updated);
+      setDelivery((prev) => prev ? { ...prev, status: 'DRAFT' } : prev);
       notify('Đã thu hồi OTP. Biên bản chuyển về DRAFT để chỉnh sửa.');
     } catch (err: any) {
       notify(`Không thu hồi được OTP: ${err?.message || 'Có lỗi xảy ra'}`);
@@ -395,8 +402,10 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
     setSubmitting(true);
     try {
       const key = generateUuidV4();
-      await flow6Api.confirmRevision(revision.id, { otp: otpCode.trim() }, key);
-      await loadBackendData();
+      const res = await flow6Api.confirmRevision(revision.id, { otp: otpCode.trim() }, key);
+      setRevision(res.revision);
+      setDelivery((prev) => prev ? { ...prev, status: 'CONFIRMED' } : prev);
+      setContext((prev) => prev ? { ...prev, lifecycle: res.lifecycle } : prev);
       notify('Xác nhận nhận ngựa thành công! Chuyến đi đã hoàn tất.');
     } catch (err: any) {
       notify(`Xác nhận OTP thất bại: ${err?.message || 'Mã OTP không đúng hoặc đã hết hạn'}`);
@@ -415,8 +424,10 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
     setSubmitting(true);
     try {
       const key = generateUuidV4();
-      await flow6Api.refuseRevision(revision.id, { reason: refuseReason.trim() }, key);
-      await loadBackendData();
+      const updated = await flow6Api.refuseRevision(revision.id, { reason: refuseReason.trim() }, key);
+      setRevision(updated);
+      setDelivery((prev) => prev ? { ...prev, status: 'REFUSED' } : prev);
+      setRefuseReason('');
       notify('Đã ghi nhận từ chối bàn giao. Chuyến tiếp tục ở trạng thái Đang vận chuyển.');
     } catch (err: any) {
       notify(`Không thể ghi nhận từ chối: ${err?.message || 'Có lỗi xảy ra'}`);
@@ -433,7 +444,7 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
       const key = generateUuidV4();
       const nextRev = await flow6Api.createRedeliveryRevision(delivery.id, buildContent(), key);
       setRevision(nextRev);
-      await loadBackendData();
+      setDelivery((prev) => prev ? { ...prev, status: 'DRAFT', currentRevisionId: nextRev.id } : prev);
       notify('Đã tạo phiên bản giao lại mới (DRAFT). Bạn có thể chỉnh sửa và gửi lại OTP.');
     } catch (err: any) {
       notify(`Không thể lập bản giao lại: ${err?.message || 'Có lỗi xảy ra'}`);
@@ -514,9 +525,9 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
             <input
               id="r-name"
               className="drv-input"
-              disabled={status === 'CONFIRMED' || status === 'AWAITING_OTP'}
+              readOnly
+              title="Thông tin người nhận đã đăng ký, không thể thay đổi"
               value={receiverName}
-              onChange={(e) => setReceiverName(e.target.value)}
             />
           </div>
           <div className="drv-field">
@@ -524,9 +535,9 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
             <input
               id="r-phone"
               className="drv-input"
-              disabled={status === 'CONFIRMED' || status === 'AWAITING_OTP'}
+              readOnly
+              title="Thông tin người nhận đã đăng ký, không thể thay đổi"
               value={receiverPhone}
-              onChange={(e) => setReceiverPhone(e.target.value)}
             />
           </div>
           <div className="drv-field">
@@ -546,9 +557,9 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
             <input
               id="r-loc"
               className="drv-input"
-              disabled={status === 'CONFIRMED' || status === 'AWAITING_OTP'}
+              readOnly
+              title="Điểm giao theo hợp đồng, không thể thay đổi"
               value={location}
-              onChange={(e) => setLocation(e.target.value)}
             />
           </div>
         </div>
@@ -569,7 +580,12 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
         {horseItems.map((item, idx) => (
           <div key={item.horseId} className="drv-verify" style={{ marginBottom: 12 }}>
             <div className="drv-card__title" style={{ marginBottom: 6 }}>
-              <span>Ngựa ID: <b>{item.horseId}</b></span>
+              <span>
+                Ngựa: <b>{horse(item.horseId)?.name ?? item.horseId}</b>
+                <small style={{ marginLeft: 8, fontWeight: 400 }}>
+                  {horse(item.horseId)?.microchip ? `Vi mạch: ${horse(item.horseId)?.microchip}` : ''}
+                </small>
+              </span>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.9rem', cursor: 'pointer' }}>
                 <input
                   type="checkbox"
