@@ -11,6 +11,7 @@ public interface IFlow5IncidentService
     Task<List<IncidentResponseDto>> GetIncidentsAsync(string? tripId, string? status);
     Task<IncidentResponseDto> GetIncidentByIdAsync(string incidentId);
     Task<IncidentResponseDto> AcceptIncidentAsync(string incidentId, string coordinatorUserId);
+    Task<IncidentResponseDto> UpdateIncidentStatusAsync(string incidentId, string status, string userId);
 
     // ==========================================
     // J01: CAPABILITIES & J07-J09: IMPACT / UPDATES

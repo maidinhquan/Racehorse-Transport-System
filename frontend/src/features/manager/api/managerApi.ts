@@ -76,7 +76,7 @@ const incidentStatusMap: Record<string, Incident['status']> = {
   IN_TRANSIT: 'IN_PROGRESS',
   CONTINUE_ALLOWED: 'IN_PROGRESS',
   RESULT_REPORTED: 'IN_PROGRESS',
-  ESCALATED: 'IN_PROGRESS',
+  ESCALATED: 'ESCALATED',
   IN_PROGRESS: 'IN_PROGRESS',
   RESOLVED: 'CLOSED',
   CLOSED: 'CLOSED',
@@ -84,8 +84,9 @@ const incidentStatusMap: Record<string, Incident['status']> = {
 };
 
 export const incidentFromWire = (r: Record<string, any>): Incident => {
-  const hasPlan = Boolean(r.approvedPlan || r.resolutionNotes);
-  const status = incidentStatusMap[r.status] || (hasPlan ? 'IN_PROGRESS' : 'NEW');
+  const isEscalated = r.status === 'ESCALATED' || r.resolutionType === 'ESCALATED_TO_MANAGER';
+  const hasPlan = Boolean(r.approvedPlan || (r.resolutionNotes && !isEscalated));
+  const status = incidentStatusMap[r.status] || (isEscalated ? 'ESCALATED' : (hasPlan ? 'IN_PROGRESS' : 'NEW'));
 
   return {
     id: r.incidentId || r.id,
@@ -102,7 +103,7 @@ export const incidentFromWire = (r: Record<string, any>): Incident => {
     photos: Array.isArray(r.photos) ? r.photos : (r.imageUrl ? [r.imageUrl] : []),
     plans: Array.isArray(r.plans) && r.plans.length
       ? r.plans
-      : (hasPlan ? [{
+      : (hasPlan && !isEscalated ? [{
           id: 'PLAN-APPROVED',
           kind: r.resolutionType || 'NO_CHANGE',
           desc: r.approvedPlan || r.resolutionNotes || 'Phương án xử lý đã được duyệt',

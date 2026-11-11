@@ -942,7 +942,7 @@ const managerActions = {
   // ----- Sự cố -----
   ackIncident(id: string): ActionResult {
     const i = state.incidents.find((x) => x.id === id);
-    if (!i || i.status !== 'NEW') return fail('Sự cố không ở trạng thái mới.');
+    if (!i || (i.status !== 'NEW' && i.status !== 'ESCALATED')) return fail('Sự cố không ở trạng thái mới hoặc chờ Quản lý xử lý.');
     mutate((d) => { const x = d.incidents.find((y) => y.id === id)!; x.status = 'IN_PROGRESS'; x.log.push([nowStamp(), `${MANAGER_NAME} tiếp nhận xử lý`]); });
     void managerApi.setIncidentStatus(id, 'IN_PROGRESS');
     return ok(`${id} chuyển sang Đang xử lý.`);

@@ -296,13 +296,23 @@ public class Flow5IncidentService : IFlow5IncidentService
                 proposedPlace = null;
             }
 
-            string? approvedPlan = i.ResolutionNotes;
-            if (string.IsNullOrWhiteSpace(approvedPlan) && _planStore.TryGetValue(i.IncidentId, out var plans) && plans.Count > 0)
+            string? approvedPlan = null;
+            if (_planStore.TryGetValue(i.IncidentId, out var plans) && plans.Count > 0)
             {
                 var ap = plans.LastOrDefault(p => p.Status == "APPROVED" || p.Status == "APPLIED");
                 approvedPlan = ap?.Summary;
             }
-            if (string.IsNullOrWhiteSpace(approvedPlan) && trip?.PickupAccessStatus == "RELOCATING")
+            if (string.IsNullOrWhiteSpace(approvedPlan) && 
+                i.ResolutionType != "ESCALATED_TO_MANAGER" && 
+                i.Status != "ESCALATED" && 
+                i.Status != "REPORTED" && 
+                i.Status != "NEW")
+            {
+                approvedPlan = i.ResolutionNotes;
+            }
+            if (string.IsNullOrWhiteSpace(approvedPlan) && 
+                (i.IncidentType == "PICKUP_ACCESS_BLOCKED" || i.IncidentType == "PICKUP_BLOCKED") && 
+                trip?.PickupAccessStatus == "RELOCATING")
             {
                 approvedPlan = $"Phương án dắt bộ ra điểm hẹn mới: {trip.RelocationMeetingPointName ?? "Điểm tập kết ngoài đường lớn"}";
             }
@@ -345,7 +355,7 @@ public class Flow5IncidentService : IFlow5IncidentService
                 CoordinatorId = i.CoordinatorId,
                 ReportedAt = i.CreatedAt ?? DateTime.UtcNow,
                 SafetyBlockerActive = i.SafetyBlockerActive ?? true,
-                ApprovedPlan = approvedPlan ?? i.ResolutionNotes,
+                ApprovedPlan = approvedPlan,
                 ResolutionType = i.ResolutionType,
                 ResolutionNotes = i.ResolutionNotes,
                 IsSceneReady = isSceneReady,
@@ -501,6 +511,36 @@ public class Flow5IncidentService : IFlow5IncidentService
             ReportedAt = incident?.CreatedAt ?? DateTime.UtcNow,
             SafetyBlockerActive = incident?.SafetyBlockerActive ?? true
         };
+    }
+
+    public async Task<IncidentResponseDto> UpdateIncidentStatusAsync(string incidentId, string status, string userId)
+    {
+        var incident = await _context.Incidents.FirstOrDefaultAsync(i => i.IncidentId == incidentId);
+        if (incident == null)
+        {
+            throw new KeyNotFoundException($"Không tìm thấy sự cố với mã {incidentId}");
+        }
+
+        var normalizedStatus = (status ?? "IN_PROGRESS").ToUpperInvariant();
+        if (normalizedStatus == "IN_PROGRESS")
+        {
+            incident.Status = "IN_PROGRESS";
+            AddHistoryRecord(incidentId, "STATUS_UPDATED", $"Người dùng {userId} đã tiếp nhận xử lý sự cố.", userId);
+        }
+        else if (normalizedStatus == "CLOSED" || normalizedStatus == "RESOLVED")
+        {
+            incident.Status = "RESOLVED";
+            incident.SafetyBlockerActive = false;
+            AddHistoryRecord(incidentId, "INCIDENT_RESOLVED", $"Người dùng {userId} đã đóng sự cố.", userId);
+        }
+        else
+        {
+            incident.Status = normalizedStatus;
+            AddHistoryRecord(incidentId, "STATUS_UPDATED", $"Cập nhật trạng thái sự cố thành: {normalizedStatus}", userId);
+        }
+
+        await _context.SaveChangesAsync();
+        return await GetIncidentByIdAsync(incidentId);
     }
 
     // ==========================================
@@ -993,15 +1033,23 @@ public class Flow5IncidentService : IFlow5IncidentService
 
             if (!string.IsNullOrWhiteSpace(targetUserId))
             {
+                bool isNoChange = dto?.ResolutionType == "NO_CHANGE";
+                string notiTitle = isNoChange 
+                    ? $"Chỉ đạo hiện trường sự cố - Chuyến {incident.TripId}" 
+                    : $"Phương án xử lý sự cố - Chuyến {incident.TripId}";
+                string notiMsg = isNoChange
+                    ? $"Điều phối viên thông báo: Giữ nguyên phương tiện và lộ trình hiện tại. Chỉ đạo hiện trường: {planSummary}. Vui lòng tự khắc phục tại chỗ và báo hoàn tất khi an toàn."
+                    : $"Điều phối viên đã phê duyệt phương án cho sự cố [{incident.IncidentType}]: {planSummary}. Vui lòng phối hợp thực hiện!";
+
                 _context.Notifications.Add(new Notification
                 {
                     NotificationId = $"NOTI_{Guid.NewGuid().ToString("N")[..10]}",
                     UserId = targetUserId,
                     ReferenceId = incidentId,
-                    Type = "INCIDENT_RECOVERY_APPROVED",
+                    Type = isNoChange ? "INCIDENT_DIRECTIVE_ISSUED" : "INCIDENT_RECOVERY_APPROVED",
                     Channel = "IN_APP",
-                    Title = $"Phương án xử lý sự cố - Chuyến {incident.TripId}",
-                    Message = $"Điều phối viên đã phê duyệt phương án cho sự cố [{incident.IncidentType}]: {planSummary}. Vui lòng phối hợp thực hiện!",
+                    Title = notiTitle,
+                    Message = notiMsg,
                     IsRead = false,
                     SentAt = DateTime.UtcNow
                 });

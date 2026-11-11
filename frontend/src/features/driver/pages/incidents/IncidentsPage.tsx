@@ -1376,7 +1376,11 @@ export const IncidentsPage: React.FC = () => {
                           <div className="drv-note drv-note--green" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               <Icon name="check" />
-                              <b>Điều phối đã phê duyệt phương án xử lý</b>
+                              <b>
+                                {i.resolutionType === 'NO_CHANGE'
+                                  ? 'Điều phối chỉ đạo: Khắc phục tại chỗ (Không điều chuyển)'
+                                  : 'Điều phối đã phê duyệt phương án xử lý'}
+                              </b>
                             </div>
                             <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
                               {i.approvedPlan || 'Đã có phương án xử lý cụ thể từ Điều phối viên.'}
@@ -1648,61 +1652,114 @@ export const IncidentsPage: React.FC = () => {
       )}
 
       {/* Modal hiển thị chi tiết phương án xử lý cho tài xế / bác sĩ */}
-      {viewingPlanIncident && (
-        <Modal
-          open={!!viewingPlanIncident}
-          title={`Phương án xử lý sự cố • ${viewingPlanIncident.id}`}
-          okText={
-            (acknowledgedIncidents[viewingPlanIncident.id] || (viewingPlanIncident as any).isSceneReady || (viewingPlanIncident as any).acknowledged)
-              ? `${actorRoleLabel} đã xác nhận`
-              : `${actorRoleLabel} xác nhận tiếp nhận`
-          }
-          okDisabled={Boolean(acknowledgedIncidents[viewingPlanIncident.id] || (viewingPlanIncident as any).isSceneReady || (viewingPlanIncident as any).acknowledged || acking)}
-          onOk={() => handleAcknowledgePlan(viewingPlanIncident.id)}
-          onClose={() => setViewingPlanIncident(null)}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ padding: 10, background: 'var(--bg-page, #f3f4f6)', borderRadius: 8, border: '1px solid var(--border-color, #e5e7eb)' }}>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', marginBottom: 2 }}>Hướng xử lý của Điều phối:</div>
-              <b style={{ fontSize: 14, color: 'var(--text-primary, #111827)' }}>
-                {PLAN_TYPE_LABEL[viewingPlanIncident.resolutionType || ''] || viewingPlanIncident.resolutionType || 'Phương án khắc phục sự cố'}
-              </b>
-            </div>
+      {viewingPlanIncident && (() => {
+        const hasRealPlan = Boolean(viewingPlanIncident.approvedPlan || viewingPlanIncident.resolutionNotes);
+        const isNoChange = viewingPlanIncident.resolutionType === 'NO_CHANGE';
+        const isEscalated = (viewingPlanIncident.status as string) === 'ESCALATED' || viewingPlanIncident.resolutionType === 'ESCALATED_TO_MANAGER';
+        const isAcked = Boolean(
+          acknowledgedIncidents[viewingPlanIncident.id] ||
+          (viewingPlanIncident as any).isSceneReady ||
+          (viewingPlanIncident as any).acknowledged
+        );
 
-            <div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', marginBottom: 4, fontWeight: 600 }}>
-                Chỉ dẫn cụ thể cho {actorRoleLabel.toLowerCase()} tại hiện trường:
-              </div>
-              <div style={{ fontSize: 13, lineHeight: 1.6, padding: 12, background: 'var(--bg-surface, #fff)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 8, whiteSpace: 'pre-wrap' }}>
-                {viewingPlanIncident.approvedPlan || 'Thực hiện các bước khắc phục theo chỉ dẫn của Điều phối viên.'}
-              </div>
-            </div>
+        const rawNotes = viewingPlanIncident.resolutionNotes || '';
+        const noteItems = rawNotes.split(' | ').filter((p) => Boolean(p.trim()) && !p.startsWith('Chỉ dẫn hiện trường:'));
 
-            {viewingPlanIncident.resolutionNotes && viewingPlanIncident.resolutionNotes !== viewingPlanIncident.approvedPlan && (
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', marginBottom: 4, fontWeight: 600 }}>
-                  Thông tin điều động hỗ trợ (Phương tiện / Nhân sự / Lộ trình):
+        return (
+          <Modal
+            open={!!viewingPlanIncident}
+            title={hasRealPlan ? `Phương án xử lý sự cố • ${viewingPlanIncident.id}` : `Trạng thái xử lý sự cố • ${viewingPlanIncident.id}`}
+            okText={
+              !hasRealPlan
+                ? undefined
+                : isAcked
+                ? `${actorRoleLabel} đã xác nhận`
+                : `${actorRoleLabel} xác nhận tiếp nhận`
+            }
+            okDisabled={Boolean(!hasRealPlan || isAcked || acking)}
+            onOk={hasRealPlan ? () => handleAcknowledgePlan(viewingPlanIncident.id) : undefined}
+            onClose={() => setViewingPlanIncident(null)}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {isEscalated ? (
+                <div className="drv-note drv-note--blue">
+                  <Icon name="info" />
+                  <div>
+                    <b>Chuyển Quản lý xử lý cấp cao:</b> Điều phối viên đã từ chối hỗ trợ tại chỗ và chuyển sự cố lên Quản lý vận hành. Vui lòng giữ an toàn và chờ chỉ đạo từ Quản lý.
+                  </div>
                 </div>
-                <div style={{ fontSize: 13, lineHeight: 1.6, padding: 12, background: 'var(--bg-page, #f8fafc)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 8, whiteSpace: 'pre-wrap' }}>
-                  {viewingPlanIncident.resolutionNotes}
+              ) : isNoChange ? (
+                <div className="drv-note drv-note--green">
+                  <Icon name="check" />
+                  <div>
+                    <b>Quyết định của Điều phối: Khắc phục tại chỗ (Không điều chuyển)</b>
+                    <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.5 }}>
+                      Giữ nguyên phương tiện và tổ xe hiện tại. Không điều chuyển xe hay nhân sự mới. Tổ xe tự thực hiện kiểm tra an toàn và xử lý tại hiện trường.
+                    </p>
+                  </div>
+                </div>
+              ) : hasRealPlan ? (
+                <div style={{ padding: 10, background: 'var(--bg-page, #f3f4f6)', borderRadius: 8, border: '1px solid var(--border-color, #e5e7eb)' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', marginBottom: 2 }}>Hướng xử lý của Điều phối:</div>
+                  <b style={{ fontSize: 14, color: 'var(--text-primary, #111827)' }}>
+                    {PLAN_TYPE_LABEL[viewingPlanIncident.resolutionType || ''] || viewingPlanIncident.resolutionType || 'Phương án khắc phục sự cố'}
+                  </b>
+                </div>
+              ) : (
+                <div className="drv-note drv-note--blue">
+                  <Icon name="info" />
+                  <div>
+                    <b>Điều phối viên đang kiểm tra &amp; lập phương án:</b>
+                    <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.5 }}>
+                      Sự cố đã được ghi nhận. Điều phối viên đang khảo sát hiện trường và liên hệ nguồn lực hỗ trợ. Vui lòng duy trì an toàn cho người và ngựa tại vị trí hiện tại.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {hasRealPlan && (
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', marginBottom: 4, fontWeight: 600 }}>
+                    Chỉ dẫn cụ thể cho {actorRoleLabel.toLowerCase()} tại hiện trường:
+                  </div>
+                  <div style={{ fontSize: 13, lineHeight: 1.6, padding: 12, background: 'var(--bg-surface, #fff)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 8, whiteSpace: 'pre-wrap' }}>
+                    {viewingPlanIncident.approvedPlan || 'Thực hiện các bước khắc phục theo chỉ dẫn của Điều phối viên.'}
+                  </div>
+                </div>
+              )}
+
+              {noteItems.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', marginBottom: 6, fontWeight: 600 }}>
+                    Chi tiết điều động &amp; hỗ trợ từ Điều phối:
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 10, background: 'var(--bg-page, #f8fafc)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 8 }}>
+                    {noteItems.map((item, idx) => (
+                      <div key={idx} style={{ fontSize: 13, lineHeight: 1.5 }}>
+                        • {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="drv-note drv-note--blue" style={{ marginTop: 4 }}>
+                <Icon name="info" />
+                <div>
+                  <b>Lưu ý {actorRoleLabel}:</b>{' '}
+                  {!hasRealPlan ? (
+                    `Vui lòng chờ thông báo phương án cụ thể từ Điều phối viên qua hệ thống.`
+                  ) : isAcked ? (
+                    `Bạn (${actorRoleLabel}) đã xác nhận tiếp nhận phương án. Đang phối hợp cùng Điều phối viên để xử lý sự cố.`
+                  ) : (
+                    <>Luôn ưu tiên an toàn cho người và ngựa. Bấm nút <i>“{actorRoleLabel} xác nhận tiếp nhận”</i> bên dưới để thông báo cho Điều phối viên biết bạn đã nắm rõ phương án.</>
+                  )}
                 </div>
               </div>
-            )}
-
-            <div className="drv-note drv-note--blue" style={{ marginTop: 4 }}>
-              <Icon name="info" />
-              <div>
-                <b>Lưu ý {actorRoleLabel}:</b>{' '}
-                {(acknowledgedIncidents[viewingPlanIncident.id] || (viewingPlanIncident as any).isSceneReady || (viewingPlanIncident as any).acknowledged) ? (
-                  `Bạn (${actorRoleLabel}) đã xác nhận tiếp nhận phương án. Đang phối hợp cùng Điều phối viên để xử lý sự cố.`
-                ) : (
-                  <>Luôn ưu tiên an toàn cho người và ngựa. Bấm nút <i>“{actorRoleLabel} xác nhận tiếp nhận”</i> bên dưới để thông báo cho Điều phối viên biết bạn đã nắm rõ phương án.</>
-                )}
-              </div>
             </div>
-          </div>
-        </Modal>
-      )}
+          </Modal>
+        );
+      })()}
     </DriverLayout>
   );
 };

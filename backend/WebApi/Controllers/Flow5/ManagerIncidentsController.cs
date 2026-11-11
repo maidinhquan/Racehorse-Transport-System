@@ -30,6 +30,31 @@ public class ManagerIncidentsController : BaseApiController
         return Success(result);
     }
 
+    public class ManagerStatusUpdateDto
+    {
+        public string Status { get; set; } = "IN_PROGRESS";
+    }
+
+    /// <summary>
+    /// Manager tiếp nhận sự cố được chuyển cấp từ Điều phối viên
+    /// </summary>
+    [HttpPost("{incidentId}/accept")]
+    public async Task<IActionResult> AcceptIncident([FromRoute] string incidentId)
+    {
+        var result = await _incidentService.UpdateIncidentStatusAsync(incidentId, "IN_PROGRESS", CurrentUserId);
+        return Success(result, "Quản lý đã tiếp nhận xử lý sự cố thành công");
+    }
+
+    /// <summary>
+    /// Manager cập nhật trạng thái sự cố (IN_PROGRESS, RESOLVED, CLOSED)
+    /// </summary>
+    [HttpPut("{incidentId}/status")]
+    public async Task<IActionResult> UpdateIncidentStatus([FromRoute] string incidentId, [FromBody] ManagerStatusUpdateDto dto)
+    {
+        var result = await _incidentService.UpdateIncidentStatusAsync(incidentId, dto.Status, CurrentUserId);
+        return Success(result, $"Cập nhật trạng thái sự cố thành {dto.Status} thành công");
+    }
+
     /// <summary>
     /// F5-J17: Manager phê duyệt hoặc trả lại phương án khôi phục
     /// </summary>

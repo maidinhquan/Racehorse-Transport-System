@@ -33,8 +33,12 @@ export const IncidentDetailPage: React.FC = () => {
           <p className="mgr-subtitle">{INCIDENT_TYPE_LABEL[i.type] || i.type} • {i.tripId || '—'}{r ? ` • ${routeText(r)}` : ''}</p>
         </div>
         <div className="mgr-btn-row">
-          {i.status === 'NEW' && <button type="button" className="mgr-btn" onClick={() => actions.ackIncident(i.id)}>Tiếp nhận xử lý</button>}
-          {i.status !== 'CLOSED' && <button type="button" className="mgr-btn mgr-btn--solid" onClick={() => setClosing(true)}>Đóng sự cố</button>}
+          {(i.status === 'NEW' || i.status === 'ESCALATED') && (
+            <button type="button" className="mgr-btn mgr-btn--solid" onClick={() => actions.ackIncident(i.id)}>
+              Tiếp nhận xử lý
+            </button>
+          )}
+          {i.status !== 'CLOSED' && <button type="button" className="mgr-btn" onClick={() => setClosing(true)}>Đóng sự cố</button>}
         </div>
       </div>
       <div className="mgr-grid-main">
@@ -49,7 +53,31 @@ export const IncidentDetailPage: React.FC = () => {
               <div><span>Ngựa liên quan</span><b>{i.horseId ? horseName(data, i.horseId) : (r?.horses || []).map((h) => horseName(data, h)).join(', ') || 'Không'}</b></div>
             </div>
             <Note tone={i.safety ? 'green' : 'grey'} title="Biện pháp an toàn tức thời">{i.safety || 'Người báo xác nhận người và ngựa an toàn. Chăm sóc khẩn cấp không cần chờ phê duyệt.'}</Note>
-            {(i.photos || []).length > 0 && <div className="mgr-photos">{(i.photos || []).map((p) => <button key={p} type="button" className="mgr-photo" onClick={() => openSampleFile(p)}>{p}</button>)}</div>}
+            {i.status === 'ESCALATED' && (
+              <Note tone="red" title="Chuyển cấp từ Điều phối viên">
+                Điều phối viên từ chối hỗ trợ tại chỗ và chuyển sự cố lên Quản lý giải quyết. Vui lòng bấm &ldquo;Tiếp nhận xử lý&rdquo; để ra quyết định phương án hoặc điều phối khẩn cấp.
+              </Note>
+            )}
+            {(i.photos || []).length > 0 && (
+              <div className="mgr-photos" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+                {(i.photos || []).map((p, idx) => (
+                  <button
+                    key={`${p.slice(0, 30)}-${idx}`}
+                    type="button"
+                    className="mgr-photo"
+                    onClick={() => openSampleFile(p)}
+                    style={{ padding: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="Bấm để xem ảnh phóng to"
+                  >
+                    {p.startsWith('data:image') || p.startsWith('http') || p.startsWith('/') ? (
+                      <img src={p} alt={`Ảnh hiện trường ${idx + 1}`} style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 4 }} />
+                    ) : (
+                      <span>{p}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </section>
           <section className="mgr-card">
             <h3 className="mgr-card__title">Phương án xử lý</h3>

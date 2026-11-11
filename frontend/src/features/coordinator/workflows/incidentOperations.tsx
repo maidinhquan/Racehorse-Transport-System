@@ -43,7 +43,6 @@ export const F5_PLAN: Record<string, string> = {
   VEHICLE_SWAP: 'Nhóm 1: Sự cố về xe (Tổ xe khỏe mạnh)',
   CREW_SWAP: 'Nhóm 2: Sự cố về nhân sự (Xe hoạt động tốt)',
   VEHICLE_AND_CREW_SWAP: 'Nhóm 3: Tai nạn nghiêm trọng (Đổi cả xe và người)',
-  HORSE_SPLIT: 'Nhóm 4: Sự cố do ngựa (Tách đàn vận chuyển)',
   ROUTE_ADJUST: 'Điều chỉnh lộ trình trong tuyến pháp lý đã duyệt',
 };
 
@@ -77,11 +76,6 @@ export const F5_SCENARIOS: Record<string, { title: string; desc: string; group: 
     group: 'VEHICLE_AND_CREW_SWAP',
     title: 'Kịch bản 3.1: Tai nạn giao thông - Thay mới toàn bộ (Full Replacement)',
     desc: 'Xe và tài xế đều gặp nạn. Gọi xe cấp cứu người, điều tổ xe mới hoàn toàn (xe mới + tài xế mới) + Specialist làm việc với cảnh sát và bảo hiểm.',
-  },
-  '4.1_SPLIT_TRANSPORT': {
-    group: 'HORSE_SPLIT',
-    title: 'Kịch bản 4.1: Một con ngựa ốm nặng - Tách đàn vận chuyển (Split Transport)',
-    desc: 'Điều xe tải nhỏ chuyên dụng (Horse Ambulance) + Vet địa phương chở ngựa ốm về viện. 5 con ngựa còn lại tiếp tục hành trình trên xe lớn.',
   },
 };
 export const F5_ST: Record<string, [string, string]> = {
@@ -300,11 +294,6 @@ function f5Apply(i: Any, p: Any) {
     t.crew = { ...(t.crew || {}), [p.crewRole]: p.crewId };
     f5Log(i, `Thay ${human(p.crewRole)}: ${emp(p.crewId)?.name || p.crewId}`);
   }
-  if (p.kind === 'HORSE_SPLIT' && p.splitHorseId && t.horses) {
-    const hName = horse(p.splitHorseId)?.name || p.splitHorseId;
-    f5Log(i, `[Tách đàn] Ngựa ${hName} được tách sang xe cấp cứu chuyển viện đến ${p.targetVetHospital || 'bệnh viện thú y'}. Các con ngựa còn lại tiếp tục hành trình.`);
-    t.horses = t.horses.filter((h: string) => h !== p.splitHorseId);
-  }
   if (p.etaTo && p.etaTo !== t.eta) changeEta(t, p.etaTo, `${i.id} – phương án v${p.v}`, me().name);
   crewOf(t).forEach(([, e]) => notify(e, `Phương án v${p.v} cho ${i.id}`, p.desc.slice(0, 90), `d/incident/${i.id}`));
 }
@@ -429,12 +418,8 @@ export function f5Plan(id: string) {
     ['3.1_FULL_REPLACEMENT', 'Kịch bản 3.1: Tai nạn giao thông - Thay mới toàn bộ (Full Replacement: Xe mới + Tổ xe mới + Cứu thương + Specialist)'],
   ];
 
-  const horseSplitScenarios: Array<[string, string]> = [
-    ['4.1_SPLIT_TRANSPORT', 'Kịch bản 4.1: Một con ngựa ốm nặng - Tách đàn vận chuyển (Horse Ambulance đưa đi viện, 5 con còn lại đi tiếp)'],
-  ];
-
   const isPickupAccessBlocked = /PICKUP_ACCESS|PICKUP_BLOCKED/.test(String(i.type || i.category || ''));
-  const guess = p.kind && F5_PLAN[p.kind] ? p.kind : (isPickupAccessBlocked ? 'PICKUP_RELOCATE' : /BREAKDOWN|ACCIDENT/.test(i.type) ? 'VEHICLE_SWAP' : /ROAD|BORDER|WEATHER/.test(i.type) ? 'ROUTE_ADJUST' : i.type === 'HORSE_HEALTH' ? (tripHorses(t).length > 1 ? 'HORSE_SPLIT' : 'CREW_SWAP') : 'NO_CHANGE');
+  const guess = p.kind && F5_PLAN[p.kind] ? p.kind : (isPickupAccessBlocked ? 'PICKUP_RELOCATE' : /BREAKDOWN|ACCIDENT/.test(i.type) ? 'VEHICLE_SWAP' : /ROAD|BORDER|WEATHER/.test(i.type) ? 'ROUTE_ADJUST' : 'NO_CHANGE');
   const vets = i.type === 'HORSE_HEALTH' ? nearestVets(t) : [];
 
   const cleanTripKey = (t?.id || i.tripId || '').replace(/-/g, '_');
@@ -463,7 +448,7 @@ export function f5Plan(id: string) {
     wide: true,
     init: {
       k: guess,
-      scenario: p.scenario || (guess === 'VEHICLE_SWAP' ? '1.1_STANDARD' : guess === 'CREW_SWAP' ? '2.1_QUICK_SWAP' : guess === 'VEHICLE_AND_CREW_SWAP' ? '3.1_FULL_REPLACEMENT' : guess === 'HORSE_SPLIT' ? '4.1_SPLIT_TRANSPORT' : ''),
+      scenario: p.scenario || (guess === 'VEHICLE_SWAP' ? '1.1_STANDARD' : guess === 'CREW_SWAP' ? '2.1_QUICK_SWAP' : guess === 'VEHICLE_AND_CREW_SWAP' ? '3.1_FULL_REPLACEMENT' : ''),
       desc: p.desc || '',
       reason: p.reason || '',
       meetingPointName: p.meetingPointName || '',
@@ -487,11 +472,6 @@ export function f5Plan(id: string) {
       ambulancePartner: p.ambulancePartner || 'Cấp cứu 115 Bệnh viện Đa khoa địa phương',
       ambulancePhone: p.ambulancePhone || '115',
       specialistId: p.specialistId || '',
-
-      splitHorseId: p.splitHorseId || (i.horseId || (horsesOnTripOpts[0] ? horsesOnTripOpts[0][0] : '')),
-      horseAmbulancePartner: p.horseAmbulancePartner || 'Horse Ambulance Dã chiến (Trạm cứu hộ ngựa)',
-      targetVetHospital: p.targetVetHospital || (i.targetVetStation || 'Bệnh viện Thú y Chuyên khoa Đại học Nông Lâm'),
-      vetEscortName: p.vetEscortName || (curVet?.name || 'Bác sĩ Thú y đi kèm'),
 
       legal: p.legalRoute !== false,
       eta: p.etaTo || t.eta,
@@ -519,7 +499,6 @@ export function f5Plan(id: string) {
                 if (newK === 'VEHICLE_SWAP') f.set('scenario', '1.1_STANDARD');
                 else if (newK === 'CREW_SWAP') f.set('scenario', '2.1_QUICK_SWAP');
                 else if (newK === 'VEHICLE_AND_CREW_SWAP') f.set('scenario', '3.1_FULL_REPLACEMENT');
-                else if (newK === 'HORSE_SPLIT') f.set('scenario', '4.1_SPLIT_TRANSPORT');
                 else f.set('scenario', '');
               }}
             />
@@ -719,37 +698,6 @@ export function f5Plan(id: string) {
             </div>
           )}
 
-          {/* ========================================================= */}
-          {/* NHÓM 4: SỰ CỐ DO NGỰA (HORSE_SPLIT) - Tách đàn            */}
-          {/* ========================================================= */}
-          {f.v.k === 'HORSE_SPLIT' && (
-            <div style={{ marginTop: 14, padding: 14, border: '1px solid #fed7aa', borderRadius: 8, background: '#fff7ed' }}>
-              <b style={{ fontSize: 14, color: '#c2410c', display: 'block', marginBottom: 10 }}>
-                4. Kịch bản phân tách tài nguyên (Nhóm 4: Một con ngựa ốm nặng - Tách đàn)
-              </b>
-              <Field label="Kịch bản thực tế *">
-                <Sel name="scenario" options={horseSplitScenarios} />
-              </Field>
-              <Field label="Chọn con ngựa gặp sự cố nguy cấp cần tách đàn *">
-                <Sel name="splitHorseId" options={horsesOnTripOpts} />
-              </Field>
-              <div className="form-grid" style={{ marginTop: 8 }}>
-                <Field label="Đơn vị xe tải nhỏ chuyên dụng (Horse Ambulance) *">
-                  <Inp name="horseAmbulancePartner" placeholder="Tên dịch vụ xe cứu hộ ngựa chuyên dụng" />
-                </Field>
-                <Field label="Bệnh viện thú y tiếp nhận *">
-                  <Inp name="targetVetHospital" placeholder="Bệnh viện thú y gần nhất" />
-                </Field>
-              </div>
-              <Field label="Bác sĩ thú y / Hộ tống đi cùng ngựa ốm *">
-                <Inp name="vetEscortName" placeholder="Tên bác sĩ áp tải chuyển viện" />
-              </Field>
-              <div style={{ marginTop: 10, padding: 8, background: '#fff', borderRadius: 6, border: '1px solid #fdba74', fontSize: 12.5, color: '#9a3412' }}>
-                ℹ️ <b>Quy chế phân tách:</b> Các con ngựa còn lại trên xe lớn cùng tổ xe ban đầu tiếp tục hành trình ra sân bay. Hệ thống tự động phân tách vận đơn và chứng từ kiểm dịch thành hai lộ trình độc lập.
-              </div>
-            </div>
-          )}
-
           <div style={{ marginTop: 14 }}>
             <Field label="Nội dung phương án tổng quan *">
               <Txt name="desc" placeholder="Tự động sinh theo kịch bản hoặc nhập thêm chỉ dẫn cụ thể..." />
@@ -882,6 +830,16 @@ export function f5Plan(id: string) {
         const splitH = horse(v.splitHorseId);
         if (!autoDesc) {
           autoDesc = `Kịch bản 4.1 (Tách đàn vận chuyển): Tách ngựa ${splitH?.name || v.splitHorseId} sang xe chuyên dụng ${v.horseAmbulancePartner || 'Horse Ambulance'} chuyển về ${v.targetVetHospital || 'Bệnh viện thú y'}. Các con ngựa còn lại trên xe tiếp tục hành trình.`;
+        }
+      } else if (k === 'NO_CHANGE') {
+        subTasks.push('Onsite_Troubleshooting', 'Driver_Self_Resolution', 'Safety_Inspection');
+        if (!autoDesc) {
+          autoDesc = `Khắc phục tại chỗ, giữ nguyên kế hoạch: Giữ nguyên phương tiện và tổ xe hiện tại. Tài xế thực hiện kiểm tra an toàn, khắc phục sự cố tại hiện trường. Sau khi hoàn thành và đảm bảo an toàn, bấm nút “Sự cố đã được xử lý” để tiếp tục hành trình.`;
+        }
+      } else if (k === 'ROUTE_ADJUST') {
+        subTasks.push('Adjust_Route_Path', 'Notify_Border_Authority', 'Update_Arrival_Time');
+        if (!autoDesc) {
+          autoDesc = `Điều chỉnh lộ trình trong tuyến pháp lý đã duyệt: Tránh đoạn đường bị ảnh hưởng, giữ nguyên quốc gia và cửa khẩu đã cấp phép. ETA mới dự kiến: ${eta}.`;
         }
       }
 
