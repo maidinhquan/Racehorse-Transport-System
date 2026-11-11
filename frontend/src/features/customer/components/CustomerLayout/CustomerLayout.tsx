@@ -233,6 +233,9 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children,
                   <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/profile'); }}>
                     <Icon name="user" /> Hồ sơ của tôi
                   </button>
+                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/notifications'); }}>
+                    <Icon name="bell" /> Thông báo {stats.unread > 0 ? `(${stats.unread})` : ''}
+                  </button>
                   <div className="cus-user-menu__divider" />
                   <button type="button" className="cus-user-menu__item cus-user-menu__logout" onClick={handleLogout}>
                     <Icon name="logout" /> Đăng xuất
