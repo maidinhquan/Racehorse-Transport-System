@@ -1,3 +1,4 @@
+import { sortIncidentsNewestFirst } from '../../../../shared/utils/incidentState';
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SpecialistLayout, Icon } from '../../components/SpecialistLayout';
@@ -64,7 +65,7 @@ export const SpecialistIncidentsPage: React.FC = () => {
     || 'Chuyên viên pháp lý';
 
   const filteredIncidents = useMemo(() => {
-    return allIncidents.filter((inc) => {
+    return sortIncidentsNewestFirst(allIncidents).filter((inc) => {
       if (selectedTrip !== 'ALL' && inc.tripId !== selectedTrip && inc.tripId.replace(/-/g, '_') !== selectedTrip.replace(/-/g, '_')) {
         return false;
       }

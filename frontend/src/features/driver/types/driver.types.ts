@@ -91,12 +91,16 @@ export interface RouteStop {
   lat?: number;
   lng?: number;
   requiresHealthCheck?: boolean;
+  /** Mã mốc "rời" của điểm dừng; nhật ký sức khỏe của máy chủ gắn vào mốc này */
+  departureId?: string;
 }
 
 export interface Milestone {
   type: MilestoneType;
   stopIndex: number;
   at: string;
+  /** Thời điểm hệ thống ghi nhận (ISO, có giây) */
+  recordedAt?: string;
   by: string; // crew id
   note?: string;
 }
@@ -133,6 +137,10 @@ export interface HealthLog {
   lat?: number;
   lng?: number;
   locationLabel?: string;
+  /** Điểm dừng/mốc mà nhật ký này phục vụ; dùng để không lấy nhật ký của trạm trước tính cho trạm sau */
+  milestoneId?: string;
+  /** Thời điểm hệ thống ghi nhận nhật ký (ISO, có giây) */
+  recordedAt?: string;
 }
 
 export interface DocumentItem {

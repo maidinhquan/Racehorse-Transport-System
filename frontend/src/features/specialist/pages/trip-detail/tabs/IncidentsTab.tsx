@@ -1,3 +1,4 @@
+import { sortIncidentsNewestFirst } from '../../../../../shared/utils/incidentState';
 import React, { useState } from 'react';
 import type { SpecTrip } from '../../../types';
 import { useSharedIncidents, updateSharedIncidentReview, type SharedIncident } from '../../../../../shared/utils/sharedIncidents';
@@ -43,7 +44,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export const IncidentsTab: React.FC<{ trip: SpecTrip }> = ({ trip }) => {
-  const incidents = useSharedIncidents(trip.id);
+  const incidents = sortIncidentsNewestFirst(useSharedIncidents(trip.id));
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [status, setStatus] = useState<'VALID' | 'PERMIT_REISSUED' | 'REJECTED'>('VALID');
   const [findings, setFindings] = useState('');

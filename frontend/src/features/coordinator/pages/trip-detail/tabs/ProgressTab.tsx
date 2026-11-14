@@ -1,4 +1,5 @@
 // Chi tiết chuyến của Điều phối: Tổng quan • Tuyến đường (lập lộ trình) • Xe & nhân sự • Chuyến bay • Theo dõi hành trình
+import { sortIncidentsNewestFirst } from '../../../../../shared/utils/incidentState';
 import { Icon } from '../../../components/common/ui';
 import { RouteMap } from '../../../components/maps/LeafletMaps';
 import { agoText, emp, etaOverdue, handoverState, holdText, hoursSince, lastMilestone, legHolds, livePos, nextMilestone, tripStops } from '../../../domain/coordinatorRules';
@@ -41,7 +42,7 @@ export function ProgressTab({ t }: { t: Any }) {
   useAutoRefresh();
   const stops = tripStops(t), m = lastMilestone(t), cur = m ? m.stop : -1;
   const next = t.status === 'IN_TRANSIT' && !handoverState(t) ? nextMilestone(t) : null, target = next && stops[next.stop];
-  const active = db.incidents.filter((i: Any) => i.tripId === t.id && i.status !== 'CLOSED');
+  const active = sortIncidentsNewestFirst(db.incidents.filter((i: Any) => i.tripId === t.id && i.status !== 'CLOSED') as Array<{ id: string; at?: string }>) as Any[];
   const editable = t.status !== 'COMPLETED';
   const nextLabel = next ? (MILESTONE_LABEL[next.type] || human(next.type)) : t.status === 'READY_TO_DEPART' ? 'Chờ tổ xe xác nhận xuất phát' : t.status === 'COMPLETED' ? 'Hành trình đã hoàn tất' : handoverState(t) ? 'Đã đến điểm giao' : t.status === 'PLANNING' ? 'Chuyến đang lập kế hoạch' : 'Chưa có mốc tiếp theo';
   const late = etaOverdue(t);

@@ -13,6 +13,12 @@ Dự án SWP391: hệ thống quản lý vận chuyển ngựa đua xuyên quố
   - Tìm bằng `grep`/`rg` rồi chỉ đọc đoạn liên quan; không đọc cả file dài nếu không cần.
   - Không in lại toàn bộ file trong câu trả lời; tóm tắt thay đổi.
 - **Hỏi khi chưa rõ**, nhất là khi yêu cầu có thể hiểu theo nhiều cách hoặc làm sai sẽ tốn nhiều công sửa. Hỏi ngắn, kèm các lựa chọn cụ thể.
+- **Lập kế hoạch và gửi cho người dùng trước khi sửa** (áp dụng cho mọi lỗi hoặc thay đổi hành vi, trừ chỉnh chữ/CSS nhỏ một chỗ). Chưa sửa code khi chưa gửi bản kế hoạch. Bản kế hoạch ngắn gồm:
+  1. **Khoanh vùng lỗi:** hiện tượng người dùng thấy, file và hàm nghi ngờ, nguyên nhân gốc (đã đọc code xác nhận hay mới là giả thuyết).
+  2. **Phân tích lỗi liên quan:** những trang/vai/luồng khác dùng chung đoạn code hoặc dữ liệu đó (Tài xế, Điều phối, Quản lý, Khách hàng, Chuyên viên, backend) và có thể bị ảnh hưởng hoặc đang sai cùng kiểu.
+  3. **Cách sửa:** liệt kê file sẽ đổi, đổi gì, vì sao chọn cách đó; nêu phần cố ý không đổi.
+  4. **Kế hoạch kiểm thử:** lệnh sẽ chạy (`tsc`, `vitest`, lint) và kịch bản thử tay hoặc test mới cho đúng lỗi này.
+  Gửi bản kế hoạch, **chờ người dùng đồng ý** rồi mới sửa. Sau khi sửa phải **tự kiểm thử** theo kế hoạch (chạy `tsc`, test liên quan, so với kết quả trước khi sửa để phân biệt lỗi có sẵn), rồi báo kết quả thật, kể cả phần chưa kiểm tra được.
 - **Đọc trạng thái hiện tại trước khi sửa.** Chạy `git status`; nếu có thay đổi chưa commit mà không do mình làm, đọc kỹ và giữ nguyên, không ghi đè.
 - **Không tự xóa file.** Nếu một file không còn dùng, báo người dùng thay vì xóa.
 - **Không tự commit/push** trừ khi người dùng yêu cầu.

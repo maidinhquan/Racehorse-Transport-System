@@ -331,19 +331,19 @@ export function f5Plan(id: string) {
   ];
 
   const mainDriverOpts: Array<[string, string]> = [
-    ['', `— Giữ tài xế chính (${curMD?.name || 'Chưa phân công'}) —`],
+    ['', '— Chọn tài xế thay thế —'],
     ...selectableStaff().filter((e: Any) => isDriver(e) && !isStaffAssignedToTrip(e, t) && !crewConflict(e, t))
       .map((e: Any) => [e.id, `${e.name} • ${human(e.position)}`] as [string, string]),
   ];
 
   const coDriverOpts: Array<[string, string]> = [
-    ['', `— Giữ phụ lái (${curCD?.name || 'Chưa phân công'}) —`],
+    ['', '— Chọn người thay thế —'],
     ...selectableStaff().filter((e: Any) => (isDriver(e) || (e.role === 'ESCORT' && e.position === 'ESCORT')) && !isStaffAssignedToTrip(e, t) && !crewConflict(e, t))
       .map((e: Any) => [e.id, `${e.name} • ${human(e.position)}`] as [string, string]),
   ];
 
   const vetOpts: Array<[string, string]> = [
-    ['', `— Giữ áp tải chăm sóc ngựa (${curVet?.name || 'Chưa phân công'}) —`],
+    ['', '— Chọn người thay thế —'],
     ...selectableStaff().filter((e: Any) => (isVet(e) || e.position === 'VETERINARIAN') && !isStaffAssignedToTrip(e, t) && !crewConflict(e, t) && (!e.certExpiry || e.certExpiry >= t.eta.slice(0, 10)))
       .map((e: Any) => [e.id, `${e.name} • Thú y (Hạn chứng chỉ: ${e.certExpiry || '—'})`] as [string, string]),
   ];
@@ -743,6 +743,12 @@ export function f5Close(id: string) {
     onOk: (v) => {
       if (!v.ok) return 'Tick xác nhận đã kiểm tra.'; if (String(v.note).trim().length < 5) return 'Nhập ghi chú.';
       i.status = 'CLOSED'; i.closedAt = nowStamp(); i.closedBy = me().name; i.closeNote = String(v.note).trim(); f5Log(i, 'Đóng sự cố: ' + i.closeNote);
+      try {
+        // Để Tài xế / Quản lý / Khách thấy ngay (cùng trình duyệt)
+        localStorage.setItem(`rts_incident_status_${cleanId(i.id)}`, 'CLOSED');
+        localStorage.setItem(`rts_incident_status_${i.id}`, 'CLOSED');
+        window.dispatchEvent(new Event('rts_incident_pins_changed'));
+      } catch { /* bỏ qua */ }
       notify('LOGISTICS_MANAGER', `${i.id} đã đóng`, i.closeNote, `m/incident/${i.id}`); toast('Đã đóng sự cố. Chuyến vẫn tiếp tục theo các mốc.');
 
       void (async () => {

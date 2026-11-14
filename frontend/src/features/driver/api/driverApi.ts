@@ -1,3 +1,4 @@
+import { rememberClosedIncident, sortIncidentsNewestFirst } from '../../../shared/utils/incidentState';
 import axios from 'axios';
 import { apiClient } from '../../../shared/api/apiClient';
 import { DRIVER_ENDPOINTS } from './driverEndpoints';
@@ -99,11 +100,8 @@ const mapIncidentDto = (d: any): Incident => {
     } catch {
       formattedAt = String(rawAt).replace('T', ' ').slice(0, 16);
     }
-  } else {
-    const dObj = new Date();
-    const p = (n: number) => String(n).padStart(2, '0');
-    formattedAt = `${dObj.getFullYear()}-${p(dObj.getMonth() + 1)}-${p(dObj.getDate())} ${p(dObj.getHours())}:${p(dObj.getMinutes())}`;
   }
+  // Máy chủ không trả thời điểm báo thì để trống (không dùng giờ hiện tại: làm mọi sự cố trùng giờ và sai thứ tự); bản cục bộ giữ giờ thật
 
   return {
     id: d.incidentId || d.id,
@@ -309,6 +307,7 @@ export const driverApi = {
       const res = await apiClient.get<ApiResponse<any[]>>(DRIVER_ENDPOINTS.INCIDENTS);
       if (Array.isArray(res.data?.data)) {
         const fromServer = res.data.data.map(mapIncidentDto);
+        fromServer.forEach((si) => { if (si.status === 'CLOSED') rememberClosedIncident(si.id); });
         const merged: Incident[] = [];
 
         fromServer.forEach((si) => {
@@ -317,6 +316,8 @@ export const driverApi = {
             merged.push({
               ...loc,
               ...si,
+              // Giờ báo thật: của máy chủ, nếu không có thì của lúc tài xế gửi báo cáo (bộ nhớ dùng chung). Giờ đã lưu cục bộ từ các lần tải trước có thể là giờ tải trang nên không dùng.
+              at: si.at || shared.find((x) => cleanTargetId(x.id) === cleanTargetId(si.id))?.at || '',
               status: (si.status && si.status !== 'NEW') ? si.status : (loc.status || si.status),
               approvedPlan: si.approvedPlan || loc.approvedPlan,
               resolutionNotes: si.resolutionNotes || loc.resolutionNotes,
@@ -350,12 +351,7 @@ export const driverApi = {
         });
 
         // Luôn sắp xếp toàn bộ danh sách: mới nhất lên đầu
-        merged.sort((a, b) => {
-          const tA = new Date(a.at || 0).getTime() || 0;
-          const tB = new Date(b.at || 0).getTime() || 0;
-          if (tB !== tA) return tB - tA;
-          return b.id.localeCompare(a.id);
-        });
+        merged.splice(0, merged.length, ...sortIncidentsNewestFirst(merged));
 
         if (typeof window !== 'undefined') {
           try {

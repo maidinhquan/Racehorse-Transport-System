@@ -1,6 +1,8 @@
 // Vị trí sự cố do tài xế chọn trên đoạn đường giữa hai trạm, dùng chung cho bản đồ của mọi vai.
 // Chỉ đồng bộ trong cùng một trình duyệt (giống sharedTrips); tọa độ cũng được gửi lên backend qua locationCoordinates.
 import { useEffect, useState } from 'react';
+import { incidentPhase } from './incidentState';
+import { getSharedIncidents } from './sharedIncidents';
 
 const STORAGE_KEY = 'rts_incident_pins';
 const EVENT = 'rts_incident_pins_changed';
@@ -34,11 +36,16 @@ function readAll(): IncidentPin[] {
   }
 }
 
-export function getIncidentPins(tripId?: string): IncidentPin[] {
+/** Sự cố đã được Điều phối đóng thì không còn ghim trên bản đồ tuyến (chi tiết sự cố vẫn xem lại bằng includeClosed) */
+const isPinClosed = (p: IncidentPin): boolean => {
+  const shared = getSharedIncidents(p.tripId).find((s) => cleanId(s.id) === cleanId(p.id));
+  return incidentPhase(p.id, shared?.status) === 'CLOSED';
+};
+
+export function getIncidentPins(tripId?: string, includeClosed = false): IncidentPin[] {
   const all = readAll();
-  if (!tripId) return all;
-  const id = cleanId(tripId);
-  return all.filter((p) => cleanId(p.tripId) === id);
+  const byTrip = tripId ? all.filter((p) => cleanId(p.tripId) === cleanId(tripId)) : all;
+  return includeClosed ? byTrip : byTrip.filter((p) => !isPinClosed(p));
 }
 
 export function saveIncidentPin(pin: IncidentPin): void {
@@ -58,7 +65,7 @@ export function useIncidentPins(tripId?: string): IncidentPin[] {
   useEffect(() => {
     const refresh = () => setPins(getIncidentPins(tripId));
     refresh();
-    const onStorage = (e: StorageEvent) => { if (e.key === STORAGE_KEY || e.key === null) refresh(); };
+    const onStorage = (e: StorageEvent) => { if (e.key === STORAGE_KEY || e.key === null || e.key.startsWith('rts_incident_') || e.key === 'rts_shared_incidents') refresh(); };
     window.addEventListener(EVENT, refresh);
     window.addEventListener('storage', onStorage);
     window.addEventListener('focus', refresh);

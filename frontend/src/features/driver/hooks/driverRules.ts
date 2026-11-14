@@ -1,3 +1,4 @@
+import { incidentReleased } from '../../../shared/utils/incidentState';
 import type {
   ClearanceResult,
   CrewSlot,
@@ -119,20 +120,41 @@ export const clearanceFor = (t: Trip, stopIndex: number) =>
   [...t.clearances].reverse().find((c) => c.stopIndex === stopIndex);
 
 
-/** Ngựa của chuyến chưa có nhật ký sức khỏe nào ghi từ mốc `since` trở đi (since rỗng = tính mọi nhật ký) */
-export function horsesMissingHealth(t: Trip, since: string): string[] {
-  return (t.horses || []).filter((id) => !t.health.some((h) => h.horseId === id && (!since || h.at >= since)));
+/**
+ * Ngựa chưa có nhật ký sức khỏe cho điểm dừng hiện tại.
+ * Nhật ký đã gắn mã mốc thì chỉ tính cho đúng điểm dừng đó (không lấy của trạm trước); chưa gắn thì phải ghi sau lúc đến (since rỗng = mọi nhật ký).
+ */
+export function horsesMissingHealth(t: Trip, since: string, stop?: { id: string; departureId?: string }, sinceExact?: string): string[] {
+  // Thứ tự tin cậy: mã mốc trùng điểm dừng → thời điểm ghi nhận chính xác (giây) → giờ nhập theo phút
+  const counts = (h: Trip['health'][number]) => {
+    // Máy chủ gắn nhật ký vào mốc "rời" của điểm dừng; nhật ký ghi cục bộ gắn vào mã điểm dừng
+    if (stop && h.milestoneId) return h.milestoneId === (stop.departureId ?? stop.id);
+    if (sinceExact && h.recordedAt) return Date.parse(h.recordedAt) >= Date.parse(sinceExact);
+    return !since || h.at > since;
+  };
+  return (t.horses || []).filter((id) => !t.health.some((h) => h.horseId === id && counts(h)));
 }
 
-const CROSSING: StopType[] = ['CHECKPOINT', 'AIRPORT', 'QUARANTINE_STATION'];
+/** Sự cố của chuyến chưa được Điều phối cho phép đi tiếp / chưa giải quyết → tài xế chưa được ghi mốc kế tiếp */
+export function openIncidentHold(tripId: string, incidents: Array<{ id: string; tripId: string; status: string; continueAt?: string }>): string[] {
+  const clean = (x?: string) => (x || '').replace(/-/g, '_').toUpperCase();
+  return incidents
+    .filter((i) => clean(i.tripId) === clean(tripId)
+      && !i.continueAt
+      && !incidentReleased(i.id, i.status)
+      && !['RESOLVED'].includes(i.status))
+    .map((i) => i.id);
+}
+
+const CROSSING: StopType[] =['CHECKPOINT', 'AIRPORT', 'QUARANTINE_STATION'];
 
 /** Mốc tiếp theo dựa trên mốc vừa xác nhận; qua cửa khẩu cần có kết quả thông quan */
 export function nextMilestone(t: Trip): NextMilestone | null {
   const m = lastMilestone(t);
   if (t.status === 'READY_TO_DEPART' && !m) {
-    // Mở tuyến chỉ được khi đã kiểm tra sức khỏe toàn bộ ngựa
+    // Mở tuyến chỉ được khi bác sĩ đã kiểm tra sức khỏe toàn bộ ngựa
     const first: NextMilestone = { type: 'DEPARTED', stopIndex: 0 };
-    if (horsesMissingHealth(t, '').length) {
+    if (horsesMissingHealth(t, '', t.stops[0]).length) {
       first.blocked = true;
       first.healthCheckRequired = true;
     }
@@ -143,7 +165,7 @@ export function nextMilestone(t: Trip): NextMilestone | null {
   if (m.type === 'ARRIVED_STOP') {
     // Rời điểm dừng nào cũng phải kiểm tra sức khỏe toàn bộ ngựa sau khi đến điểm đó
     const res: NextMilestone = { type: 'LEFT_STOP', stopIndex: m.stopIndex };
-    if (horsesMissingHealth(t, m.at).length) {
+    if (horsesMissingHealth(t, m.at, t.stops[m.stopIndex], m.recordedAt).length) {
       res.blocked = true;
       res.healthCheckRequired = true;
     }

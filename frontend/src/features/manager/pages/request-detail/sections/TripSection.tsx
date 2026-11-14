@@ -1,3 +1,4 @@
+import { sortIncidentsNewestFirst } from '../../../../../shared/utils/incidentState';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
@@ -13,7 +14,7 @@ export const TripSection: React.FC<{ request: TransportRequest }> = ({ request: 
   if (!t) {
     return <LockedCard title="Chưa có chuyến đi" text="Chuyến đi chỉ được tạo sau khi tiền cọc được xác minh và khách hàng ký OTP hợp lệ." />;
   }
-  const inc = data.incidents.filter((i) => i.tripId === t.id);
+  const inc = sortIncidentsNewestFirst(data.incidents.filter((i) => i.tripId === t.id));
   const m = lastMilestone(t);
   return (
     <div className="mgr-grid-main">

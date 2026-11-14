@@ -216,7 +216,7 @@ export function ManagerRouteMap({
   return (
     <div className={`mgr-map-wrap ${isMaximized ? 'is-maximized' : ''}`}>
       <div className="mgr-map-canvas-wrap">
-        <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, display: 'flex', gap: 8 }}>
+        <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
           {incidentPins.length > 0 && (
             <button
               type="button"
@@ -227,7 +227,7 @@ export function ManagerRouteMap({
                 }
               }}
               title="Phóng to vào vị trí điểm sự cố trên tuyến đường"
-              style={{ background: '#fee2e2', borderColor: '#fca5a5', color: '#b91c1c', fontWeight: 600 }}
+              style={{ position: 'static', whiteSpace: 'nowrap', background: '#fee2e2', borderColor: '#fca5a5', color: '#b91c1c', fontWeight: 600 }}
             >
               📍 Tới điểm sự cố
             </button>
@@ -237,6 +237,7 @@ export function ManagerRouteMap({
             className="cus-map-maximize-btn"
             onClick={() => setIsMaximized((m) => !m)}
             title={isMaximized ? 'Thu nhỏ (Esc)' : 'Phóng to bản đồ toàn màn hình'}
+            style={{ position: 'static', whiteSpace: 'nowrap' }}
           >
             {isMaximized ? (
               <>

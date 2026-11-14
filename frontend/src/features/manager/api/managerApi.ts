@@ -1,6 +1,8 @@
 import type { ChangeReview, OptionKey } from '../../../shared/api/requestReviewApi';
 import { apiRequest } from '../../../shared/api/apiRequest';
 import { contractClient, type FormOptions } from '../../../shared/api/contractClient';
+import { incidentPhase, rememberClosedIncident } from '../../../shared/utils/incidentState';
+import { getSharedIncidents } from '../../../shared/utils/sharedIncidents';
 import { formatNotification } from '../../../shared/utils/notificationFormat';
 import { MANAGER_ENDPOINTS as E } from './managerEndpoints';
 import type { ActualCost, Complaint, ContractDraft, ContractVersion, CustomerInfo, HorseRef, Incident, ManagerNotification, RoutePlan, Staff, Transaction, TransportMode, TransportRequest, Trip } from '../types';
@@ -83,6 +85,30 @@ const incidentStatusMap: Record<string, Incident['status']> = {
   HALTED: 'CLOSED',
 };
 
+/** "2026-11-12T00:50:00Z" → giờ địa phương "2026-11-12 07:50" (chuỗi không có múi giờ giữ nguyên) */
+const localStamp = (iso: string): string => {
+  const hasZone = /(Z|[+-]\d{2}:?\d{2})$/.test(iso);
+  const d = new Date(iso);
+  if (!hasZone || Number.isNaN(d.getTime())) return iso.replace('T', ' ').slice(0, 16);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+
+/** Trạng thái do Tài xế / Điều phối ghi lên bộ nhớ dùng chung (cùng nguồn với trang Tài xế) chồng lên dữ liệu máy chủ */
+const withSharedIncidentState = (inc: Incident): Incident => {
+  const cid = (x?: string) => (x || '').replace(/-/g, '_');
+  const out: Incident = { ...inc };
+  const shared = getSharedIncidents(inc.tripId).find((s) => cid(s.id) === cid(inc.id));
+  if (shared) {
+    if (['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(shared.severity)) out.severity = shared.severity as Incident['severity'];
+    if (shared.at) out.at = shared.at;
+  }
+  const phase = incidentPhase(inc.id, inc.status);
+  if (phase === 'CLOSED' || phase === 'RESOLVED') out.status = phase;
+  else if (phase === 'IN_PROGRESS' && out.status === 'NEW') out.status = 'IN_PROGRESS';
+  return out;
+};
+
 export const incidentFromWire = (r: Record<string, any>): Incident => {
   const hasPlan = Boolean(r.approvedPlan || r.resolutionNotes);
   const status = incidentStatusMap[r.status] || (hasPlan ? 'IN_PROGRESS' : 'NEW');
@@ -93,7 +119,7 @@ export const incidentFromWire = (r: Record<string, any>): Incident => {
     type: incidentTypeMap[r.category || r.incidentType || r.type] || 'OTHER',
     severity: r.severity || 'MEDIUM',
     status,
-    at: r.reportedAt ? r.reportedAt.replace('T', ' ').slice(0, 16) : (r.at || ''),
+    at: r.reportedAt ? localStamp(r.reportedAt) : (r.at || ''),
     by: r.reportedByUserName || r.reportedByUserId || r.by || 'Tài xế / Áp tải',
     location: r.location || 'Trên đường vận chuyển',
     horseId: r.horseId,
@@ -279,7 +305,7 @@ export const managerApi = {
   // Out-of-scope screens keep their existing routes; no fabricated successful response.
   getIncidents: async (): Promise<Incident[]> => {
     const list = await apiRequest<Record<string, any>[]>('get', E.INCIDENTS);
-    return Array.isArray(list) ? list.map(incidentFromWire) : [];
+    return Array.isArray(list) ? list.map(incidentFromWire).map((i) => { if (i.status === 'CLOSED') rememberClosedIncident(i.id); return withSharedIncidentState(i); }) : [];
   },
   getComplaints: () => apiRequest<Complaint[]>('get', E.COMPLAINTS),
   getActualCosts: () => apiRequest<ActualCost[]>('get', E.ACTUAL_COST_LIST),

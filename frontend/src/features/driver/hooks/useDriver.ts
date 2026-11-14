@@ -16,6 +16,7 @@ import { saveIncidentPin } from '../../../shared/utils/sharedIncidentPins';
 import { driverApi, saveLocalIncident } from '../api/driverApi';
 import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
 import { saveSharedIncident } from '../../../shared/utils/sharedIncidents';
+import { saveSharedNotification } from '../../../shared/utils/sharedNotifications';
 import { tripFromTracking } from '../api/flow4Mapper';
 import { flow4Api } from '../../tracking/api/flow4Api';
 import { DEFAULT_DRIVER_USER, mockCrew, mockHorses, mockIncidents, mockTrips, mockDriverNotifications, type DriverNotification } from '../data/mockData';
@@ -36,6 +37,7 @@ import {
   pointOnSegment,
   whereNow,
   lastMilestone,
+  openIncidentHold,
 } from './driverRules';
 import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import { flow6Api } from '../../aftercare/api/flow6Api';
@@ -195,6 +197,11 @@ if (typeof window !== 'undefined') {
   };
   window.addEventListener('rts_incident_created', reloadIncidents);
   window.addEventListener('rts_incident_pins_changed', reloadIncidents);
+  // Điều phối (tab/cửa sổ khác) duyệt phương án, tiếp nhận hoặc cho đi tiếp → ghi localStorage; tài xế phải thấy ngay
+  window.addEventListener('storage', (e: StorageEvent) => {
+    if (e.key === null || /^(rts_incident_|rts_ack_|rts_vet_|rts_shared_incidents)/.test(e.key)) void reloadIncidents();
+  });
+  window.addEventListener('focus', () => { void reloadIncidents(); });
 }
 
 /** Vị trí hiện tại của tổ xe: định vị thiết bị (tối đa 5 giây) hoặc, nếu không có, điểm của mốc gần nhất */
@@ -236,7 +243,7 @@ async function buildLiveTrip(id: string, f6?: { tripId: string; requestId: strin
         .map((h) => ({
           id: h.id, horseId: h.entry.horseId, at: h.entry.observedAt, temp: h.entry.temperatureC ?? 0, hr: h.entry.heartRateBpm ?? 0,
           condition: h.entry.condition, notes: h.entry.observation, by: h.recordedBy.userId,
-          lat: h.entry.latitude ?? undefined, lng: h.entry.longitude ?? undefined, locationLabel: h.entry.locationLabel ?? undefined,
+          lat: h.entry.latitude ?? undefined, lng: h.entry.longitude ?? undefined, locationLabel: h.entry.locationLabel ?? undefined, milestoneId: h.entry.milestoneId ?? undefined, recordedAt: h.recordedAt,
         }))
     : [];
   const extras = { customer: ctx?.designatedReceiverName || 'Khách hàng', receiverName: ctx?.designatedReceiverName || '', receiverPhone: ctx?.designatedReceiverPhone || '' };
@@ -263,19 +270,26 @@ async function refreshLiveTrips() {
   try {
     const [f4Res, f6Res] = await Promise.allSettled([flow4Api.getDriverTrips(), flow6Api.getTrips()]);
     if (f4Res.status === 'rejected' && f6Res.status === 'rejected') return;
+    // Một nguồn lỗi (ví dụ tài khoản bác sĩ không có quyền) → chỉ cập nhật chuyến trả về được, không xóa chuyến còn lại
+    const partial = f4Res.status === 'rejected' || f6Res.status === 'rejected';
     const f4 = f4Res.status === 'fulfilled' ? f4Res.value : [];
     const f6 = f6Res.status === 'fulfilled' ? f6Res.value : [];
     const ids = [...new Set([...f4.map((x) => x.tripId), ...f6.map((x) => x.tripId)])];
+    // Cả hai trả rỗng trong khi đang có chuyến thì coi là lỗi tạm thời, không xóa chuyến
+    if (!ids.length && state.trips.length) return;
     const built = await Promise.all(ids.map((id) => buildLiveTrip(id, f6.find((x) => x.tripId === id))));
     const crewMap = new Map<string, CrewMember>();
     const horseMap = new Map<string, Horse>();
     built.forEach((b) => { b.crew.forEach((c) => crewMap.set(c.id, c)); b.horses.forEach((h) => horseMap.set(h.id, h)); });
     // Chỉ cập nhật phần do máy chủ quyết định; giữ nguyên dữ liệu đang thao tác dở trên máy (nháp, lần bàn giao…)
     setState((cur) => ({
-      trips: built.map((b) => {
-        const old = cur.trips.find((t) => t.id === b.trip.id);
-        return old ? { ...old, status: b.trip.status, health: b.trip.health, milestones: b.trip.milestones, clearances: b.trip.clearances.length ? b.trip.clearances : old.clearances } : b.trip;
-      }),
+      trips: [
+        ...built.map((b) => {
+          const old = cur.trips.find((t) => t.id === b.trip.id);
+          return old ? { ...old, status: b.trip.status, health: b.trip.health, milestones: b.trip.milestones, clearances: b.trip.clearances.length ? b.trip.clearances : old.clearances } : b.trip;
+        }),
+        ...(partial ? cur.trips.filter((t) => !built.some((b) => b.trip.id === t.id)) : []),
+      ],
       crew: [...crewMap.values()],
       horses: [...horseMap.values()],
     }));
@@ -358,12 +372,13 @@ const actions = {
     const me = state.crew.find((c) => c.id === state.userId);
     if (me && me.role !== 'DRIVER') return fail('Bác sĩ thú y không được cập nhật mốc hành trình. Hãy ghi nhật ký sức khỏe ngựa; mốc do tài xế ghi.');
     const n = nextMilestone(t); if (!n) return fail('Không còn mốc nào để ghi.');
-    if (n.blocked && n.healthCheckRequired) return fail(n.type === 'DEPARTED' ? 'Kiểm tra sức khỏe toàn bộ ngựa trước khi xuất phát.' : 'Kiểm tra sức khỏe toàn bộ ngựa trước khi rời điểm dừng này.');
+    if (t.status === 'IN_TRANSIT' && openIncidentHold(t.id, state.incidents).length) return fail('Chuyến đang có sự cố chưa được Điều phối cho phép đi tiếp. Chờ Điều phối viên xử lý xong rồi mới ghi mốc.');
+    if (n.blocked && n.healthCheckRequired) return fail(n.type === 'DEPARTED' ? 'Cần bác sĩ thú y kiểm tra sức khỏe toàn bộ ngựa trước khi xuất phát.' : 'Cần bác sĩ thú y kiểm tra sức khỏe toàn bộ ngựa trước khi rời điểm dừng này.');
     if (n.blocked) return fail('Đang chờ Specialist ghi kết quả thông quan.');
     const at = fromInputValue(atInput);
     if (!at) return fail('Nhập thời điểm.');
     if (n.type === 'DEPARTED' && delayPending(t)) return fail('Lịch khởi hành thay đổi đang chờ xử lý, chưa thể bắt đầu.');
-    const m = { type: n.type, stopIndex: n.stopIndex, at, by: state.userId, note: note.trim() || undefined };
+    const m = { type: n.type, stopIndex: n.stopIndex, at, recordedAt: new Date().toISOString(), by: state.userId, note: note.trim() || undefined };
     try {
       await driverApi.recordMilestone(tripId, { type: m.type, stopIndex: m.stopIndex, at, note: m.note, milestoneId: t.stops[n.stopIndex]?.id });
     } catch (error) {
@@ -421,7 +436,7 @@ const actions = {
     } catch (error) {
       return fail(error instanceof Error && error.message ? error.message : 'Không lưu được nhật ký sức khỏe.');
     }
-    updateTrip(tripId, (x) => ({ ...x, health: [...x.health, { ...body, at, id: `HL-${Date.now()}`, notes: body.notes.trim(), by: state.userId, lat: place.latitude, lng: place.longitude, locationLabel: place.locationLabel }] }));
+    updateTrip(tripId, (x) => ({ ...x, health: [...x.health, { ...body, at, id: `HL-${Date.now()}`, notes: body.notes.trim(), by: state.userId, lat: place.latitude, lng: place.longitude, locationLabel: place.locationLabel, recordedAt: new Date().toISOString(), milestoneId: pending ? t.stops[pending.stopIndex]?.id : undefined }] }));
     if (body.condition === 'ABNORMAL') return ok('Đã lưu. Manager và Coordinator đã được cảnh báo – báo sự cố nếu cần.');
     if (body.condition !== 'NORMAL' || body.temp >= 38.6) return ok('Đã lưu. Coordinator đã được báo dấu hiệu bất thường.');
     return ok('Đã lưu nhật ký sức khoẻ.');
@@ -481,6 +496,13 @@ const actions = {
       immediateCare: body.immediateCare,
     };
     saveSharedIncident(inc as any);
+    {
+      const label = INCIDENT_TYPE_LABEL[inc.type];
+      const base = { requestId: t.requestId, at: inc.at, read: false };
+      saveSharedNotification({ ...base, id: `INC-${inc.id}-CUSTOMER`, audience: 'CUSTOMER', title: `Sự cố trên chuyến ${tripId}`, body: `Tổ xe báo sự cố ${label.toLowerCase()} tại ${location}. Điều phối viên đang xử lý, chúng tôi sẽ cập nhật cho bạn.`, link: `/customer/tracking/${t.requestId}` });
+      saveSharedNotification({ ...base, id: `INC-${inc.id}-MANAGER`, audience: 'MANAGER', title: `Sự cố ${inc.id} • ${label}`, body: `Chuyến ${tripId}, mức độ ${body.severity}: ${inc.description}`, link: `/manager/incidents/${inc.id}` });
+      saveSharedNotification({ ...base, id: `INC-${inc.id}-COORDINATOR`, audience: 'COORDINATOR', title: `Sự cố ${inc.id} • ${label}`, body: `Chuyến ${tripId} cần Điều phối tiếp nhận.`, link: `/coordinator/incidents/${inc.id}` });
+    }
     if (point) saveIncidentPin({ id: inc.id, tripId, label: INCIDENT_TYPE_LABEL[inc.type], lat: point.lat, lng: point.lng, where: location, description: inc.description, at: inc.at });
     saveLocalIncident(inc);
     setState((s) => ({ incidents: [inc, ...s.incidents.filter((x) => x.id !== inc.id)], incidentPhotos: [] }));

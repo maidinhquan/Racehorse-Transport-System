@@ -69,6 +69,13 @@ const IconDownload: React.FC = () => (
   </svg>
 );
 
+const IconEye: React.FC = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
 const IconTruck: React.FC = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="1" y="3" width="15" height="13" />
@@ -775,6 +782,83 @@ function SpecialistDetailView({
   );
 }
 
+function DocumentViewer({
+  review,
+  option,
+  source,
+  onClose,
+  download,
+}: {
+  review: ReviewDetail;
+  option: ScheduleOption;
+  source: ChecklistSource;
+  onClose: () => void;
+  download: (action: () => Promise<void>) => void;
+}) {
+  const [file, setFile] = useState<{ url: string; type: string }>();
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    let created: string | undefined;
+    setFile(undefined);
+    setError('');
+    requestReviewApi
+      .preview(review.reviewId, option.scheduleOptionId, source)
+      .then(({ blob, type }) => {
+        if (!active) return;
+        created = URL.createObjectURL(blob);
+        setFile({ url: created, type });
+      })
+      .catch((e) => active && setError(apiMessage(e)));
+    return () => {
+      active = false;
+      if (created) URL.revokeObjectURL(created);
+    };
+  }, [review.reviewId, option.scheduleOptionId, source]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const title = documentName[source.documentType] || source.documentType;
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Xem ${title}`}
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: '#fff', borderRadius: 12, width: 'min(960px, 100%)', height: 'min(88vh, 100%)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>
+          <strong style={{ flex: 1 }}>{title} • {source.horseName}</strong>
+          <button type="button" className="rr-btn rr-btn--outline rr-btn--sm" disabled={!file} onClick={() => download(() => requestReviewApi.file(review.reviewId, option.scheduleOptionId, source))}>
+            <IconDownload /> Tải về
+          </button>
+          <button type="button" className="rr-btn rr-btn--outline rr-btn--sm" onClick={onClose}>Đóng</button>
+        </div>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', overflow: 'auto' }}>
+          {error ? (
+            <span role="alert" style={{ color: '#b91c1c' }}>{error}</span>
+          ) : !file ? (
+            <span>Đang tải tài liệu...</span>
+          ) : file.type === 'application/pdf' ? (
+            <iframe title={title} src={file.url} style={{ width: '100%', height: '100%', border: 0 }} />
+          ) : (
+            <img alt={title} src={file.url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SpecialistForm({
   review,
   option,
@@ -783,6 +867,7 @@ function SpecialistForm({
   submit,
   download,
 }: FormProps & { option: ScheduleOption; download: (action: () => Promise<void>) => void }) {
+  const [viewing, setViewing] = useState<ChecklistSource | null>(null);
   const [statuses, setStatuses] = useState<Record<string, ItemStatus>>({});
   const [result, setResult] = useState<SpecialistResult | ''>('');
   const sources = option.checklist ?? [];
@@ -881,21 +966,15 @@ function SpecialistForm({
                         </div>
 
                         <div>
-                          {source.fileAvailable ? (
-                            <button
-                              type="button"
-                              className="rr-btn rr-btn--outline rr-btn--sm"
-                              onClick={() =>
-                                download(() =>
-                                  requestReviewApi.file(review.reviewId, option.scheduleOptionId, source)
-                                )
-                              }
-                            >
-                              <IconDownload /> Tải tệp tài liệu
-                            </button>
-                          ) : (
-                            <span style={{ color: 'var(--text-muted, #64748b)', fontSize: 12 }}>Chưa có tệp</span>
-                          )}
+                          <button
+                            type="button"
+                            className="rr-btn rr-btn--outline rr-btn--sm"
+                            disabled={!source.fileAvailable}
+                            title={source.fileAvailable ? undefined : 'Khách chưa tải tệp lên'}
+                            onClick={() => setViewing(source)}
+                          >
+                            <IconEye /> Xem tài liệu
+                          </button>
                         </div>
                       </div>
 
@@ -965,6 +1044,16 @@ function SpecialistForm({
               </div>
             </div>
           ))}
+
+          {viewing && (
+            <DocumentViewer
+              review={review}
+              option={option}
+              source={viewing}
+              onClose={() => setViewing(null)}
+              download={download}
+            />
+          )}
 
           <div className="rr-card">
             <div className="rr-card__head">

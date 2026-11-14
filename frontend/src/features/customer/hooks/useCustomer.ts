@@ -82,6 +82,7 @@ import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import { mockHorses, mockNotifications, mockRequests } from '../data/mockData';
 import { getSharedRequests, saveSharedRequest, toCustomerRequest } from '../../../shared/utils/sharedRequests';
 import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
+import { getSharedNotificationsFor } from '../../../shared/utils/sharedNotifications';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
@@ -130,8 +131,11 @@ function persistCustomerReadNotifIds(ids: string[]): void {
   }
 }
 
-const resolveCustomerNotifs = (list: CustomerNotification[]): CustomerNotification[] => {
+const resolveCustomerNotifs = (listIn: CustomerNotification[]): CustomerNotification[] => {
   const readIds = getCustomerReadNotifIds();
+  const shared: CustomerNotification[] = getSharedNotificationsFor('CUSTOMER', (() => { try { return state.requests.map((r) => r.id); } catch { return undefined; } })())
+    .map((n) => ({ id: n.id, title: n.title, body: n.body, at: n.at, read: n.read, link: n.link || '' }));
+  const list = [...shared.filter((n) => !listIn.some((x) => x.id === n.id)), ...listIn];
   return list.map((n) => ({
     ...n,
     read: Boolean(n.read || readIds.has(n.id) || readIds.has(cleanId(n.id))),
@@ -173,13 +177,23 @@ const syncController = createSyncController({
 
 let unsubscribeSyncController: (() => void) | null = null;
 
+const refreshSharedNotifs = () => setState({ notifications: resolveCustomerNotifs(state.notifications) });
+
 const subscribe = (l: () => void) => {
   listeners.add(l);
   if (listeners.size === 1) {
     unsubscribeSyncController = syncController.subscribe();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('rts_shared_notifications_changed', refreshSharedNotifs);
+      window.addEventListener('storage', refreshSharedNotifs);
+    }
   }
   return () => {
     listeners.delete(l);
+    if (listeners.size === 0 && typeof window !== 'undefined') {
+      window.removeEventListener('rts_shared_notifications_changed', refreshSharedNotifs);
+      window.removeEventListener('storage', refreshSharedNotifs);
+    }
     if (listeners.size === 0 && unsubscribeSyncController) {
       unsubscribeSyncController();
       unsubscribeSyncController = null;

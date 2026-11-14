@@ -118,4 +118,38 @@ describe('tripFromTracking', () => {
     const unblockedNext = nextMilestone(trip);
     expect(unblockedNext).toEqual({ type: 'LEFT_STOP', stopIndex: 1 });
   });
+
+  it('counts a health log recorded after arrival within the same minute (by exact time), not one recorded before', () => {
+    const { trip } = tripFromTracking(tracking('IN_TRANSIT', 2));
+    trip.horses = ['HORSE_001'];
+    const arrived = trip.milestones[trip.milestones.length - 1];
+    arrived.recordedAt = '2026-09-15T02:10:30.000Z';
+    const log = { id: 'HL-x', horseId: 'HORSE_001', at: arrived.at, temp: 38, hr: 40, condition: 'NORMAL' as const, notes: '', by: 'USER_009' };
+    trip.health = [{ ...log, recordedAt: '2026-09-15T02:10:10.000Z' }];
+    expect(nextMilestone(trip)).toMatchObject({ type: 'LEFT_STOP', blocked: true, healthCheckRequired: true });
+    trip.health = [{ ...log, recordedAt: '2026-09-15T02:10:45.000Z' }];
+    expect(nextMilestone(trip)?.blocked).toBeFalsy();
+  });
+
+  it('matches server health logs by the stop departure milestone id, not the arrival id', () => {
+    const { trip } = tripFromTracking(tracking('IN_TRANSIT', 2));
+    trip.horses = ['HORSE_001'];
+    const stop = trip.stops[trip.milestones[trip.milestones.length - 1].stopIndex];
+    stop.departureId = 'MS_DEPART_HERE';
+    const log = { id: 'HL-s', horseId: 'HORSE_001', at: '2000-01-01 00:00', temp: 38, hr: 40, condition: 'NORMAL' as const, notes: '', by: 'USER_009' };
+    trip.health = [{ ...log, milestoneId: 'MS_DEPART_PREVIOUS_STOP' }];
+    expect(nextMilestone(trip)).toMatchObject({ blocked: true, healthCheckRequired: true });
+    trip.health = [{ ...log, milestoneId: 'MS_DEPART_HERE' }];
+    expect(nextMilestone(trip)?.blocked).toBeFalsy();
+  });
+
+  it('does not count the previous stop health logs for the next stop even within the same minute', () => {
+    const { trip } = tripFromTracking(tracking('IN_TRANSIT', 2));
+    trip.horses = ['HORSE_001'];
+    const arrived = trip.milestones[trip.milestones.length - 1];
+    trip.health = [{ id: 'HL-prev', horseId: 'HORSE_001', at: arrived.at, temp: 38, hr: 40, condition: 'NORMAL', notes: '', by: 'USER_009', milestoneId: 'OTHER_STOP' }];
+    expect(nextMilestone(trip)).toMatchObject({ type: 'LEFT_STOP', blocked: true, healthCheckRequired: true });
+    trip.health = [{ id: 'HL-now', horseId: 'HORSE_001', at: arrived.at, temp: 38, hr: 40, condition: 'NORMAL', notes: '', by: 'USER_009', milestoneId: trip.stops[arrived.stopIndex].departureId ?? trip.stops[arrived.stopIndex].id }];
+    expect(nextMilestone(trip)?.blocked).toBeFalsy();
+  });
 });

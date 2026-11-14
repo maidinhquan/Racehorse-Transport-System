@@ -1,4 +1,5 @@
 // Sự cố & khiếu nại: danh sách sự cố trong chuyến (Flow 5) và khiếu nại liên quan (chỉ xem)
+import { sortIncidentsNewestFirst } from '../../../../shared/utils/incidentState';
 import { useEffect } from 'react';
 import { DataTable, Icon, Pill, PillT, Tabs, tabOn } from '../../components/common/ui';
 import { CoordinatorLayout } from '../../components/layout/CoordinatorLayout';
@@ -35,7 +36,7 @@ export function IncidentsPage() {
   }, []);
 
   const on = tabOn('hub-f', 'incidents');
-  const rows = db.incidents.map((i: Any) => { f5Status(i); return i; });
+  const rows = sortIncidentsNewestFirst(db.incidents.map((i: Any) => { f5Status(i); return i; }) as Array<{ id: string; at?: string }>) as Any[];
   const openInc = rows.filter((i: Any) => !F5_DONE.includes(i.status)).length;
   const openCmp = db.complaints.filter((c: Any) => !['RESOLVED', 'CLOSED'].includes(c.status)).length;
   return (

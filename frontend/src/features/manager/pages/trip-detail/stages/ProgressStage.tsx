@@ -1,3 +1,4 @@
+import { sortIncidentsNewestFirst } from '../../../../../shared/utils/incidentState';
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
@@ -37,7 +38,7 @@ export const ProgressStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
 
   const departed = t.milestones.find((x) => x.type === 'DEPARTED');
   const reached = (i: number) => t.milestones.some((x) => x.stopIndex === i && ['DEPARTED', 'ARRIVED_STOP', 'LEFT_STOP', 'ARRIVED_DESTINATION'].includes(x.type));
-  const inc = data.incidents.filter((i) => i.tripId === t.id);
+  const inc = sortIncidentsNewestFirst(data.incidents.filter((i) => i.tripId === t.id));
   const totalInc = Math.max(inc.length, sharedPins.length);
   const refusalOpen = !!t.refusal && !t.refusal.resolvedAt;
 

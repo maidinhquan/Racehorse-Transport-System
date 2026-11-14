@@ -73,6 +73,7 @@ const DATA_KEYS: Array<keyof ManagerData> = ['customers', 'horses', 'staff', 're
 const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
 
 import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
+import { getSharedNotificationsFor } from '../../../shared/utils/sharedNotifications';
 import { getSharedTrips, saveSharedTrip } from '../../../shared/utils/sharedTrips';
 import { flow4Api } from '../../tracking/api/flow4Api';
 import { progressFromMilestones } from '../../tracking/utils/progress';
@@ -173,8 +174,11 @@ function persistManagerReadNotifIds(ids: string[]): void {
   }
 }
 
-const resolveManagerNotifs = (list: ManagerNotification[]): ManagerNotification[] => {
+const resolveManagerNotifs = (listIn: ManagerNotification[]): ManagerNotification[] => {
   const readIds = getManagerReadNotifIds();
+  const shared: ManagerNotification[] = getSharedNotificationsFor('MANAGER')
+    .map((n) => ({ id: n.id, title: n.title, text: n.body, at: n.at, read: n.read, link: n.link || '' }));
+  const list = [...shared.filter((n) => !listIn.some((x) => x.id === n.id)), ...listIn];
   return list.map((n) => ({
     ...n,
     read: Boolean(n.read || readIds.has(n.id) || readIds.has(cleanId(n.id))),
@@ -217,13 +221,23 @@ const syncController = createSyncController({
 
 let unsubscribeSyncController: (() => void) | null = null;
 
+const refreshSharedNotifs = () => setState({ notifications: resolveManagerNotifs(state.notifications) });
+
 const subscribe = (l: () => void) => {
   listeners.add(l);
   if (listeners.size === 1) {
     unsubscribeSyncController = syncController.subscribe();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('rts_shared_notifications_changed', refreshSharedNotifs);
+      window.addEventListener('storage', refreshSharedNotifs);
+    }
   }
   return () => {
     listeners.delete(l);
+    if (listeners.size === 0 && typeof window !== 'undefined') {
+      window.removeEventListener('rts_shared_notifications_changed', refreshSharedNotifs);
+      window.removeEventListener('storage', refreshSharedNotifs);
+    }
     if (listeners.size === 0 && unsubscribeSyncController) {
       unsubscribeSyncController();
       unsubscribeSyncController = null;
@@ -280,6 +294,10 @@ if (typeof window !== 'undefined') {
   };
   window.addEventListener('rts_incident_created', refreshIncidents);
   window.addEventListener('rts_incident_pins_changed', refreshIncidents);
+  window.addEventListener('storage', (e: StorageEvent) => {
+    if (e.key === null || /^(rts_incident_|rts_ack_|rts_vet_|rts_shared_incidents)/.test(e.key)) refreshIncidents();
+  });
+  window.addEventListener('focus', refreshIncidents);
 
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
     const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
@@ -1060,14 +1078,6 @@ const managerActions = {
     });
     void managerApi.decidePlan(id, planId, { approve, note });
     return ok(approve ? `Đã duyệt ${planId}.` : `Đã từ chối ${planId}.`);
-  },
-  closeIncident(id: string): ActionResult {
-    const i = state.incidents.find((x) => x.id === id);
-    if (!i || i.status === 'CLOSED') return fail('Sự cố đã đóng.');
-    if (i.plans.some((p) => p.status === 'PENDING_APPROVAL')) return fail('Còn phương án chờ quyết định – duyệt hoặc từ chối trước khi đóng.');
-    mutate((d) => { const x = d.incidents.find((y) => y.id === id)!; x.status = 'CLOSED'; x.log.push([nowStamp(), `${MANAGER_NAME} đóng sự cố`]); });
-    void managerApi.setIncidentStatus(id, 'CLOSED');
-    return ok(`Đã đóng ${id}.`);
   },
 
   // ----- Khiếu nại -----

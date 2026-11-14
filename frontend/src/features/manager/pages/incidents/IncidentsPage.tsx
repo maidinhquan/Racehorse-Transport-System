@@ -1,3 +1,4 @@
+import { sortIncidentsNewestFirst } from '../../../../shared/utils/incidentState';
 import React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ManagerLayout, Icon } from '../../components/ManagerLayout';
@@ -24,7 +25,7 @@ export const IncidentsPage: React.FC = () => {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const tab = params.get('tab') === 'complaints' ? 'complaints' : 'incidents';
-  const incRows = [...(incidents || [])].sort((a, b) => Number(a.status === 'CLOSED') - Number(b.status === 'CLOSED') || SEV_ORDER.indexOf(a.severity) - SEV_ORDER.indexOf(b.severity) || (b.at || '').localeCompare(a.at || ''));
+  const incRows = sortIncidentsNewestFirst(incidents || []).sort((a, b) => Number(a.status === 'CLOSED') - Number(b.status === 'CLOSED'));
   const cmpRows = [...(complaints || [])].sort((a, b) => Number(a.status === 'RESOLVED') - Number(b.status === 'RESOLVED') || (b.createdAt || '').localeCompare(a.createdAt || ''));
   const fi = useManagerFilter(incRows, (i) => [i.id, i.tripId, i.description, i.location].join(' '), { status: (i, v) => i.status === v, severity: (i, v) => i.severity === v }, 10);
   const fc = useManagerFilter(cmpRows, (c) => [c.id, c.requestId, c.title].join(' '), { status: (c, v) => c.status === v }, 10);
@@ -54,33 +55,21 @@ export const IncidentsPage: React.FC = () => {
           <div className="mgr-card" style={{ padding: 0 }}>
             <div className="mgr-table-wrap">
               <table className="mgr-table">
-                <thead><tr><th>Sự cố</th><th>Chuyến</th><th>Loại</th><th>Địa điểm</th><th>Mức độ</th><th>Cần quyết định</th><th>Trạng thái</th></tr></thead>
+                <thead><tr><th>Sự cố</th><th>Chuyến</th><th>Loại</th><th>Địa điểm</th><th>Mức độ</th><th>Trạng thái</th></tr></thead>
                 <tbody>
                   {fi.rows.map((i) => {
-                    const isEscalated = i.status === 'ESCALATED' || !!(i as any).escalation;
-                    const pending = (i.plans || []).some((p) => p.status === 'PENDING_APPROVAL');
-                    const needsAction = isEscalated || pending;
                     return (
-                      <tr key={i.id} className={`clickable ${needsAction ? 'mgr-row-attn' : ''}`} onClick={() => navigate(`/manager/incidents/${i.id}`)}>
+                      <tr key={i.id} className="clickable" onClick={() => navigate(`/manager/incidents/${i.id}`)}>
                         <td><b className="mgr-id">{i.id}</b><div className="mgr-muted">{fmtDateTime(i.at)}</div></td>
                         <td>{i.tripId}</td>
                         <td>{INCIDENT_TYPE_LABEL[i.type] || i.type}</td>
                         <td>{i.location}</td>
                         <td><StatusBadge kind="severity" status={i.severity} /></td>
-                        <td>
-                          {isEscalated ? (
-                            <StatusBadge tone="bad" label="Điều phối từ chối – Cần can thiệp" />
-                          ) : pending ? (
-                            <StatusBadge tone="warn" label="Có phương án chờ" />
-                          ) : (
-                            '—'
-                          )}
-                        </td>
                         <td><StatusBadge kind="incident" status={i.status} /></td>
                       </tr>
                     );
                   })}
-                  {!fi.rows.length && <tr><td colSpan={7} className="mgr-empty">Không có sự cố nào khớp bộ lọc.</td></tr>}
+                  {!fi.rows.length && <tr><td colSpan={6} className="mgr-empty">Không có sự cố nào khớp bộ lọc.</td></tr>}
                 </tbody>
               </table>
             </div>

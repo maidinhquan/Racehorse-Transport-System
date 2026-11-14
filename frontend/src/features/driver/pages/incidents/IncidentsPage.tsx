@@ -1,3 +1,4 @@
+import { incidentPhase, sortIncidentsNewestFirst } from '../../../../shared/utils/incidentState';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DriverLayout, Icon } from '../../components/DriverLayout';
@@ -413,12 +414,7 @@ export const IncidentsPage: React.FC = () => {
   const roleFilteredList = list;
 
   // Sắp xếp sự cố mới nhất lên trên đầu
-  const sortedList = [...roleFilteredList].sort((a, b) => {
-    const tA = new Date(a.at || 0).getTime() || 0;
-    const tB = new Date(b.at || 0).getTime() || 0;
-    if (tB !== tA) return tB - tA;
-    return b.id.localeCompare(a.id);
-  });
+  const sortedList = sortIncidentsNewestFirst(roleFilteredList);
 
   const [viewingPlanIncident, setViewingPlanIncident] = useState<Incident | null>(null);
   const [acknowledgedIncidents, setAcknowledgedIncidents] = useState<Record<string, boolean>>({});
@@ -730,7 +726,7 @@ export const IncidentsPage: React.FC = () => {
                       <span>
                         {i.id} • {isHorseHealth ? `Sức khỏe: ${horseNameDisplay}` : INCIDENT_TYPE_LABEL[i.type]}
                       </span>
-                      <TripStatusBadge status={i.status} />
+                      <TripStatusBadge status={(isResolved && i.status !== 'CLOSED' ? 'RESOLVED' : incidentPhase(i.id, i.status)) as Incident['status']} />
                     </div>
                     <p className="drv-hint" style={{ marginTop: 0 }}>
                       {fmtDateTime(i.at)} • {i.location} • mức độ {SEVERITY_LABEL[i.severity].toLowerCase()}
@@ -879,14 +875,16 @@ export const IncidentsPage: React.FC = () => {
                               {i.approvedPlan || 'Đã có phương án xử lý cụ thể từ Điều phối viên.'}
                             </p>
                             <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-                              <button
-                                type="button"
-                                className="drv-btn drv-btn--solid drv-btn--sm"
-                                onClick={() => setViewingPlanIncident(i)}
-                              >
-                                Xem phương án &amp; Báo đã nhận
-                              </button>
-                              {!isResolved && (
+                              {!isAcked && (
+                                <button
+                                  type="button"
+                                  className="drv-btn drv-btn--solid drv-btn--sm"
+                                  onClick={() => setViewingPlanIncident(i)}
+                                >
+                                  Xem phương án &amp; Báo đã nhận
+                                </button>
+                              )}
+                              {isAcked && !isResolved && (
                                 <button
                                   type="button"
                                   className="drv-btn drv-btn--solid drv-btn--sm"
@@ -912,15 +910,6 @@ export const IncidentsPage: React.FC = () => {
                             <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
                               Điều phối viên đang kiểm tra hiện trường để ra phương án chỉ đạo cụ thể. Vui lòng giữ an toàn cho người và xe.
                             </p>
-                            <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-                              <button
-                                type="button"
-                                className="drv-btn drv-btn--ghost drv-btn--sm"
-                                onClick={() => setViewingPlanIncident(i)}
-                              >
-                                Xem trạng thái chỉ đạo
-                              </button>
-                            </div>
                           </div>
                         ) : (
                           <div className="drv-note drv-note--blue" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

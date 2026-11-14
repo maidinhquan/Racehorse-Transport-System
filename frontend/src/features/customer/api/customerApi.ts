@@ -37,7 +37,7 @@ export const requestFromWire = (r: any): TransportRequest => {
     : [], r?.contractFeedback);
 
   const rawDate = r?.expectedDeliveryDate || '';
-  const date = rawDate.length >= 10 ? rawDate.slice(0, 10) : rawDate;
+  const date = rawDate.length >= 0 ? rawDate.slice(0, 10) : rawDate;
   const requestedAt = r?.requestedAt || r?.createdAt || '';
   const status = r?.status === 'IN_PROGRESS' ? 'IN_TRANSIT' : (r?.status || 'DRAFT');
 
@@ -86,7 +86,8 @@ export const requestFromWire = (r: any): TransportRequest => {
     revisions: Array.isArray(r?.revisions) ? r.revisions : [],
     versions,
     refund: r?.refund?.refundStatus ? refundFromWire(r.refund) : r?.refund ?? undefined,
-    payments: Array.isArray(r?.payments) ? r.payments.map((p: any) => ({ ...p,
+    payments: Array.isArray(r?.payments) ? r.payments.map((p: any) => ({
+      ...p,
       type: 'DEPOSIT', contractId: p.contractId,
       versionNo: p.versionNo, confirmedAmount: p.receivedAmount ?? 0,
       status: p.paymentOutcome === 'UNCONFIRMED' || p.status === 'PENDING_GATEWAY' || p.status === 'REVIEW_REQUIRED' ? 'PROCESSING' : p.paymentOutcome ?? p.status,
@@ -212,8 +213,10 @@ export const customerApi = {
   },
   getSelectableHorses: (date: string, excludeRequestId?: string, pickupAt?: string) =>
     contractClient<Array<{ id: string; name: string; selectable: boolean; conflict: { code: string } | null; availabilityStatus?: string; documentWarnings: string[] }>>('get', '/customer/horses/selectable', undefined,
-      { expectedTransportDate: pickupAt || date, expectedDeliveryDate: date,
-        excludeRequestId: excludeRequestId?.startsWith('LOCAL_') ? undefined : excludeRequestId }),
+      {
+        expectedTransportDate: pickupAt || date, expectedDeliveryDate: date,
+        excludeRequestId: excludeRequestId?.startsWith('LOCAL_') ? undefined : excludeRequestId
+      }),
   getRequest: async (id: string) => {
     const request = requestFromWire(await contractClient<WireRequest>('get', `/customer/requests/${id}`));
     if (request.versions.length) {

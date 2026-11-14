@@ -1,9 +1,9 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ReviewInbox } from './ReviewInbox';
 
 const api = vi.hoisted(() => ({
-  queue: vi.fn(), detail: vi.fn(), specialist: vi.fn(), coordinator: vi.fn(),
+  queue: vi.fn(), detail: vi.fn(), specialist: vi.fn(), coordinator: vi.fn(), preview: vi.fn(), file: vi.fn(),
 }));
 vi.mock('../../api/requestReviewApi', () => ({ requestReviewApi: api }));
 
@@ -17,7 +17,10 @@ const detail = {
     checklist: [], checklistVersion: null as string | null }],
 };
 
+afterEach(cleanup);
+
 beforeEach(() => {
+  api.detail.mockReset();
   api.queue.mockResolvedValue([{ reviewId: 'REQUEST_REVIEW_001', requestId: 'REQUEST_001', requestRevision: 1,
     origin: 'Hà Nội', destination: 'TP.HCM', expectedTransportDate: '2026-11-12' }]);
   api.detail.mockResolvedValue(detail);
@@ -117,4 +120,27 @@ it('hides health certificate and vaccination from specialist checklist and submi
       }),
     );
   });
+});
+
+it('lets the specialist view the customer file inline and disables the button when none was uploaded', async () => {
+  const withFiles = {
+    ...detail,
+    options: [{ ...detail.options[0], checklistVersion: 'v1', checklist: [
+      { checklistItemId: 'HOR_1:PASSPORT', horseId: 'HOR_1', horseName: 'Bạch Long', documentType: 'PASSPORT', stage: 'BEFORE_CONTRACT', fileAvailable: true, expiryDate: null, usable: true },
+      { checklistItemId: 'HOR_1:VACCINATION', horseId: 'HOR_1', horseName: 'Bạch Long', documentType: 'VACCINATION', stage: 'BEFORE_DEPARTURE', fileAvailable: false, expiryDate: null, usable: false },
+    ] }],
+  };
+  api.detail.mockResolvedValue(withFiles);
+  api.preview.mockResolvedValue({ blob: new Blob(['x'], { type: 'image/png' }), type: 'image/png' });
+  URL.createObjectURL = vi.fn(() => 'blob:test');
+  URL.revokeObjectURL = vi.fn();
+  render(<ReviewInbox role="specialist" button="btn" />);
+  fireEvent.click(await screen.findByRole('button', { name: /Thẩm định/ }));
+  const buttons = await screen.findAllByRole('button', { name: /Xem tài liệu/ });
+  expect(buttons[0]).toBeEnabled();
+  expect(buttons[1]).toBeDisabled();
+  expect(screen.queryByText('Tải tệp tài liệu')).toBeNull();
+  fireEvent.click(buttons[0]);
+  expect(await screen.findByRole('img')).toHaveAttribute('src', 'blob:test');
+  expect(api.preview).toHaveBeenCalledWith('REQUEST_REVIEW_001', 'REQUEST_SCHEDULE_OPTION_001', expect.objectContaining({ checklistItemId: 'HOR_1:PASSPORT' }));
 });

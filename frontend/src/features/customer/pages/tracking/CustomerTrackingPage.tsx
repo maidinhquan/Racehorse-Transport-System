@@ -13,12 +13,30 @@ import { CustomerRelocationCard } from '../../components/RelocationProposal/Cust
 import { flow4Api } from '../../../tracking/api/flow4Api';
 import type * as T from '../../../tracking/types/flow4.types';
 import { progressFromMilestones } from '../../../tracking/utils/progress';
+import { incidentPhase, INCIDENT_PHASE_LABEL, sortIncidentsNewestFirst } from '../../../../shared/utils/incidentState';
+import { useSharedIncidents } from '../../../../shared/utils/sharedIncidents';
 import { getSharedTrips } from '../../../../shared/utils/sharedTrips';
 import { getUserFullName } from '../../../../shared/utils/userNameResolver';
 import './CustomerTrackingPage.css';
 
 const ORDER: Record<TripStatus, number> = { IN_TRANSIT: 0, READY_TO_DEPART: 1, PLANNING: 2, COMPLETED: 3 };
 const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
+
+/** Báo cho khách biết chuyến đang có sự cố chưa khép lại (không lộ chi tiết nội bộ) */
+const CustomerIncidentBanner: React.FC<{ tripId: string }> = ({ tripId }) => {
+  const open = sortIncidentsNewestFirst(useSharedIncidents(tripId)).filter((i) => incidentPhase(i.id, i.status) !== 'CLOSED');
+  if (!open.length) return null;
+  return (
+    <div className="cus-note cus-note--yellow" style={{ margin: '8px 0 12px' }} role="alert">
+      <div>
+        <b>Chuyến đang có sự cố ({open.length})</b>
+        {open.map((i) => (
+          <div key={i.id}>{i.id} • {INCIDENT_PHASE_LABEL[incidentPhase(i.id, i.status)]} • {fmtDateTime(i.at)}. {incidentPhase(i.id, i.status) === 'RESOLVED' ? 'Tổ xe báo đã khắc phục, đang chờ Điều phối xác nhận đóng.' : 'Điều phối viên đang xử lý, ETA có thể thay đổi.'}</div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 /** Theo dõi chuyến: tuyến, các điểm dừng, mốc do tổ xe xác nhận và thay đổi ETA (kết nối Flow 4 Backend) */
 export const CustomerTrackingPage: React.FC = () => {
@@ -250,6 +268,7 @@ export const CustomerTrackingPage: React.FC = () => {
               <span>{t.id} • {r.id}<br /><small className="cus-muted">{cityLabel(r.origin)} → {cityLabel(r.destination)}</small></span>
               <TripStatusBadge kind="trip" status={t.status} />
             </h3>
+            <CustomerIncidentBanner tripId={t.id} />
             <CustomerRelocationCard tripId={t.id} />
             {t.routeApproved ? (
               <RouteMap

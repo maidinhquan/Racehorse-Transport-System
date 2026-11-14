@@ -15,11 +15,12 @@ import {
   delayPending,
   fmtDateTime,
   handoverReady,
-  horsesMissingHealth,
   lastMilestone,
   milestoneText,
   myPosition,
+  horsesMissingHealth,
   nextMilestone,
+  openIncidentHold,
 } from '../../hooks/driverRules';
 import { cleanStopName } from '../../../tracking/utils/progress';
 import type { Horse, Trip } from '../../types';
@@ -35,7 +36,7 @@ const HealthCheckCard: React.FC<{ trip: Trip; canRecord: boolean }> = ({ trip, c
   const n = nextMilestone(trip);
   if (!n || (n.type !== 'DEPARTED' && n.type !== 'LEFT_STOP')) return null;
   const since = n.type === 'DEPARTED' ? '' : lastMilestone(trip)?.at ?? '';
-  const missing = horsesMissingHealth(trip, since);
+  const missing = horsesMissingHealth(trip, since, n.type === 'LEFT_STOP' ? trip.stops[n.stopIndex] : trip.stops[0], n.type === 'LEFT_STOP' ? lastMilestone(trip)?.recordedAt : undefined);
   const title = n.type === 'DEPARTED' ? 'Kiểm tra sức khỏe trước khi xuất phát' : 'Kiểm tra sức khỏe trước khi rời điểm dừng';
   return (
     <div className="drv-note drv-note--yellow" style={{ marginBottom: 12, flexDirection: 'column', alignItems: 'stretch' }}>
@@ -63,10 +64,11 @@ const HealthCheckCard: React.FC<{ trip: Trip; canRecord: boolean }> = ({ trip, c
 
 const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
   const navigate = useNavigate();
-  const { actions, isEscort } = useDriver();
+  const { actions, isEscort, incidents } = useDriver();
   const [msOpen, setMsOpen] = useState(false);
   const delayed = delayPending(trip);
   const n = nextMilestone(trip);
+  const incidentHold = trip.status === 'IN_TRANSIT' ? openIncidentHold(trip.id, incidents) : [];
 
   return (
     <div className="drv-card">
@@ -88,26 +90,27 @@ const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
       ) : n ? (
         <>
           <button type="button" className="drv-btn drv-btn--solid drv-btn--lg drv-btn--block drv-journey__record"
-            disabled={!!n.blocked || (n.type === 'DEPARTED' && delayed)} title={n.healthCheckRequired ? (n.type === 'DEPARTED' ? 'Cần kiểm tra sức khỏe toàn bộ ngựa trước khi xuất phát' : 'Cần kiểm tra sức khỏe toàn bộ ngựa trước khi rời điểm dừng') : undefined} onClick={() => setMsOpen(true)}>
+            disabled={!!n.blocked || incidentHold.length > 0 || (n.type === 'DEPARTED' && delayed)} onClick={() => setMsOpen(true)}>
             {milestoneText(trip, n)}
           </button>
+          {incidentHold.length > 0 && (
+            <div className="drv-note drv-note--yellow" style={{ marginTop: 10 }}>
+              <Icon name="clock" />
+              <div>
+                <b>Đang có sự cố chưa xử lý xong ({incidentHold.join(', ')})</b>
+                Dừng xe an toàn và chờ Điều phối viên cho phép tiếp tục. Nút ghi mốc sẽ mở sau khi sự cố được giải quyết.
+              </div>
+            </div>
+          )}
           {n.blocked && n.healthCheckRequired && (
             <>
               <div className="drv-note drv-note--yellow" style={{ marginTop: 10 }}>
                 <Icon name="clock" />
                 <div>
                   <b>Yêu cầu kiểm tra sức khỏe ngựa</b>
-                  {n.type === 'DEPARTED' ? 'Phải ghi nhật ký sức khỏe cho toàn bộ ngựa trước khi xuất phát. Nút xuất phát sẽ mở sau khi hoàn tất kiểm tra.' : 'Phải ghi nhật ký sức khỏe cho toàn bộ ngựa trước khi rời điểm dừng. Nút rời điểm dừng sẽ mở sau khi hoàn tất kiểm tra.'}
+                  {n.type === 'DEPARTED' ? 'Phải ghi nhật ký sức khỏe cho toàn bộ ngựa trước khi xuất phát. Bác sĩ thú y ghi nhật ký xong thì nút xuất phát mới mở.' : 'Phải ghi nhật ký sức khỏe cho toàn bộ ngựa trước khi rời điểm dừng. Bác sĩ thú y ghi nhật ký xong thì nút rời điểm dừng mới mở.'}
                 </div>
               </div>
-              <button
-                type="button"
-                className="drv-btn drv-btn--block"
-                style={{ marginTop: 10 }}
-                onClick={() => navigate(`/driver/trips/${trip.id}?tab=health`)}
-              >
-                Ghi nhật ký sức khỏe
-              </button>
             </>
           )}
           {n.blocked && !n.healthCheckRequired && (

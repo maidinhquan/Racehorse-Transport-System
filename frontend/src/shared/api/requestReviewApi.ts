@@ -1,4 +1,5 @@
 import { contractClient } from './contractClient';
+import { apiClient } from './apiClient';
 import { downloadFile } from './downloadFile';
 
 export type Reviewer = 'coordinator' | 'specialist';
@@ -69,6 +70,16 @@ export const requestReviewApi = {
     contractClient<ReviewDetail>('post', `${optionPath(id, optionId)}/assessment`, input),
   file: (id: string, optionId: string, item: ChecklistSource) =>
     downloadFile(`${optionPath(id, optionId)}/checklist/${encodeURIComponent(item.checklistItemId)}/file`, item.documentType),
+  /** Fetches the customer's file with the bearer token so it can be shown inline. */
+  preview: async (id: string, optionId: string, item: ChecklistSource): Promise<{ blob: Blob; type: string }> => {
+    const response = await apiClient.get(
+      `${optionPath(id, optionId)}/checklist/${encodeURIComponent(item.checklistItemId)}/file`,
+      { responseType: 'blob' },
+    );
+    const type = String(response.headers['content-type'] ?? '').split(';')[0];
+    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(type)) throw new Error('Máy chủ chưa trả nội dung tài liệu hợp lệ.');
+    return { blob: response.data, type };
+  },
   customer: (id: string) => contractClient<{ proposal: CustomerReview | null }>('get', customerPath(id)),
   respond: (id: string, key: OptionKey, decision: 'ACCEPTED' | 'REJECTED') =>
     contractClient('post', customerPath(id), { ...key, decision }),

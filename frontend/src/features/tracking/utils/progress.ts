@@ -22,12 +22,16 @@ export interface ProgressStop {
   lat?: number;
   lng?: number;
   requiresHealthCheck?: boolean;
+  /** Mã mốc "rời" của điểm dừng (máy chủ gắn nhật ký sức khỏe vào mốc này; `id` là mã mốc "đến") */
+  departureId?: string;
 }
 
 export interface ProgressMilestone {
   type: ProgressMilestoneType;
   stopIndex: number;
   at: string;
+  /** Thời điểm hệ thống ghi nhận mốc (chính xác tới giây), khác với `at` do người dùng nhập theo phút */
+  recordedAt?: string;
   by: string;
   note?: string;
 }
@@ -96,6 +100,7 @@ export function progressFromMilestones(
 
     if (isDepartureOfPrev) {
       milestoneStopIndices.push(stops.length - 1);
+      stops[stops.length - 1].departureId = m.id;
       if (m.requiresHealthCheck) stops[stops.length - 1].requiresHealthCheck = true;
     } else {
       const stopIndex = stops.length;
@@ -130,6 +135,7 @@ export function progressFromMilestones(
       type: milestoneType(m.kind, i),
       stopIndex: milestoneStopIndices[i],
       at: m.occurredAt,
+      recordedAt: (m as { recordedAt?: string | null }).recordedAt ?? undefined,
       by: m.recordedBy?.name ?? m.recordedBy?.userId ?? '',
       note: m.note || undefined,
     });

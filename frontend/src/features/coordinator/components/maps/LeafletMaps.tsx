@@ -290,6 +290,12 @@ const cleanIdKey = (s: string) => String(s || '').replace(/[-_]/g, '').toUpperCa
 
 function parseIncidentCoords(i: Any, t?: Any): [number, number] | null {
   if (!i) return null;
+  // 0. Ghim tài xế đã chọn trên bản đồ (cùng nguồn với bản đồ của tài xế) luôn được ưu tiên
+  if (typeof window !== 'undefined') {
+    const tid = [i.tripId, t?.id, t?.tripId].filter(Boolean);
+    const mine = tid.flatMap((x: string) => getIncidentPins(x, true)).find((p) => p.id === i.id || cleanIdKey(p.id) === cleanIdKey(i.id));
+    if (mine && Number.isFinite(mine.lat) && Number.isFinite(mine.lng)) return [mine.lat, mine.lng];
+  }
   // 1. i.locationCoordinates (chuỗi "10.928900,108.102100" hoặc có khoảng trắng)
   if (typeof i.locationCoordinates === 'string') {
     const m = i.locationCoordinates.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
@@ -314,7 +320,7 @@ function parseIncidentCoords(i: Any, t?: Any): [number, number] | null {
   }
   // 4. Incident pins lưu trong localStorage
   if (typeof window !== 'undefined' && i.tripId) {
-    const pins = getIncidentPins(i.tripId);
+    const pins = getIncidentPins(i.tripId, true);
     const pin = pins.find((p) => p.id === i.id || cleanIdKey(p.id) === cleanIdKey(i.id)) || pins[pins.length - 1];
     if (pin && Number.isFinite(pin.lat) && Number.isFinite(pin.lng)) {
       return [pin.lat, pin.lng];
@@ -347,6 +353,9 @@ export function IncidentMap({ i, t }: { i: Any; t?: Any }) {
   const incCoords = liveCoords || parseIncidentCoords(i, t);
 
   const rawStops: Any[] = t ? (tripStops(t) || t.stops || []) : [];
+  // Dùng cùng tuyến và tọa độ điểm dừng với bản đồ tuyến của chuyến (RouteMap)
+  const rt = t ? ((t.routes || []).find((r: Any) => r.stops === rawStops) || curRoute(t)) : null;
+  if (t && rt) rpCoords(t, rt);
   const stops = rawStops.map((s: Any) => {
     if (Number.isFinite(Number(s.lat)) && Number.isFinite(Number(s.lng))) return s;
     const inf = inferStopCoords(s.name);
@@ -407,16 +416,27 @@ export function IncidentMap({ i, t }: { i: Any; t?: Any }) {
     const validPts = pts.filter((p): p is [number, number] => p !== null);
     routeCoordsRef.current = validPts;
 
+    const savedGeom: Any[] | null = rt && Array.isArray(rt.geom) && rt.geom.length === stops.length - 1
+      ? rt.geom
+      : rt?.routingSnapshot?.legs && rt.routingSnapshot.legs.length === stops.length - 1
+        ? rt.routingSnapshot.legs.map((l: Any) => l?.geom)
+        : null;
     const polylines: Array<{ index: number; poly: L.Polyline; a: [number, number]; b: [number, number] }> = [];
     for (let idx = 1; idx < pts.length; idx++) {
       if (!pts[idx - 1] || !pts[idx]) continue;
-      const poly = L.polyline([pts[idx - 1]!, pts[idx]!], {
+      const sg = savedGeom && Array.isArray(savedGeom[idx - 1]) && savedGeom[idx - 1].length > 1 ? savedGeom[idx - 1] : null;
+      const poly = L.polyline(sg || [pts[idx - 1]!, pts[idx]!], {
         color: '#2563eb',
         weight: 5,
         opacity: 0.85,
         interactive: false,
       }).addTo(map);
       polylines.push({ index: idx - 1, poly, a: pts[idx - 1]!, b: pts[idx]! });
+    }
+
+    if (savedGeom) {
+      const flat = savedGeom.filter((g) => Array.isArray(g)).flat() as Array<[number, number]>;
+      if (flat.length > 1) routeCoordsRef.current = flat;
     }
 
     if (pts.length >= 2) {
