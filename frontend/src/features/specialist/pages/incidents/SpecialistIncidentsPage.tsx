@@ -1,3 +1,4 @@
+import { sortIncidentsNewestFirst } from '../../../../shared/utils/incidentState';
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SpecialistLayout, Icon } from '../../components/SpecialistLayout';
@@ -6,6 +7,7 @@ import { useSpecialist } from '../../hooks/useSpecialist';
 import { useSharedIncidents, updateSharedIncidentReview, type SharedIncident } from '../../../../shared/utils/sharedIncidents';
 import { fmtDateTime } from '../../hooks/specialistRules';
 import { apiClient } from '../../../../shared/api/apiClient';
+import { getUserFullName } from '../../../../shared/utils/userNameResolver';
 import './SpecialistIncidentsPage.css';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -63,7 +65,7 @@ export const SpecialistIncidentsPage: React.FC = () => {
     || 'Chuyên viên pháp lý';
 
   const filteredIncidents = useMemo(() => {
-    return allIncidents.filter((inc) => {
+    return sortIncidentsNewestFirst(allIncidents).filter((inc) => {
       if (selectedTrip !== 'ALL' && inc.tripId !== selectedTrip && inc.tripId.replace(/-/g, '_') !== selectedTrip.replace(/-/g, '_')) {
         return false;
       }
@@ -216,7 +218,7 @@ export const SpecialistIncidentsPage: React.FC = () => {
                     </div>
                     <div className="spc-incident-item__meta">
                       {tripObj ? `${tripObj.origin} → ${tripObj.destination} • ` : ''}
-                      Báo lúc: <b>{fmtDateTime(inc.at)}</b> • Bởi: <b>{inc.by}</b> • Vị trí: <b>{inc.location || 'Trên tuyến'}</b>
+                      Báo lúc: <b>{fmtDateTime(inc.at)}</b> • Bởi: <b>{getUserFullName(inc.by)}</b> • Vị trí: <b>{inc.location || 'Trên tuyến'}</b>
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>

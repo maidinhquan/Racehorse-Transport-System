@@ -1,13 +1,32 @@
 // Tab "Xe & nhân sự": chuyến đường bộ (một xe + tổ lái) hoặc chuyến AIR (hai chặng xe sân bay, mỗi chặng 3 nhân sự riêng)
 import { useEffect, useState } from 'react';
 import { Pill, Tabs, tabOn } from '../../../components/common/ui';
-import { canPlan, checkpoint, crewConflict, curRoute, emp, fleetCountry, groundCanEdit, groundLegCheck, groundLegEndDate, groundLegs, groundServiceArea, isDriver, isSameStaff, isVet, reqOfTrip, crewGaps, tripHorses, vehicle, vehicleAccessIssue, vehicleConflict } from '../../../domain/coordinatorRules';
+import { canPlan, checkpoint, crewConflict, curRoute, emp, fleetCountry, groundCanEdit, groundLegCheck, groundLegEndDate, groundLegs, groundServiceArea, isDriver, isSameStaff, isVet, reqOfTrip, crewGaps, tripHorses, vehicle, vehicleAccessIssue, vehicleConflict, setServerBusyCrew, selectableStaff } from '../../../domain/coordinatorRules';
+import { flow3Api } from '../../../api/flow3Api';
 import type { Any } from '../../../store/coordinatorStore';
 import { commit, db, go, ui, useCoordinatorStore } from '../../../store/coordinatorStore';
 import { city, cityLabel, date, dt } from '../../../utils/format';
 import { crewSave, groundCrewSave, groundVehicleSet, routeSubmit, routeWithdraw, vehicleAssign } from '../../../workflows/coordinatorActions';
+import { getUserFullName } from '../../../../../shared/utils/userNameResolver';
 
 function RoadResources({ t }: { t: Any }) {
+  const [, setBusyLoaded] = useState(0);
+  // Hỏi máy chủ ai đang giữ chuyến khác để loại họ khỏi danh sách chọn ngay từ đầu
+  useEffect(() => {
+    let active = true;
+    flow3Api.getStaff({ tripId: t.id }).then((list) => {
+      if (!active || !Array.isArray(list)) return;
+      const busy: Array<[string, string]> = [];
+      for (const st of list as Any[]) {
+        const hit = (st.blockers || []).find((b: Any) => b.code === 'RESOURCE_CONFLICT');
+        const other = hit && String(hit.message || '').match(/TRIP[_-]?\d+/i)?.[0];
+        if (other) busy.push([st.id, other]);
+      }
+      setServerBusyCrew(busy);
+      setBusyLoaded((n) => n + 1);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [t.id]);
   const v = t.vehicleId && vehicle(t.vehicleId), n = tripHorses(t).length, canEdit = groundCanEdit(t);
   const r = reqOfTrip(t), co = city(r.origin)[1], end = t.eta.slice(0, 10);
   const [pick, setPick] = useState<Record<string, string>>({ ...(t.crew || {}) });
@@ -18,20 +37,37 @@ function RoadResources({ t }: { t: Any }) {
     && !vehicleAccessIssue(t, x, 'pickup') && !vehicleAccessIssue(t, x, 'delivery');
   const options = db.vehicles.filter((x: Any) => usable(x) && x.id !== t.vehicleId);
   // Nhân sự: đúng vai trò, không bận chuyến khác, chứng chỉ thú y còn hạn, chưa được chọn ở vị trí khác
-  const available = (role: string) => db.employees.filter((e: Any) => (role === 'VETERINARIAN' ? isVet(e) && e.certExpiry >= end : isDriver(e))
+  const available = (role: string) => selectableStaff().filter((e: Any) => (role === 'VETERINARIAN' ? isVet(e) && e.certExpiry >= end : isDriver(e))
     && !crewConflict(e, t) && !roles.some(([k]) => k !== role && isSameStaff(pick[k], e.id)));
   /** Người đúng vai trò nhưng đang bận chuyến trùng lịch hoặc hết hạn chứng chỉ – hiện mờ kèm lý do. */
-  const blocked = (role: string): Array<[string, string]> => db.employees.filter((e: Any) => (role === 'VETERINARIAN' ? isVet(e) : isDriver(e)) && !available(role).includes(e) && !isSameStaff(pick[role], e.id) && !roles.some(([k]) => k !== role && isSameStaff(pick[k], e.id)))
+  const blocked = (role: string): Array<[string, string]> => selectableStaff().filter((e: Any) => (role === 'VETERINARIAN' ? isVet(e) : isDriver(e)) && !available(role).includes(e) && !isSameStaff(pick[role], e.id) && !roles.some(([k]) => k !== role && isSameStaff(pick[k], e.id)))
     .map((e: Any) => [e.id, `${e.name} – ${crewConflict(e, t) ? `bận ${crewConflict(e, t).id}` : role === 'VETERINARIAN' && e.certExpiry < end ? `chứng chỉ hết hạn ${date(e.certExpiry)}` : 'không phù hợp'}`]);
   const vehicleOk = !!v && usable(v), crewOk = roles.every(([k]) => !!t.crew?.[k]);
   return (<>
-    <section className="cbn-road-leg">
+    <section className="cbn-road-leg" style={{ marginTop: 18 }}>
       <header className="cbn-road-head">
-        <div><div className="eyebrow">ĐƯỜNG BỘ</div>
-          <h3>Xe &amp; nhân sự</h3>
-          <div className="cbn-road-route"><span>{[r.pickup?.name, r.pickup?.address].filter(Boolean).join(' • ') || cityLabel(r.origin)}</span><b>→</b><span>{[r.delivery?.name, r.delivery?.address].filter(Boolean).join(' • ') || cityLabel(r.destination)}</span></div>
-          <p className="hint">{n} ngựa • Hạn chứng chỉ bác sĩ: {date(end)}</p></div>
-        <Pill v={vehicleOk && crewOk ? 'READY' : 'PENDING'} label={vehicleOk && crewOk ? 'Đã đủ nguồn lực' : 'Chưa đầy đủ'} />
+        <div className="cbn-road-head__main">
+          <div className="between">
+            <div>
+              <div className="eyebrow">ĐƯỜNG BỘ</div>
+              <h3>Xe &amp; nhân sự</h3>
+            </div>
+            <Pill v={vehicleOk && crewOk ? 'READY' : 'PENDING'} label={vehicleOk && crewOk ? 'Đã đủ nguồn lực' : 'Chưa đầy đủ'} />
+          </div>
+          <div className="cbn-road-endpoints">
+            <div className="cbn-road-endpoint">
+              <span className="cbn-road-endpoint__tag"><i className="dot from" />Điểm nhận</span>
+              <b>{r.pickup?.name || cityLabel(r.origin)}</b>
+              {r.pickup?.address ? <small>{r.pickup.address}</small> : null}
+            </div>
+            <div className="cbn-road-endpoint">
+              <span className="cbn-road-endpoint__tag"><i className="dot to" />Điểm giao</span>
+              <b>{r.delivery?.name || cityLabel(r.destination)}</b>
+              {r.delivery?.address ? <small>{r.delivery.address}</small> : null}
+            </div>
+          </div>
+          <p className="hint" style={{ marginTop: 10 }}>{n} ngựa • Hạn chứng chỉ bác sĩ: {date(end)}</p>
+        </div>
       </header>
       <div className="cbn-road-grid">
         <div className="card cbn-road-card"><div className="between"><h4 className="card-title">Xe vận chuyển</h4><Pill v={vehicleOk ? 'READY' : 'PENDING'} label={vehicleOk ? 'Hợp lệ' : v ? 'Cần thay' : 'Chưa chọn'} /></div>
@@ -47,12 +83,12 @@ function RoadResources({ t }: { t: Any }) {
         <div className="card cbn-road-card"><div className="between"><h4 className="card-title">Nhân sự</h4><Pill v={crewOk ? 'READY' : 'PENDING'} label={crewOk ? 'Đủ 3 vị trí' : 'Chưa đủ 3 vị trí'} /></div>
           {canEdit ? <>
             <div className="cbn-road-staff">{roles.map(([key, title]) => {
-              const opts: Array<[string, string]> = [['', '— Chọn nhân sự phù hợp —'], ...available(key).map((e: Any) => [e.id, `${e.name}${key === 'VETERINARIAN' ? ' · CC: ' + e.certExpiry : ''}`] as [string, string])];
+              const opts: Array<[string, string]> = [['', '— Chọn nhân sự phù hợp —'], ...available(key).map((e: Any) => [e.id, `${e.name}${key === 'VETERINARIAN' ? ' · chứng chỉ đến ' + date(e.certExpiry) : ''}`] as [string, string])];
               const saved = emp(pick[key]); if (saved && !opts.some(([id]) => id === saved.id)) opts.push([saved.id, saved.name + ' · Không còn hợp lệ (cần thay)']);
               return <div className="field" key={key}><label>{title} *</label><select id={`f-crew-${key}`} value={pick[key] || ''} onChange={(e) => setPick({ ...pick, [key]: e.target.value })}>{opts.map(([id, l]) => <option key={id} value={id}>{l}</option>)}{blocked(key).map(([id, l]) => <option key={`b-${id}`} value={id} disabled>{l}</option>)}</select></div>;
             })}</div>
             <button type="button" className="btn solid" style={{ marginTop: 16 }} onClick={() => crewSave(t.id, pick)}>Lưu phân công nhân sự</button>
-          </> : <div className="cbn-air-crew">{roles.map(([key, title]) => <div className="cbn-air-crew-row" key={key}><span>{title}</span><b>{emp(t.crew?.[key])?.name || 'Chưa phân công'}</b></div>)}</div>}
+          </> : <div className="cbn-air-crew">{roles.map(([key, title]) => <div className="cbn-air-crew-row" key={key}><span>{title}</span><b>{getUserFullName(emp(t.crew?.[key])?.name || t.crew?.[key], 'Chưa phân công')}</b></div>)}</div>}
         </div>
       </div>
     </section>
@@ -65,18 +101,20 @@ function GroundLeg({ t, leg }: { t: Any; leg: string }) {
   const fromAirport = t.flight?.from ? checkpoint(t.flight.from) : curRoute(t)?.stops?.filter((s: Any) => s.type === 'AIRPORT')[0]?.cp && checkpoint(curRoute(t).stops.filter((s: Any) => s.type === 'AIRPORT')[0].cp);
   const toAirport = t.flight?.to ? checkpoint(t.flight.to) : curRoute(t)?.stops?.filter((s: Any) => s.type === 'AIRPORT').slice(-1)[0]?.cp && checkpoint(curRoute(t).stops.filter((s: Any) => s.type === 'AIRPORT').slice(-1)[0].cp);
   const airport = isOrigin ? fromAirport : toAirport;
-  const begin = isOrigin ? [r.pickup?.name, r.pickup?.address].filter(Boolean).join(' • ') || cityLabel(r.origin) : airport?.name || 'Chưa chọn sân bay đến';
-  const finish = isOrigin ? airport?.name || 'Chưa chọn sân bay xuất phát' : [r.delivery?.name, r.delivery?.address].filter(Boolean).join(' • ') || cityLabel(r.destination);
+  const beginName = isOrigin ? (r.pickup?.name || cityLabel(r.origin)) : (airport?.name || 'Chưa chọn sân bay đến');
+  const beginSub = isOrigin ? (r.pickup?.address || '') : '';
+  const finishName = isOrigin ? (airport?.name || 'Chưa chọn sân bay xuất phát') : (r.delivery?.name || cityLabel(r.destination));
+  const finishSub = isOrigin ? '' : (r.delivery?.address || '');
   const n = tripHorses(t).length, end = groundLegEndDate(t, leg), other = groundLegs(t)[isOrigin ? 'inbound' : 'outbound'];
   const base = db.vehicles.filter((v: Any) => fleetCountry(v) === co && groundServiceArea(v, co, area) && v.status === 'READY' && v.stalls >= n && !vehicleConflict(v, t) && other.vehicleId !== v.id);
   const options = base.filter((v: Any) => !vehicleAccessIssue(t, v, isOrigin ? 'pickup' : 'delivery') && v.id !== g.vehicleId);
-  const available = (role: string) => db.employees.filter((e: Any) => e.country === co && groundServiceArea(e, co, area)
+  const available = (role: string) => selectableStaff().filter((e: Any) => e.country === co && groundServiceArea(e, co, area)
     && (role === 'VETERINARIAN' ? isVet(e) && e.certExpiry >= end : isDriver(e))
     && !crewConflict(e, t)
     && !Object.values(other.crew || {}).some((assignedId) => isSameStaff(assignedId as string, e.id))
     && !roles.some(([k]) => k !== role && isSameStaff(sel[k], e.id)));
   /** Người đúng vai trò/khu vực nhưng đang bận chuyến trùng lịch hoặc ở chặng còn lại – hiện mờ kèm lý do. */
-  const blocked = (role: string): Array<[string, string]> => db.employees.filter((e: Any) => e.country === co && groundServiceArea(e, co, area) && (role === 'VETERINARIAN' ? isVet(e) : isDriver(e)) && !available(role).includes(e) && !isSameStaff(sel[role], e.id) && !roles.some(([k]) => k !== role && isSameStaff(sel[k], e.id)))
+  const blocked = (role: string): Array<[string, string]> => selectableStaff().filter((e: Any) => e.country === co && groundServiceArea(e, co, area) && (role === 'VETERINARIAN' ? isVet(e) : isDriver(e)) && !available(role).includes(e) && !isSameStaff(sel[role], e.id) && !roles.some(([k]) => k !== role && isSameStaff(sel[k], e.id)))
     .map((e: Any) => [e.id, `${e.name} – ${crewConflict(e, t) ? `bận ${crewConflict(e, t).id}` : Object.values(other.crew || {}).some((assignedId) => isSameStaff(assignedId as string, e.id)) ? 'đã ở chặng còn lại' : role === 'VETERINARIAN' && e.certExpiry < end ? `chứng chỉ hết hạn ${date(e.certExpiry)}` : 'không phù hợp'}`]);
   const [sel, setSel] = useState<Record<string, string>>({ ...(g.crew || {}) });
   useEffect(() => { setSel({ ...(g.crew || {}) }); }, [t.id, leg, JSON.stringify(g.crew || {})]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -85,11 +123,28 @@ function GroundLeg({ t, leg }: { t: Any; leg: string }) {
   return (
     <section className="cbn-road-leg">
       <header className="cbn-road-head">
-        <div><div className="eyebrow">{isOrigin ? 'CHẶNG 1 • PRE-FLIGHT ROAD' : 'CHẶNG 2 • POST-FLIGHT ROAD'}</div>
-          <h3>ROAD {co} – {isOrigin ? 'Vận chuyển trước chuyến bay' : 'Vận chuyển sau chuyến bay'}</h3>
-          <div className="cbn-road-route"><span>{begin}</span><b>→</b><span>{finish}</span></div>
-          <p className="hint">Quốc gia: {co} • {cityLabel(area)}, {co} • Hạn chứng chỉ bác sĩ: {date(end)}</p></div>
-        <Pill v={check.ok ? 'READY' : 'PENDING'} label={status} />
+        <div className="cbn-road-head__main">
+          <div className="between">
+            <div>
+              <div className="eyebrow">{isOrigin ? 'CHẶNG 1 • PRE-FLIGHT ROAD' : 'CHẶNG 2 • POST-FLIGHT ROAD'}</div>
+              <h3>ROAD {co} – {isOrigin ? 'Vận chuyển trước chuyến bay' : 'Vận chuyển sau chuyến bay'}</h3>
+            </div>
+            <Pill v={check.ok ? 'READY' : 'PENDING'} label={status} />
+          </div>
+          <div className="cbn-road-endpoints">
+            <div className="cbn-road-endpoint">
+              <span className="cbn-road-endpoint__tag"><i className="dot from" />Điểm xuất phát chặng</span>
+              <b>{beginName}</b>
+              {beginSub ? <small>{beginSub}</small> : null}
+            </div>
+            <div className="cbn-road-endpoint">
+              <span className="cbn-road-endpoint__tag"><i className="dot to" />Điểm kết thúc chặng</span>
+              <b>{finishName}</b>
+              {finishSub ? <small>{finishSub}</small> : null}
+            </div>
+          </div>
+          <p className="hint" style={{ marginTop: 10 }}>Quốc gia: {co} • {cityLabel(area)}, {co} • Hạn chứng chỉ bác sĩ: {date(end)}</p>
+        </div>
       </header>
             <div className="cbn-road-grid">
         <div className="card cbn-road-card"><div className="between"><h4 className="card-title">Xe vận chuyển</h4><Pill v={check.vehicleOk ? 'READY' : 'PENDING'} label={check.vehicleOk ? 'Hợp lệ' : 'Chưa hợp lệ'} /></div>
@@ -105,16 +160,16 @@ function GroundLeg({ t, leg }: { t: Any; leg: string }) {
         <div className="card cbn-road-card"><div className="between"><h4 className="card-title">Nhân sự</h4><Pill v={check.crewOk ? 'READY' : 'PENDING'} label={check.crewOk ? 'Đủ 3 vị trí' : 'Chưa đủ 3 vị trí'} /></div>
           {canEdit ? <>
             <div className="cbn-road-staff">{roles.map(([key, title]) => {
-              const opts: Array<[string, string]> = [['', '— Chọn nhân sự phù hợp —'], ...available(key).filter((e: Any) => !roles.some(([k]) => k !== key && sel[k] === e.id)).map((e: Any) => [e.id, `${e.name}${key === 'VETERINARIAN' ? ' · CC: ' + e.certExpiry : ''}`] as [string, string])];
+              const opts: Array<[string, string]> = [['', '— Chọn nhân sự phù hợp —'], ...available(key).filter((e: Any) => !roles.some(([k]) => k !== key && sel[k] === e.id)).map((e: Any) => [e.id, `${e.name}${key === 'VETERINARIAN' ? ' · chứng chỉ đến ' + date(e.certExpiry) : ''}`] as [string, string])];
               const saved = emp(g.crew?.[key]); if (saved && !opts.some(([id]) => id === saved.id)) opts.push([saved.id, saved.name + ' · Không còn hợp lệ (cần thay)']);
               return <div className="field" key={key}><label>{title} *</label><select id={`f-ground-${leg}-${key}`} value={sel[key] || ''} onChange={(e) => setSel({ ...sel, [key]: e.target.value })}>{opts.map(([id, l]) => <option key={id} value={id}>{l}</option>)}{blocked(key).map(([id, l]) => <option key={`b-${id}`} value={id} disabled>{l}</option>)}</select></div>;
             })}</div>
             <button type="button" className="btn solid" style={{ marginTop: 16 }} onClick={() => groundCrewSave(t.id, leg, roles.map(([k]) => sel[k] || ''))}>Lưu phân công nhân sự</button>
-          </> : <div className="cbn-air-crew">{roles.map(([key, title]) => <div className="cbn-air-crew-row" key={key}><span>{title}</span><b>{emp(g.crew?.[key])?.name || 'Chưa phân công'}</b></div>)}</div>}
+          </> : <div className="cbn-air-crew">{roles.map(([key, title]) => <div className="cbn-air-crew-row" key={key}><span>{title}</span><b>{getUserFullName(emp(g.crew?.[key])?.name || g.crew?.[key], 'Chưa phân công')}</b></div>)}</div>}
         </div>
       </div>
       <details className="cbn-road-history"><summary style={{ cursor: 'pointer', userSelect: 'none' }}>▶ Lịch sử phân công chặng ({(g.history || []).length})</summary>
-        {(g.history || []).length ? (g.history || []).slice(-6).reverse().map((h: Any, k: number) => <div className="cbn-road-log" key={k}><b>{h.action}</b> • {dt(h.at)} • {h.by}<p>{h.before || '—'} → {h.after || '—'}</p></div>) : <p className="hint">Chưa có thay đổi nào được lưu.</p>}
+        {(g.history || []).length ? (g.history || []).slice(-6).reverse().map((h: Any, k: number) => <div className="cbn-road-log" key={k}><b>{h.action}</b> • {dt(h.at)} • {getUserFullName(h.by)}<p>{h.before || '—'} → {h.after || '—'}</p></div>) : <p className="hint">Chưa có thay đổi nào được lưu.</p>}
       </details>
     </section>
   );

@@ -20,3 +20,4 @@ export * from './pages/regulations/RegulationsPage';
 export * from './pages/audit/AuditPage';
 export * from './pages/incidents/SpecialistIncidentsPage';
 export * from './pages/profile/SpecialistProfilePage';
+export * from './pages/notifications/SpecialistNotificationsPage';

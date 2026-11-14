@@ -83,6 +83,9 @@ public class Flow4HealthService : IFlow4HealthService
             IncidentId = dto.IncidentId,
             IncidentRequired = isAbnormal,
             MilestoneId = milestoneId,
+            Latitude = dto.Latitude,
+            Longitude = dto.Longitude,
+            LocationLabel = string.IsNullOrWhiteSpace(dto.LocationLabel) ? null : dto.LocationLabel.Trim(),
             LegType = dto.Leg ?? "road",
             LogTime = DateTime.TryParse(dto.ObservedAt, out var dt) ? dt : DateTime.UtcNow,
             RecordedAt = DateTime.UtcNow
@@ -146,6 +149,9 @@ public class Flow4HealthService : IFlow4HealthService
             SupersedesLogId = healthLogId,
             AmendmentReason = dto.Reason,
             MilestoneId = replacementInput.MilestoneId,
+            Latitude = replacementInput.Latitude,
+            Longitude = replacementInput.Longitude,
+            LocationLabel = string.IsNullOrWhiteSpace(replacementInput.LocationLabel) ? null : replacementInput.LocationLabel.Trim(),
             LegType = replacementInput.Leg ?? "road",
             LogTime = DateTime.TryParse(replacementInput.ObservedAt, out var dt) ? dt : DateTime.UtcNow,
             RecordedAt = DateTime.UtcNow
@@ -272,7 +278,10 @@ public class Flow4HealthService : IFlow4HealthService
                 HeartRateBpm = h.HeartRate,
                 RespiratoryRatePerMin = h.RespiratoryRatePerMin,
                 PhotoFileIds = photoIds,
-                IncidentId = h.IncidentId
+                IncidentId = h.IncidentId,
+                Latitude = h.Latitude,
+                Longitude = h.Longitude,
+                LocationLabel = h.LocationLabel
             },
             RecordedBy = new Flow4ActorDto
             {

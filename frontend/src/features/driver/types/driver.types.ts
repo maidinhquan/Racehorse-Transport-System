@@ -91,12 +91,16 @@ export interface RouteStop {
   lat?: number;
   lng?: number;
   requiresHealthCheck?: boolean;
+  /** Mã mốc "rời" của điểm dừng; nhật ký sức khỏe của máy chủ gắn vào mốc này */
+  departureId?: string;
 }
 
 export interface Milestone {
   type: MilestoneType;
   stopIndex: number;
   at: string;
+  /** Thời điểm hệ thống ghi nhận (ISO, có giây) */
+  recordedAt?: string;
   by: string; // crew id
   note?: string;
 }
@@ -129,6 +133,14 @@ export interface HealthLog {
   condition: HorseCondition;
   notes: string;
   by: string;
+  /** Vị trí lúc báo (nếu có) */
+  lat?: number;
+  lng?: number;
+  locationLabel?: string;
+  /** Điểm dừng/mốc mà nhật ký này phục vụ; dùng để không lấy nhật ký của trạm trước tính cho trạm sau */
+  milestoneId?: string;
+  /** Thời điểm hệ thống ghi nhận nhật ký (ISO, có giây) */
+  recordedAt?: string;
 }
 
 export interface DocumentItem {
@@ -157,6 +169,8 @@ export interface DepartureDelay {
   proposedDepart?: string;
 }
 
+export type HorseHealthIssue = 'HORSE_FEVER' | 'HORSE_COLIC' | 'HORSE_SHOCK';
+
 export interface Incident {
   id: string;
   tripId: string;
@@ -172,6 +186,17 @@ export interface Incident {
   description: string;
   photos: string[];
   approvedPlan?: string;
+  resolutionType?: string;
+  resolutionNotes?: string;
+  immediateCare?: string;
+  acknowledged?: boolean;
+  isSceneReady?: boolean;
+  horseId?: string;
+  horseName?: string;
+  healthIssueType?: HorseHealthIssue;
+  vetStatus?: 'EXAMINING' | 'STABILIZED' | 'REFERRAL_REQUESTED';
+  targetVetStation?: string;
+  vetResolutionNote?: string;
 }
 
 export interface Photo {
@@ -265,6 +290,10 @@ export interface HealthLogRequestDto {
   hr: number;
   condition: HorseCondition;
   notes: string;
+  /** Vị trí tổ xe đang ở lúc báo */
+  latitude?: number;
+  longitude?: number;
+  locationLabel?: string;
 }
 
 export interface ReportIncidentRequestDto {
@@ -275,6 +304,10 @@ export interface ReportIncidentRequestDto {
   locationCoordinates?: string;
   description: string;
   photos: string[];
+  horseId?: string;
+  horseName?: string;
+  healthIssueType?: HorseHealthIssue;
+  immediateCare?: string;
 }
 
 export interface DepartureDelayRequestDto {

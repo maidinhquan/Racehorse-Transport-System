@@ -6,6 +6,7 @@ import { useCustomer } from '../../hooks/useCustomer';
 import { customerApi } from '../../api/customerApi';
 import { canPayDeposit, curVersion, depositAmount, fmtMoney, fmtDateTime, resumableDepositPayment, depositPayments } from '../../hooks/customerRules';
 import './DepositPage.css';
+import { onSync } from '../../../../shared/utils/syncChannel';
 export const DepositPage: React.FC = () => {
   const { requestId = '' } = useParams(); const navigate = useNavigate();
   const { getRequest, actions } = useCustomer(requestId); const [busy, setBusy] = useState(false);
@@ -16,7 +17,8 @@ export const DepositPage: React.FC = () => {
     const reload = () => { void actions.loadRequest(requestId); };
     window.addEventListener('pageshow', reload);
     const timer = window.setInterval(reload, 15000);
-    return () => { window.removeEventListener('pageshow', reload); window.clearInterval(timer); };
+    const stopSync = onSync(reload);
+    return () => { window.removeEventListener('pageshow', reload); window.clearInterval(timer); stopSync(); };
   }, [requestId, actions]);
   const check = async () => {
     if (busy || !pending) return;

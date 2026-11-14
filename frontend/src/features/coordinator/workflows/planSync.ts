@@ -57,7 +57,7 @@ export async function pushPlanToBackend(t: Any): Promise<string> {
     return '';
   } catch (e: Any) {
     const d = e?.response?.data;
-    const fields = d?.errors && typeof d.errors === 'object' ? Object.entries(d.errors).map(([k, v]) => `${k}: ${([] as string[]).concat(v as string[]).join(', ')}`).join('; ') : '';
+    const fields = d?.errors && typeof d.errors === 'object' ? Object.entries(d.errors).filter(([k]) => k !== 'exceptionType' && k !== 'stackTrace').map(([k, v]) => `${k}: ${([] as string[]).concat(v as string[]).join(', ')}`).join('; ') : '';
     return [d?.message || e?.message || 'Không kết nối được máy chủ.', fields].filter(Boolean).join(' – ');
   }
 }

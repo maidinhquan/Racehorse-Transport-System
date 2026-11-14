@@ -1,16 +1,42 @@
 // Sự cố & khiếu nại: danh sách sự cố trong chuyến (Flow 5) và khiếu nại liên quan (chỉ xem)
+import { sortIncidentsNewestFirst } from '../../../../shared/utils/incidentState';
+import { useEffect } from 'react';
 import { DataTable, Icon, Pill, PillT, Tabs, tabOn } from '../../components/common/ui';
 import { CoordinatorLayout } from '../../components/layout/CoordinatorLayout';
 import { custOf, legOf, reqById, trip } from '../../domain/coordinatorRules';
 import type { Any } from '../../store/coordinatorStore';
-import { db, useCoordinatorStore } from '../../store/coordinatorStore';
+import { db, syncCoordinatorIncidents, useCoordinatorStore } from '../../store/coordinatorStore';
 import { dt, human, incTypeVi } from '../../utils/format';
 import { CMP_VI, F5_DONE, F5_ST, F5_TYPES, cmpView, f5OnBehalf, f5Pill, f5Status, waitingFor } from '../../workflows/incidentOperations';
 
 export function IncidentsPage() {
   useCoordinatorStore();
+
+  useEffect(() => {
+    void syncCoordinatorIncidents();
+    const handleSync = (e?: Event) => {
+      const custom = e as CustomEvent;
+      if (custom?.detail?.id) {
+        const inc = custom.detail;
+        const idx = db.incidents.findIndex((x: Any) => (x.id || '').replace(/-/g, '_') === (inc.id || '').replace(/-/g, '_'));
+        if (idx >= 0) {
+          db.incidents[idx] = { ...db.incidents[idx], ...inc };
+        } else {
+          db.incidents.unshift(inc);
+        }
+      }
+      void syncCoordinatorIncidents();
+    };
+    window.addEventListener('rts_incident_pins_changed', handleSync);
+    window.addEventListener('rts_incident_created', handleSync);
+    return () => {
+      window.removeEventListener('rts_incident_pins_changed', handleSync);
+      window.removeEventListener('rts_incident_created', handleSync);
+    };
+  }, []);
+
   const on = tabOn('hub-f', 'incidents');
-  const rows = db.incidents.map((i: Any) => { f5Status(i); return i; });
+  const rows = sortIncidentsNewestFirst(db.incidents.map((i: Any) => { f5Status(i); return i; }) as Array<{ id: string; at?: string }>) as Any[];
   const openInc = rows.filter((i: Any) => !F5_DONE.includes(i.status)).length;
   const openCmp = db.complaints.filter((c: Any) => !['RESOLVED', 'CLOSED'].includes(c.status)).length;
   return (

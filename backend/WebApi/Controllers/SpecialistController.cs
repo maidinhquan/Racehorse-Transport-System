@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Application.DTOs;
 using Application.Interfaces;
 
@@ -48,6 +49,7 @@ namespace WebApi.Controllers
         // =========================================================================
 
         [HttpGet("trips")]
+        [Authorize(Roles = "TRANSPORT_SPECIALIST")]
         public async Task<IActionResult> GetTrips()
         {
             var (userId, role) = GetCurrentActor();
@@ -56,6 +58,7 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("trips/{tripId}")]
+        [Authorize(Roles = "TRANSPORT_SPECIALIST")]
         public async Task<IActionResult> GetTrip(string tripId)
         {
             var (userId, role) = GetCurrentActor();

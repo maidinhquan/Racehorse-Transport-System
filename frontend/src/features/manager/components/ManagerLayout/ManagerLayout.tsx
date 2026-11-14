@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '../../../../shared/components';
+import { formatNotification } from '../../../../shared/utils/notificationFormat';
 import { useManager } from '../../hooks/useManager';
 import { fmtDateTime } from '../../hooks/managerRules';
 import { MANAGER_INITIALS, MANAGER_NAME } from '../../data/mockData';
@@ -117,7 +118,7 @@ export const ManagerLayout: React.FC<ManagerLayoutProps> = ({ title, children })
             <ThemeToggle showLabel={false} />
 
             {/* Chuông thông báo */}
-            <div ref={boxRef} style={{ position: 'relative' }}>
+            <div className="mgr-notif-wrap" ref={boxRef}>
               <button
                 type="button"
                 className="mgr-icon-btn mgr-bell"
@@ -125,21 +126,74 @@ export const ManagerLayout: React.FC<ManagerLayoutProps> = ({ title, children })
                 aria-expanded={open}
                 onClick={() => { setOpen((v) => !v); setUserMenuOpen(false); }}
               >
-                <Icon name="bell" />{stats.unread > 0 && <span className="mgr-bell__dot" />}
+                <Icon name="bell" />{stats.unread > 0 && <i className="mgr-bell__dot" />}
               </button>
               {open && (
-                <div className="mgr-notif" role="dialog" aria-label="Thông báo">
+                <div className="mgr-notif" role="menu">
                   <div className="mgr-notif__head">
-                    <span>Thông báo</span>
-                    <button type="button" className="mgr-link" onClick={() => actions.markAllRead()}>Đánh dấu đã đọc</button>
+                    <div className="mgr-notif__title-wrap">
+                      <span className="mgr-notif__title">Thông báo</span>
+                      {stats.unread > 0 && (
+                        <span className="mgr-notif__badge-count">{stats.unread} mới</span>
+                      )}
+                    </div>
+                    {stats.unread > 0 && (
+                      <button type="button" className="mgr-link" onClick={() => actions.markAllRead()}>
+                        Đánh dấu đã đọc
+                      </button>
+                    )}
                   </div>
-                  {notifications.slice(0, 8).map((n) => (
-                    <button key={n.id} type="button" className={`mgr-notif__item ${n.read ? '' : 'unread'}`}
-                      onClick={() => { actions.markRead(n.id); setOpen(false); navigate(n.link); }}>
-                      <b>{n.title}</b><span>{n.text}</span><small>{fmtDateTime(n.at)}</small>
+                  <div className="mgr-notif__list">
+                    {notifications.length === 0 && (
+                      <div className="mgr-notif__empty">
+                        <Icon name="bell" />
+                        <p>Bạn không có thông báo nào.</p>
+                      </div>
+                    )}
+                    {notifications.slice(0, 8).map((raw) => {
+                      const n = formatNotification({ id: raw.id, title: raw.title, body: raw.text, at: raw.at, read: raw.read, link: raw.link });
+                      return (
+                        <button
+                          key={n.id}
+                          type="button"
+                          className={`mgr-notif__item ${n.read ? 'read' : 'unread'}`}
+                          onClick={() => {
+                            if (!n.read) actions.markRead(n.id);
+                            setOpen(false);
+                            if (n.link) navigate(n.link);
+                          }}
+                        >
+                          <span className={`mgr-notif__icon-box tone-${n.tone}`}>
+                            <Icon name={n.icon} />
+                          </span>
+                          <div className="mgr-notif__content">
+                            <div className="mgr-notif__item-head">
+                              <b>{n.title}</b>
+                              {!n.read && <span className="mgr-notif__unread-dot" />}
+                            </div>
+                            <span className="mgr-notif__body">{n.body}</span>
+                            <small className="mgr-notif__time">
+                              <Icon name="clock" /> {fmtDateTime(n.at)}
+                            </small>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mgr-notif__foot">
+                    <button
+                      type="button"
+                      className="mgr-notif__view-all-btn"
+                      onClick={() => {
+                        setOpen(false);
+                        navigate('/manager/notifications');
+                      }}
+                    >
+                      <span>Xem tất cả thông báo ({notifications.length})</span>
+                      <Icon name="chevron" className="mgr-notif__chevron-right" />
                     </button>
-                  ))}
-                  {!notifications.length && <p className="mgr-hint" style={{ padding: 8 }}>Không có thông báo.</p>}
+                  </div>
                 </div>
               )}
             </div>

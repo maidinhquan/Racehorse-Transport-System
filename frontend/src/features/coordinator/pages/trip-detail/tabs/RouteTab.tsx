@@ -9,7 +9,7 @@ import type { Any } from '../../../store/coordinatorStore';
 import { commit, go, openModal, toast, useCoordinatorStore } from '../../../store/coordinatorStore';
 import { addHours, dt, human, stampMs } from '../../../utils/format';
 import { airportLabel, selectAirportsModal } from '../../../workflows/airOperations';
-import { fmtMin, PF, PF_COLOR, PLACE_ST, plannerMap, ROUTE_POLICY, routeNew, routeSubmitError, ROUTING, RP, rpAdd, rpAutoSort, rpCalc, rpCandidates, rpDeadline, rpDel, rpDeletable, rpDetour, rpEditable, rpEnsure, rpFixDomesticRoute, rpFlightKey, rpFocus, rpGroups, rpMove, rpOpenAddStop, rpPolicy, rpPolicyModal, rpRetry, rpRoute, rpRouteKey, rpRoutingModal, rpSave, rpSeg, rpSetAirCare, rpSetFilter, rpSetPurpose, rpSetStop, rpUseSim } from '../../../workflows/routePlanner';
+import { fmtMin, PF, PF_COLOR, PLACE_ST, plannerMap, ROUTE_POLICY, routeNew, routeSubmitError, RP, rpAdd, rpAutoSort, rpCalc, rpCandidates, rpDeadline, rpDel, rpDeletable, rpDetour, rpEditable, rpEnsure, rpFixDomesticRoute, rpFlightKey, rpFocus, rpGroups, rpMove, rpOpenAddStop, rpPolicy, rpPolicyModal, rpRetry, rpRoute, rpRouteKey, rpSave, rpSeg, rpSetAirCare, rpSetFilter, rpSetPurpose, rpSetStop, rpUseSim } from '../../../workflows/routePlanner';
 
 /** Căn lùi giờ xuất phát sao cho xe vừa kịp đến sân bay trước giờ bay đúng số giờ quy định */
 function calcIdealDepart(t: Any, rt: Any) {
@@ -890,7 +890,6 @@ export function RouteTab({ t }: { t: Any }) {
         <button type="button" className="btn ghost lg" onClick={() => rpSave(t.id)}>Lưu bản nháp</button>
         <button type="button" className="btn solid lg" onClick={() => { rpSave(t.id); go(`f/trip/${t.id}/resources`); }}>Lưu &amp; phân công xe, nhân sự →</button>
       </> : canPlan(t) && ['APPROVED', 'RETURNED'].includes(rt.status) ? <button type="button" className="btn solid lg" onClick={() => routeNew(t.id)}>Tạo phiên bản điều chỉnh v{rt.v + 1}</button> : null}
-      <span className="hint">{t.demoFlow3 ? 'Routing: Mô phỏng riêng chuyến Demo · không phải đường thực tế' : <>Routing: {ROUTING.provider === 'SIM' ? 'Mô phỏng (dữ liệu mẫu)' : 'OSRM – ' + ROUTING.url.replace(/^https?:\/\//, '').split('/')[0]} • <button type="button" className="link" onClick={rpRoutingModal}>Đổi</button></>}</span>
     </div>
     <p className="au-error" id="f-route-error" hidden={!routeSubmitError || !edit}>{routeSubmitError}</p>
   </>);

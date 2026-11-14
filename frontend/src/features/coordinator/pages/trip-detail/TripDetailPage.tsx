@@ -1,11 +1,12 @@
 // Chi tiết chuyến của Điều phối: Tổng quan • Tuyến đường (lập lộ trình) • Xe & nhân sự • Chuyến bay • Theo dõi hành trình
+import { useEffect } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { Icon, Pill } from '../../components/common/ui';
 import { EmptyPlanPanel } from '../../components/demo/Demo';
 import { CoordinatorLayout } from '../../components/layout/CoordinatorLayout';
 import { deployed, planGaps, reqOfTrip, trip } from '../../domain/coordinatorRules';
-import { go, useCoordinatorStore } from '../../store/coordinatorStore';
-import { city, cityLabel, dt, human } from '../../utils/format';
+import { go, syncCoordinatorTrips, useCoordinatorStore } from '../../store/coordinatorStore';
+import { cityLabel, dt, human } from '../../utils/format';
 import { EMPTY_PLAN_ID } from '../../workflows/coordinatorActions';
 import { ResourcesTab } from './tabs/ResourcesTab';
 import { RouteTab } from './tabs/RouteTab';
@@ -17,6 +18,9 @@ const TAB_TITLES: Record<string, string> = { overview: 'Tổng quan', route: 'Tu
 export function TripDetailPage() {
   useCoordinatorStore();
   const { tripId = '', tab = 'overview' } = useParams();
+  useEffect(() => {
+    void syncCoordinatorTrips();
+  }, [tripId]);
   const t = trip(tripId);
   if (!t) return <Navigate to="/coordinator/monitor" replace />;
   const r = reqOfTrip(t), on = TAB_TITLES[tab] && (tab !== 'flight' || t.mode === 'AIR') ? tab : 'overview';
@@ -27,7 +31,7 @@ export function TripDetailPage() {
     <CoordinatorLayout title={on === 'route' ? 'Lập lộ trình' : 'Giám sát hành trình'} active="/coordinator/monitor">
       <button type="button" className="link back" onClick={() => go('f/monitor')}>← Giám sát hành trình</button>
       <div className="head"><div><h2 className="page-title" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>{t.id} <Pill v={t.status} /></h2>
-        <p className="subtitle">{r.id} • {cityLabel(r.origin)}, {city(r.origin)[1] || ''} → {cityLabel(r.destination)}, {city(r.destination)[1] || ''} • {t.mode === 'AIR' ? 'Hàng không' : (t.mode ? human(t.mode) : 'Chưa chọn phương thức')} • khởi hành {dt(t.plannedDepart)}</p></div>
+        <p className="subtitle">{r.id} • {cityLabel(r.origin)} → {cityLabel(r.destination)} • {t.mode === 'AIR' ? 'Hàng không' : (t.mode ? human(t.mode) : 'Chưa chọn phương thức')} • khởi hành {dt(t.plannedDepart)}</p></div>
         {deployed(t) && t.status === 'PLANNING' ? (gaps.length ? <Pill v="NOT_READY" label={`${gaps.length} việc còn mở`} /> : <Pill v="READY" label="Hoàn tất lập kế hoạch" />) : null}</div>
       {dep === 'CONFIRMED' ? null : <div className="note yellow"><Icon name="info" /><div><b>{dep === 'ON_HOLD' ? 'Tạm dừng triển khai' : 'Đang chờ xác nhận triển khai'}</b>{dep === 'ON_HOLD' ? `Lý do: ${String(t.deployment.holdReason || '—').replace(/\.$/, '')}. Các phiên bản tuyến và phân công hiện có chỉ được xem cho đến khi Quản lý tiếp tục triển khai.` : 'Lập tuyến và phân công chính thức bắt đầu sau khi quản lý xác nhận triển khai.'}</div></div>}
       {t.id === EMPTY_PLAN_ID ? <EmptyPlanPanel /> : null}

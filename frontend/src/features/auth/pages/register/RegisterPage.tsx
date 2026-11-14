@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  checkEmailAvailability,
   registrationErrorMessage,
   requestRegistrationOtp,
   validateEmailExistence,
@@ -8,6 +9,78 @@ import {
 import { saveRegistrationSession } from "../../api/registrationSession";
 import AuthLayout from "../../../../shared/layouts/AuthLayout/AuthLayout";
 import "./RegisterPage.css";
+
+/**
+ * Kiểm tra định dạng cú pháp email (RFC 5322) và cảnh báo các lỗi gõ nhầm phổ biến
+ */
+function checkEmailFormat(rawEmail: string): string | null {
+  const email = rawEmail.trim();
+  if (!email) {
+    return "Vui lòng nhập địa chỉ email.";
+  }
+  if (email.length > 100) {
+    return "Email không được vượt quá 100 ký tự.";
+  }
+  if (/[\u0080-\uFFFF]/.test(email)) {
+    return "Email không được chứa ký tự có dấu hoặc ký tự đặc biệt.";
+  }
+
+  const parts = email.split("@");
+  if (parts.length !== 2) {
+    return "Định dạng email chưa đúng (phải có dạng ten@tenmien.com).";
+  }
+
+  const [localPart, domainPart] = parts;
+  if (!localPart || !domainPart) {
+    return "Định dạng email chưa đúng (thiếu tên tài khoản hoặc tên miền).";
+  }
+
+  if (localPart.startsWith(".") || localPart.endsWith(".") || localPart.includes("..")) {
+    return "Tên tài khoản email không hợp lệ (không chứa dấu chấm ở đầu, cuối hoặc liên tiếp).";
+  }
+
+  if (!domainPart.includes(".")) {
+    return "Tên miền email phải có phần mở rộng (ví dụ: .com, .vn).";
+  }
+
+  if (domainPart.startsWith(".") || domainPart.endsWith(".") || domainPart.includes("..")) {
+    return "Tên miền email không hợp lệ.";
+  }
+
+  const lastDotIndex = domainPart.lastIndexOf(".");
+  const tld = domainPart.substring(lastDotIndex + 1).toLowerCase();
+
+  // Phát hiện lỗi gõ nhầm đuôi tên miền phổ biến
+  if (tld === "con") {
+    return "Định dạng tên miền không hợp lệ (đuôi .con không tồn tại, bạn có muốn gõ .com?).";
+  }
+  if (tld === "cmo" || tld === "cpm" || tld === "cno") {
+    return "Định dạng tên miền không hợp lệ (có thể bạn muốn gõ .com?).";
+  }
+
+  if (!/^[a-zA-Z]{2,63}$/.test(tld)) {
+    return `Phần mở rộng tên miền (.${tld}) không hợp lệ.`;
+  }
+
+  const domainLower = domainPart.toLowerCase();
+  if (["gmai.com", "gamil.com", "gmial.com", "gmaill.com"].includes(domainLower)) {
+    return "Tên miền không hợp lệ (có thể bạn muốn gõ gmail.com?).";
+  }
+  if (["yaho.com", "yahooo.com", "yaho.com.vn"].includes(domainLower)) {
+    return "Tên miền không hợp lệ (có thể bạn muốn gõ yahoo.com?).";
+  }
+  if (["hotmial.com", "hotmai.com"].includes(domainLower)) {
+    return "Tên miền không hợp lệ (có thể bạn muốn gõ hotmail.com?).";
+  }
+
+  const emailRegex =
+    /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+  if (!emailRegex.test(email)) {
+    return "Định dạng email chưa đúng.";
+  }
+
+  return null;
+}
 
 function RegisterPage() {
   const navigate = useNavigate();
@@ -18,58 +91,79 @@ function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [submitStatusText, setSubmitStatusText] = useState("");
   const [emailValidation, setEmailValidation] = useState<{
     isValid: boolean;
     message: string;
   } | null>(null);
-
-  const handleCheckEmail = async () => {
-    const trimmed = email.trim();
-    if (!trimmed) {
-      setEmailValidation({
-        isValid: false,
-        message: "Vui lòng nhập địa chỉ email trước khi kiểm tra.",
-      });
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmed)) {
-      setEmailValidation({
-        isValid: false,
-        message: "Định dạng email chưa hợp lệ.",
-      });
-      return;
-    }
-
-    setIsCheckingEmail(true);
-    setEmailValidation(null);
-    try {
-      const result = await validateEmailExistence(trimmed);
-      setEmailValidation({
-        isValid: result.isValid,
-        message: result.message,
-      });
-    } catch (err) {
-      setEmailValidation({
-        isValid: false,
-        message: registrationErrorMessage(err),
-      });
-    } finally {
-      setIsCheckingEmail(false);
-    }
-  };
   const [error, setError] = useState("");
   const submittingRef = useRef(false);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const handleEmailBlur = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) return;
+
+    // BƯỚC 1: Check format
+    const formatMsg = checkEmailFormat(trimmedEmail);
+    if (formatMsg) {
+      setEmailValidation({ isValid: false, message: formatMsg });
+      return;
+    }
+
+    // BƯỚC 2: Check trùng trong hệ thống
+    try {
+      const avail = await checkEmailAvailability(trimmedEmail);
+      if (!avail.isAvailable || avail.existsInSystem) {
+        setEmailValidation({
+          isValid: false,
+          message: avail.message || "Email này đã được sử dụng trong hệ thống.",
+        });
+        return;
+      }
+
+      // BƯỚC 3: Check mail có tồn tại hay không
+      const exist = await validateEmailExistence(trimmedEmail);
+      if (!exist.isValid) {
+        setEmailValidation({
+          isValid: false,
+          message: exist.message || "Tên miền email không tồn tại hoặc không thể nhận thư.",
+        });
+        return;
+      }
+
+      setEmailValidation({
+        isValid: true,
+        message: "Email hợp lệ và có thể nhận mã xác nhận.",
+      });
+    } catch {
+      // Bỏ qua lỗi kết nối khi blur để người dùng vẫn tiếp tục điền form
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (submittingRef.current) return;
     setError("");
+    setEmailValidation(null);
+
+    const trimmedEmail = email.trim().toLowerCase();
+
+    // =========================================================================
+    // TRÌNH TỰ KIỂM TRA EMAIL THEO YÊU CẦU:
+    // BƯỚC 1: Check mail có đúng format không?
+    //         -> Nếu SAI: dừng ngay, KHỎI check trùng, KHỎI check tồn tại.
+    // =========================================================================
+    const formatMsg = checkEmailFormat(trimmedEmail);
+    if (formatMsg) {
+      setEmailValidation({
+        isValid: false,
+        message: formatMsg,
+      });
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("Mật khẩu xác nhận không khớp.");
@@ -78,16 +172,60 @@ function RegisterPage() {
 
     submittingRef.current = true;
     setIsSubmitting(true);
+
     try {
+      // =========================================================================
+      // BƯỚC 2: Check mail có trùng trong hệ thống không?
+      //         -> Nếu TRÙNG: dừng ngay, KHỎI check tồn tại.
+      // =========================================================================
+      setSubmitStatusText("Đang kiểm tra trùng lặp email…");
+      const availResult = await checkEmailAvailability(trimmedEmail);
+      if (!availResult.isAvailable || availResult.existsInSystem) {
+        const dupMsg =
+          availResult.message ||
+          "Email này đã được sử dụng trong hệ thống. Vui lòng đăng nhập hoặc sử dụng email khác.";
+        setEmailValidation({
+          isValid: false,
+          message: dupMsg,
+        });
+        return;
+      }
+
+      // =========================================================================
+      // BƯỚC 3: Check mail có tồn tại hay không? (DNS / MX / Khả năng nhận thư)
+      //         -> Nếu KHÔNG TỒN TẠI: dừng ngay, KHÔNG gửi.
+      // =========================================================================
+      setSubmitStatusText("Đang kiểm tra sự tồn tại của email…");
+      const checkResult = await validateEmailExistence(trimmedEmail);
+      if (!checkResult.isValid) {
+        const existMsg =
+          checkResult.message ||
+          "Địa chỉ email không tồn tại trên thực tế hoặc không thể nhận thư.";
+        setEmailValidation({
+          isValid: false,
+          message: existMsg,
+        });
+        return;
+      }
+
+      // =========================================================================
+      // BƯỚC 4: Gửi mã OTP
+      // =========================================================================
+      setEmailValidation({
+        isValid: true,
+        message: checkResult.message || "Email hợp lệ và có thể nhận thư.",
+      });
+      setSubmitStatusText("Đang gửi mã xác nhận…");
+
       const data = await requestRegistrationOtp({
-        fullName,
-        email: email.trim().toLowerCase(),
-        phoneNumber: phone,
+        fullName: fullName.trim(),
+        email: trimmedEmail,
+        phoneNumber: phone.trim(),
         password,
       });
 
       const session = {
-        email: email.trim().toLowerCase(),
+        email: trimmedEmail,
         registrationToken: data.registrationToken,
         otpExpiresAt: Date.now() + data.expiresIn * 1000,
         resendAvailableAt: Date.now() + data.resendAfterSeconds * 1000,
@@ -98,10 +236,12 @@ function RegisterPage() {
       setConfirmPassword("");
       navigate("/verify-otp", { state: session });
     } catch (err) {
-      setError(registrationErrorMessage(err));
+      const errMsg = registrationErrorMessage(err);
+      setError(errMsg);
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
+      setSubmitStatusText("");
     }
   };
 
@@ -130,7 +270,7 @@ function RegisterPage() {
         </p>
 
         <form onSubmit={handleSubmit}>
-          {error && (
+          {error && (!emailValidation || error !== emailValidation.message) && (
             <p className="register-error-message" role="alert">
               {error}
             </p>
@@ -153,18 +293,7 @@ function RegisterPage() {
 
           {/* EMAIL */}
           <div className="register-form-group">
-            <div className="register-field-header">
-              <label htmlFor="email">Email</label>
-              <button
-                type="button"
-                className="register-check-email-btn"
-                onClick={handleCheckEmail}
-                disabled={isCheckingEmail || !email.trim()}
-                title="Bấm để kiểm tra email tồn tại thực tế và không trùng lặp"
-              >
-                {isCheckingEmail ? "Đang kiểm tra…" : "Kiểm tra email"}
-              </button>
-            </div>
+            <label htmlFor="email">Email</label>
             <input
               id="email"
               maxLength={100}
@@ -174,7 +303,9 @@ function RegisterPage() {
               onChange={(event) => {
                 setEmail(event.target.value);
                 if (emailValidation) setEmailValidation(null);
+                if (error) setError("");
               }}
+              onBlur={handleEmailBlur}
               autoComplete="email"
               required
             />
@@ -185,6 +316,7 @@ function RegisterPage() {
                 }`}
                 role="alert"
               >
+                {emailValidation.isValid ? "✓ " : "⚠️ "}
                 {emailValidation.message}
               </div>
             )}
@@ -259,7 +391,7 @@ function RegisterPage() {
             className="register-submit-button"
             disabled={isSubmitting}
           >
-            {isSubmitting ? "Đang gửi mã…" : "Gửi mã xác nhận"}
+            {isSubmitting ? (submitStatusText || "Đang xử lý…") : "Gửi mã xác nhận"}
           </button>
         </form>
 

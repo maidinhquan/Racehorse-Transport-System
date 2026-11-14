@@ -213,3 +213,103 @@
 }
 .cus-pick__thumb { position: relative; overflow: hidden; flex: 0 0 auto; }
 .cus-pick__thumb img { position: absolute; inset: 0; display: block; }
+
+
+/* Collapsible Horse Card in ReviewStep */
+.cus-wizard__review-horse-card {
+  border: 1px solid var(--cus-line, #e2e8f0);
+  border-radius: 12px;
+  background: var(--cus-card, #ffffff);
+  margin-top: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease-in-out;
+}
+.cus-wizard__review-horse-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+.cus-wizard__review-horse-card.is-open {
+  border-color: #fed7aa;
+  box-shadow: 0 2px 8px rgba(245, 124, 0, 0.08);
+}
+.cus-wizard__review-horse-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  background: var(--cus-bg, #f8fafc);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.15s ease;
+}
+.cus-wizard__review-horse-card.is-open .cus-wizard__review-horse-toggle {
+  background: #fff7ed;
+  border-bottom: 1px solid #fed7aa;
+}
+.cus-wizard__review-horse-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.cus-wizard__review-horse-index {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.cus-wizard__review-horse-card.is-open .cus-wizard__review-horse-index {
+  background: #f57c00;
+  color: #ffffff;
+}
+.cus-wizard__review-horse-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cus-wizard__review-horse-name small {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  background: #ffffff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+.cus-wizard__review-horse-meta {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 3px;
+}
+.cus-wizard__review-horse-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cus-badge-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: #c2410c;
+  background: #ffedd5;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid #fed7aa;
+}
+.cus-wizard__review-horse-body {
+  padding: 18px 20px;
+  background: #ffffff;
+}

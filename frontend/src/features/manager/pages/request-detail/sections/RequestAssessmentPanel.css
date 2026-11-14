@@ -1,0 +1,482 @@
+/* ==========================================================================
+   RequestAssessmentPanel – Giao diện Xét duyệt trước hợp đồng (Manager)
+   ========================================================================== */
+
+.request-assessment-card {
+  background: var(--mgr-card, #ffffff);
+  border: 1px solid var(--mgr-line, #e2e8f0);
+  border-radius: 14px;
+  padding: 22px 24px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  box-sizing: border-box;
+}
+
+[data-theme="dark"] .request-assessment-card {
+  background: var(--mgr-card, #131b2e);
+  border-color: var(--mgr-line, #1e293b);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.request-assessment-card__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--mgr-ink, #0f172a);
+  margin: 0 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.request-assessment-card__desc {
+  font-size: 13px;
+  color: var(--mgr-muted, #64748b);
+  margin: 0 0 18px 0;
+  line-height: 1.45;
+}
+
+/* Alert messages */
+.mgr-assessment-alert {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  margin-bottom: 16px;
+}
+
+.mgr-assessment-loading {
+  padding: 24px 0;
+  text-align: center;
+  color: var(--mgr-muted, #64748b);
+  font-size: 13.5px;
+}
+
+/* Form Styles */
+.mgr-assessment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mgr-assessment-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.mgr-assessment-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mgr-ink, #0f172a);
+  margin-bottom: 7px;
+}
+
+.mgr-assessment-label__text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mgr-assessment-label__text svg {
+  width: 16px;
+  height: 16px;
+  color: var(--mgr-muted, #64748b);
+}
+
+.mgr-required-dot {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.mgr-select-wrap {
+  position: relative;
+}
+
+.mgr-select {
+  width: 100%;
+  height: 42px;
+  border-radius: 9px;
+  border: 1px solid var(--mgr-line, #e2e8f0);
+  padding: 0 36px 0 14px;
+  font-size: 13.5px;
+  background: var(--mgr-input-bg, #ffffff);
+  color: var(--mgr-ink, #0f172a);
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+}
+
+[data-theme="dark"] .mgr-select {
+  background-color: #172136;
+  border-color: #1e293b;
+  color: #f8fafc;
+}
+
+.mgr-select:focus {
+  border-color: var(--mgr-orange, #f57c00);
+  box-shadow: 0 0 0 3px var(--mgr-orange-soft, rgba(245, 124, 0, 0.15));
+}
+
+/* Personnel Selected Card */
+.mgr-assigned-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: mgrPersonFadeIn 0.2s ease-out;
+}
+
+@keyframes mgrPersonFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mgr-assigned-person--coord {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+[data-theme="dark"] .mgr-assigned-person--coord {
+  background: rgba(14, 165, 233, 0.08);
+  border-color: rgba(14, 165, 233, 0.25);
+}
+
+.mgr-assigned-person--spec {
+  background: #fffaf5;
+  border-color: #fed7aa;
+}
+
+[data-theme="dark"] .mgr-assigned-person--spec {
+  background: rgba(251, 146, 60, 0.08);
+  border-color: rgba(251, 146, 60, 0.25);
+}
+
+.mgr-assigned-person__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.mgr-assigned-person--coord .mgr-assigned-person__avatar {
+  background: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+
+.mgr-assigned-person--spec .mgr-assigned-person__avatar {
+  background: #ea580c;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.25);
+}
+
+.mgr-assigned-person__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mgr-assigned-person__name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--mgr-ink, #0f172a);
+  line-height: 1.3;
+  margin-bottom: 2px;
+}
+
+.mgr-assigned-person__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.mgr-assigned-person--coord .mgr-assigned-person__role {
+  color: #0284c7;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .mgr-assigned-person--coord .mgr-assigned-person__role {
+  color: #38bdf8;
+}
+
+.mgr-assigned-person--spec .mgr-assigned-person__role {
+  color: #ea580c;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .mgr-assigned-person--spec .mgr-assigned-person__role {
+  color: #fb923c;
+}
+
+.mgr-assigned-person__id {
+  color: var(--mgr-muted, #64748b);
+}
+
+.mgr-assigned-person__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+[data-theme="dark"] .mgr-assigned-person__badge {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.mgr-assigned-person__badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Action Buttons Row */
+.mgr-assessment-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.mgr-btn--block {
+  width: 100%;
+  justify-content: center;
+  height: 42px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 9px;
+}
+
+/* Assigned Staff Grid (When review is already assigned) */
+.mgr-review-status-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--mgr-line, #f1f5f9);
+}
+
+.mgr-review-status-tag {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mgr-status-pill {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.mgr-status-pill.status-COORDINATOR_PENDING,
+.mgr-status-pill.status-SPECIALIST_PENDING,
+.mgr-status-pill.status-MANAGER_PENDING {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.mgr-status-pill.status-CUSTOMER_ACCEPTED,
+.mgr-status-pill.status-ACCEPTED {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.mgr-status-pill.status-CUSTOMER_REJECTED,
+.mgr-status-pill.status-REJECTED {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.mgr-deadline-text {
+  font-size: 12px;
+  color: var(--mgr-muted, #64748b);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mgr-deadline-text svg {
+  width: 13px;
+  height: 13px;
+}
+
+.mgr-assigned-staff-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.mgr-staff-assigned-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--mgr-line, #e2e8f0);
+  background: var(--mgr-bg, #f8fafc);
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  position: relative;
+}
+
+.mgr-staff-assigned-card:hover,
+.mgr-staff-assigned-card.is-open {
+  border-color: var(--mgr-ink, #0f172a);
+}
+
+.mgr-staff-done {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #16a34a;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.mgr-staff-done svg {
+  width: 13px;
+  height: 13px;
+}
+
+.mgr-staff-result {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--mgr-line, #e2e8f0);
+  background: var(--mgr-surface, #fff);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.mgr-staff-result__item p {
+  margin: 2px 0 0;
+}
+
+.mgr-staff-assigned-card.coord {
+  border-left: 3px solid #0284c7;
+}
+
+.mgr-staff-assigned-card.spec {
+  border-left: 3px solid #ea580c;
+}
+
+.mgr-staff-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.mgr-staff-avatar.coord {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.mgr-staff-avatar.spec {
+  background: #ffedd5;
+  color: #ea580c;
+}
+
+.mgr-staff-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mgr-staff-role {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mgr-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.mgr-staff-name {
+  font-size: 13.5px;
+  color: var(--mgr-ink, #0f172a);
+}
+
+.mgr-staff-id {
+  font-size: 11.5px;
+  color: var(--mgr-muted, #94a3b8);
+}
+
+/* Option Cards */
+.mgr-review-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.mgr-review-option-card {
+  padding: 14px 16px;
+  background: var(--mgr-card, #ffffff);
+  border: 1px solid var(--mgr-line, #e2e8f0);
+  border-radius: 10px;
+}
+
+[data-theme="dark"] .mgr-review-option-card {
+  background: #172136;
+}
+
+.mgr-review-option-card b {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+  color: var(--mgr-ink, #0f172a);
+}
+
+.mgr-review-option-card p {
+  margin: 3px 0;
+  font-size: 13px;
+  color: var(--mgr-muted, #475569);
+}
+
+[data-theme="dark"] .mgr-review-option-card p {
+  color: #94a3b8;
+}

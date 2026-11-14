@@ -49,6 +49,23 @@ export interface HorseRef {
   breed: string;
   microchip: string;
   passportNo: string;
+  sex?: string | null;
+  dob?: string | null;
+  weight?: number | null;
+  reproductiveStatus?: string | null;
+  healthNotes?: string | null;
+  value?: string | null;
+  currency?: string;
+  passport?: {
+    number?: string | null;
+    authority?: string | null;
+    issueDate?: string | null;
+    expiryDate?: string | null;
+    scan?: { name?: string; url?: string } | null;
+  } | null;
+  photo?: { name?: string; url?: string } | null;
+  ownership?: { name?: string; url?: string } | null;
+  valueProof?: { name?: string; url?: string } | null;
 }
 
 export interface Place {
@@ -394,7 +411,7 @@ export interface Trip {
 // ---------------------------------------------------------------------------
 export type IncidentType = 'DELAY' | 'HORSE_HEALTH' | 'VEHICLE' | 'BORDER' | 'OTHER';
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type IncidentStatus = 'NEW' | 'IN_PROGRESS' | 'CLOSED';
+export type IncidentStatus = 'NEW' | 'IN_PROGRESS' | 'CLOSED' | 'ESCALATED' | 'RESOLVED';
 export type PlanStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
 export type Payer = 'COMPANY' | 'CUSTOMER' | 'INSURANCE';
 

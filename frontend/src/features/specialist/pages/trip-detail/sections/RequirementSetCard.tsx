@@ -21,6 +21,7 @@ import {
 import { ApplySetModal } from '../../../components/Modals';
 import { Note } from '../../../components/Common/Common';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
+import { getUserFullName } from '../../../../../shared/utils/userNameResolver';
 
 /** Bộ yêu cầu hồ sơ của chuyến: chọn & áp dụng (xem trước thay đổi), xem bản chụp, cập nhật */
 export const RequirementSetCard: React.FC<{ trip: SpecTrip }> = ({ trip: t }) => {
@@ -61,7 +62,7 @@ export const RequirementSetCard: React.FC<{ trip: SpecTrip }> = ({ trip: t }) =>
   return (
     <div className="spc-card spc-rp">
       <h3 className="spc-card__title">
-        <span>Bộ yêu cầu hồ sơ<br /><small className="spc-muted"><b>{rs.pkgId} • {rs.name}</b> • v{rs.pkgV} • áp dụng {fmtDateTime(rs.at)} bởi {rs.by}</small></span>
+        <span>Bộ yêu cầu hồ sơ<br /><small className="spc-muted"><b>{rs.pkgId} • {rs.name}</b> • v{rs.pkgV} • áp dụng {fmtDateTime(rs.at)} bởi {getUserFullName(rs.by)}</small></span>
         <TripStatusBadge label={`Đã áp dụng v${rs.pkgV}`} tone="ok" />
       </h3>
       <div className="spc-ready__stats spc-ready__stats--4">

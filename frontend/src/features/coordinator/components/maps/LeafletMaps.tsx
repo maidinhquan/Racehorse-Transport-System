@@ -8,9 +8,12 @@ import type { Any } from '../../store/coordinatorStore';
 import { db, useCoordinatorStore } from '../../store/coordinatorStore';
 import { STOP_LABEL, dt, incTypeVi } from '../../utils/format';
 import { fmtMin, kmBetween, PF, PF_COLOR, RP, plannerMap, ROUTE_POLICY, rpCalc, rpCandidates, rpCoords, rpEditable, rpFocus, rpGroups, rpPick, rpRoute, rpRouteKey, rpSeg } from '../../workflows/routePlanner';
-import { Empty } from '../common/ui';
-import { drawIncidentPins } from '../../../../shared/maps/incidentPinLayer';
-import { getIncidentPins, useIncidentPins } from '../../../../shared/utils/sharedIncidentPins';
+import { Empty, Icon } from '../common/ui';
+import { drawIncidentPins, ensureIncidentPinStyle, snapPointToPolyline } from '../../../../shared/maps/incidentPinLayer';
+import { getIncidentPins, saveIncidentPin, useIncidentPins } from '../../../../shared/utils/sharedIncidentPins';
+import { fetchRoadRoute, fetchTripSegments, inferStopCoords } from '../../../../shared/maps/roadRouting';
+import { getUserFullName } from '../../../../shared/utils/userNameResolver';
+import { humanizeLocation } from '../../../../shared/utils/locationResolver';
 
 // Cấu hình icon mặc định Leaflet để tương thích Vite
 delete (L.Icon.Default.prototype as Any)._getIconUrl;
@@ -56,6 +59,7 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
   const rt = t ? (t.routes || []).find((r: Any) => r.stops === stops) || curRoute(t) : null;
   if (t && rt) rpCoords(t, rt);
   const ps = t ? RP(t.id) : null;
+  const routeKey = t && rt ? rpRouteKey(t, rt) : '';
   const geom = (rt && rt.geom && Array.isArray(rt.geom) && rt.geom.length === stops.length - 1)
     ? rt.geom
     : (rt && rt.routingSnapshot?.legs && Array.isArray(rt.routingSnapshot.legs) && rt.routingSnapshot.legs.length === stops.length - 1)
@@ -66,10 +70,10 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
   const missing = (stops || []).filter((x: Any) => x?.lat == null || !Number.isFinite(Number(x?.lat))).length;
 
   useEffect(() => {
-    if (!geom && t && rt && (!ps || ps.routing?.status === 'idle') && missing === 0) {
+    if (!geom && t && rt && (!ps || ps.routing?.status === 'idle' || ps.routing?.key !== routeKey) && missing === 0) {
       void rpRoute(t);
     }
-  }, [t, rt, geom, ps, missing]);
+  }, [t, rt, geom, ps, missing, routeKey]);
 
   useEffect(() => {
     if (!isMaximized) return;
@@ -118,20 +122,53 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
     });
     const air = t && t.mode === 'AIR';
     const hasAirports = stops.some((s: Any) => s.type === 'AIRPORT');
+    let isCancelled = false;
 
+    const missingGeomPolylines: Array<{ index: number; poly: L.Polyline; a: [number, number]; b: [number, number]; done: boolean }> = [];
     for (let i = 1; i < pts.length; i++) {
       if (!pts[i - 1] || !pts[i]) continue;
       if (air && !hasAirports) continue;
       const done = current >= 0 && i <= current;
-      const flight = air && stops[i - 1]?.type === 'AIRPORT' && stops[i]?.type === 'AIRPORT';
-      const segmentGeom = geom && Array.isArray(geom[i - 1]) ? geom[i - 1] : null;
-      L.polyline(segmentGeom && !flight ? segmentGeom : [pts[i - 1]!, pts[i]!], {
+      const flight = (air || hasAirports) && stops[i - 1]?.type === 'AIRPORT' && stops[i]?.type === 'AIRPORT';
+      const segmentGeom = geom && Array.isArray(geom[i - 1]) && geom[i - 1].length > 1 ? geom[i - 1] : null;
+      const poly = L.polyline(segmentGeom && !flight ? segmentGeom : [pts[i - 1]!, pts[i]!], {
         color: flight ? '#ea580c' : done ? '#f57c00' : '#2563eb',
-        weight: done ? 5 : 5,
-        opacity: 0.85,
+        weight: flight ? 3 : 5,
+        opacity: 0.88,
         dashArray: flight ? '2 10' : (!segmentGeom && !done) ? '6 8' : undefined,
         interactive: false,
       }).addTo(map);
+      if (!flight && !segmentGeom) {
+        missingGeomPolylines.push({ index: i - 1, poly, a: pts[i - 1]!, b: pts[i]!, done });
+      }
+    }
+
+    if (missingGeomPolylines.length > 0) {
+      if (!air && !hasAirports && pts.every(Boolean)) {
+        const roadPoints = (pts as [number, number][]).map(([lat, lng]) => ({ lat, lng }));
+        void fetchTripSegments(roadPoints).then((segments) => {
+          if (isCancelled) return;
+          missingGeomPolylines.forEach(({ index, poly, done }) => {
+            const seg = segments[index];
+            if (seg && seg.length > 1) {
+              (poly as Any).setLatLngs?.(seg);
+              if (!done) poly.setStyle({ dashArray: undefined });
+            }
+          });
+        });
+      } else {
+        missingGeomPolylines.forEach(({ poly, a, b, done }) => {
+          void fetchRoadRoute([
+            { lat: a[0], lng: a[1] },
+            { lat: b[0], lng: b[1] },
+          ]).then((roadCoords) => {
+            if (!isCancelled && roadCoords && roadCoords.length > 1) {
+              (poly as Any).setLatLngs?.(roadCoords);
+              if (!done) poly.setStyle({ dashArray: undefined });
+            }
+          });
+        });
+      }
     }
 
     stops.forEach((x: Any, i: number) => {
@@ -180,6 +217,7 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
     ro.observe(el.current);
 
     return () => {
+      isCancelled = true;
       ro.disconnect();
       cancelTiles();
       try {
@@ -241,6 +279,392 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
         {current >= 0 ? <span><i style={{ background: '#f57c00', outline: '2px solid #fde047' }} />Mốc xác nhận gần nhất</span> : null}
       </div>
       <p className="hint lf-cap">{geom ? null : 'Đang tải tuyến đường bộ...'}{missing ? ` Chưa có tọa độ cho ${missing} điểm.` : ''}</p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Trích xuất tọa độ sự cố từ mọi nguồn khả dĩ
+// ---------------------------------------------------------------------------
+const cleanIdKey = (s: string) => String(s || '').replace(/[-_]/g, '').toUpperCase();
+
+function parseIncidentCoords(i: Any, t?: Any): [number, number] | null {
+  if (!i) return null;
+  // 0. Ghim tài xế đã chọn trên bản đồ (cùng nguồn với bản đồ của tài xế) luôn được ưu tiên
+  if (typeof window !== 'undefined') {
+    const tid = [i.tripId, t?.id, t?.tripId].filter(Boolean);
+    const mine = tid.flatMap((x: string) => getIncidentPins(x, true)).find((p) => p.id === i.id || cleanIdKey(p.id) === cleanIdKey(i.id));
+    if (mine && Number.isFinite(mine.lat) && Number.isFinite(mine.lng)) return [mine.lat, mine.lng];
+  }
+  // 1. i.locationCoordinates (chuỗi "10.928900,108.102100" hoặc có khoảng trắng)
+  if (typeof i.locationCoordinates === 'string') {
+    const m = i.locationCoordinates.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+    if (m) {
+      const lat = Number(m[1]), lng = Number(m[2]);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return [lat, lng];
+    }
+  }
+  // 2. Thuộc tính lat/lng trực tiếp
+  const lat = Number(i.latitude ?? i.lat);
+  const lng = Number(i.longitude ?? i.lng);
+  if (Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0) {
+    return [lat, lng];
+  }
+  // 3. Chuỗi text i.location có chứa tọa độ (ví dụ "Tọa độ: 10.928900,108.102100")
+  if (typeof i.location === 'string') {
+    const m = i.location.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+    if (m) {
+      const lat = Number(m[1]), lng = Number(m[2]);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return [lat, lng];
+    }
+  }
+  // 4. Incident pins lưu trong localStorage
+  if (typeof window !== 'undefined' && i.tripId) {
+    const pins = getIncidentPins(i.tripId, true);
+    const pin = pins.find((p) => p.id === i.id || cleanIdKey(p.id) === cleanIdKey(i.id)) || pins[pins.length - 1];
+    if (pin && Number.isFinite(pin.lat) && Number.isFinite(pin.lng)) {
+      return [pin.lat, pin.lng];
+    }
+  }
+  // 5. Mốc dừng của chuyến đi theo chặng xảy ra sự cố
+  if (t && Array.isArray(t.stops) && i.leg != null && t.stops[i.leg]) {
+    const s = t.stops[i.leg];
+    const sLat = Number(s?.lat), sLng = Number(s?.lng);
+    if (Number.isFinite(sLat) && Number.isFinite(sLng)) return [sLat, sLng];
+  }
+  // 6. Tự động suy luận từ tên địa danh
+  if (i.location) {
+    const inf = inferStopCoords(i.location);
+    if (inf) return inf;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Bản đồ vị trí sự cố trên tuyến đường (Đồng bộ giao diện với các bản đồ khác)
+// ---------------------------------------------------------------------------
+export function IncidentMap({ i, t }: { i: Any; t?: Any }) {
+  const el = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const routeCoordsRef = useRef<Array<[number, number]>>([]);
+  const [isMaximized, setIsMaximized] = useState(false);
+  const [liveCoords, setLiveCoords] = useState<[number, number] | null>(() => parseIncidentCoords(i, t));
+
+  const incCoords = liveCoords || parseIncidentCoords(i, t);
+
+  const rawStops: Any[] = t ? (tripStops(t) || t.stops || []) : [];
+  // Dùng cùng tuyến và tọa độ điểm dừng với bản đồ tuyến của chuyến (RouteMap)
+  const rt = t ? ((t.routes || []).find((r: Any) => r.stops === rawStops) || curRoute(t)) : null;
+  if (t && rt) rpCoords(t, rt);
+  const stops = rawStops.map((s: Any) => {
+    if (Number.isFinite(Number(s.lat)) && Number.isFinite(Number(s.lng))) return s;
+    const inf = inferStopCoords(s.name);
+    return inf ? { ...s, lat: inf[0], lng: inf[1] } : s;
+  });
+
+  useEffect(() => {
+    if (!isMaximized) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMaximized(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isMaximized]);
+
+  useEffect(() => {
+    const tm = setTimeout(() => {
+      try {
+        mapRef.current?.invalidateSize({ pan: false });
+      } catch {}
+    }, 120);
+    return () => clearTimeout(tm);
+  }, [isMaximized]);
+
+  useEffect(() => {
+    if (!el.current) return;
+    if (!incCoords && (!stops || !stops.length)) return;
+
+    if (mapRef.current) {
+      try { mapRef.current.remove(); } catch {}
+      mapRef.current = null;
+    }
+    if ((el.current as unknown as { _leaflet_id?: number })._leaflet_id) {
+      delete (el.current as unknown as { _leaflet_id?: number })._leaflet_id;
+    }
+
+    const defaultCenter: [number, number] = incCoords || [16.0, 108.0];
+    const map = L.map(el.current, {
+      scrollWheelZoom: true,
+      attributionControl: true,
+      zoomAnimation: false,
+      fadeAnimation: false,
+      markerZoomAnimation: false,
+    }).setView(defaultCenter, incCoords ? 13 : 6);
+    mapRef.current = map;
+    map.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>');
+    const cancelTiles = addGeoapifyTiles(map, () => {});
+
+    let isCancelled = false;
+
+    // 1. Vẽ các điểm dừng và tuyến đường của chuyến
+    const pts = stops.map((x: Any) => {
+      const lat = Number(x?.lat);
+      const lng = Number(x?.lng);
+      return Number.isFinite(lat) && Number.isFinite(lng) ? ([lat, lng] as [number, number]) : null;
+    });
+
+    const validPts = pts.filter((p): p is [number, number] => p !== null);
+    routeCoordsRef.current = validPts;
+
+    const savedGeom: Any[] | null = rt && Array.isArray(rt.geom) && rt.geom.length === stops.length - 1
+      ? rt.geom
+      : rt?.routingSnapshot?.legs && rt.routingSnapshot.legs.length === stops.length - 1
+        ? rt.routingSnapshot.legs.map((l: Any) => l?.geom)
+        : null;
+    const polylines: Array<{ index: number; poly: L.Polyline; a: [number, number]; b: [number, number] }> = [];
+    for (let idx = 1; idx < pts.length; idx++) {
+      if (!pts[idx - 1] || !pts[idx]) continue;
+      const sg = savedGeom && Array.isArray(savedGeom[idx - 1]) && savedGeom[idx - 1].length > 1 ? savedGeom[idx - 1] : null;
+      const poly = L.polyline(sg || [pts[idx - 1]!, pts[idx]!], {
+        color: '#2563eb',
+        weight: 5,
+        opacity: 0.85,
+        interactive: false,
+      }).addTo(map);
+      polylines.push({ index: idx - 1, poly, a: pts[idx - 1]!, b: pts[idx]! });
+    }
+
+    if (savedGeom) {
+      const flat = savedGeom.filter((g) => Array.isArray(g)).flat() as Array<[number, number]>;
+      if (flat.length > 1) routeCoordsRef.current = flat;
+    }
+
+    if (pts.length >= 2) {
+      if (validPts.length === stops.length) {
+        void fetchTripSegments(validPts.map(([lat, lng]) => ({ lat, lng }))).then((segments) => {
+          if (isCancelled) return;
+          polylines.forEach(({ index, poly }) => {
+            const seg = segments[index];
+            if (seg && seg.length > 1) {
+              (poly as Any).setLatLngs?.(seg);
+            }
+          });
+          const legIdx = typeof i?.leg === 'number' ? i.leg : null;
+          if (legIdx !== null && segments[legIdx] && segments[legIdx].length > 1) {
+            routeCoordsRef.current = segments[legIdx];
+          } else {
+            routeCoordsRef.current = segments.flat();
+          }
+        });
+      }
+    }
+
+    stops.forEach((x: Any, idx: number) => {
+      if (!pts[idx]) return;
+      const end = idx === 0 || idx === stops.length - 1 || x.type === 'ORIGIN' || x.type === 'DESTINATION';
+      const isAirport = x.type === 'AIRPORT';
+      const pinClass = `rp-pin ${end ? 'end' : 'sel'}`;
+      const html = `<div class="${pinClass}">${idx + 1}</div>`;
+      L.marker(pts[idx]!, {
+        icon: L.divIcon({ html, className: '', iconSize: [26, 26], iconAnchor: [13, 13] }),
+        zIndexOffset: isAirport ? 1100 : 1000,
+      })
+        .bindTooltip(`${idx + 1}. ${esc(x.name)}`)
+        .bindPopup(`<b>${idx + 1}. ${esc(x.name)}</b><br>${STOP_LABEL[x.type] || x.type}`)
+        .addTo(map);
+    });
+
+    // 2. Vẽ điểm sự cố nổi bật với hiệu ứng nhấp nháy đỏ & khoá trượt trên tuyến đường
+    if (incCoords) {
+      ensureIncidentPinStyle();
+      const incIcon = L.divIcon({
+        html: `
+          <div class="rts-inc-pin is-draggable" title="Kéo thả dọc theo tuyến đường để định vị sự cố">
+            <div class="rts-inc-pin-badge">!</div>
+            <div class="rts-inc-pin-tip"></div>
+          </div>
+        `,
+        className: '',
+        iconSize: [32, 40],
+        iconAnchor: [16, 38],
+      });
+      const incMarker = L.marker(incCoords, {
+        icon: incIcon,
+        zIndexOffset: 3000,
+        draggable: true,
+      }).addTo(map);
+
+      const snap = (raw: L.LatLng): [number, number] => {
+        if (routeCoordsRef.current && routeCoordsRef.current.length > 0) {
+          const s = snapPointToPolyline(raw, routeCoordsRef.current);
+          return [s.lat, s.lng];
+        }
+        return [Number(raw.lat.toFixed(6)), Number(raw.lng.toFixed(6))];
+      };
+
+      const persistPin = (coords: [number, number]) => {
+        const coordsStr = `${coords[0].toFixed(6)},${coords[1].toFixed(6)}`;
+        i.locationCoordinates = coordsStr;
+        i.lat = coords[0];
+        i.lng = coords[1];
+        if (i.tripId) {
+          saveIncidentPin({
+            id: i.id,
+            tripId: i.tripId,
+            label: incTypeVi(i.type),
+            lat: coords[0],
+            lng: coords[1],
+            where: i.location || coordsStr,
+            description: i.description || '',
+            at: i.at || '',
+          });
+        }
+      };
+
+      incMarker.on('drag', (e: L.LeafletEvent) => {
+        const targetMarker = e.target as L.Marker;
+        const snapped = snap(targetMarker.getLatLng().wrap());
+        targetMarker.setLatLng(snapped);
+        setLiveCoords(snapped);
+      });
+
+      incMarker.on('dragend', (e: L.LeafletEvent) => {
+        const targetMarker = e.target as L.Marker;
+        const snapped = snap(targetMarker.getLatLng().wrap());
+        targetMarker.setLatLng(snapped);
+        setLiveCoords(snapped);
+        persistPin(snapped);
+      });
+
+      map.on('click', (e: L.LeafletMouseEvent) => {
+        if (routeCoordsRef.current && routeCoordsRef.current.length > 0) {
+          const snapped = snap(e.latlng.wrap());
+          incMarker.setLatLng(snapped);
+          setLiveCoords(snapped);
+          persistPin(snapped);
+        }
+      });
+
+      incMarker.bindTooltip(`⚠️ Điểm sự cố: ${esc(i?.id || 'INC')} • ${esc(incTypeVi(i?.type))}`, {
+        direction: 'top',
+        offset: [0, -14],
+        permanent: false,
+      });
+
+      const popupContent = document.createElement('div');
+      popupContent.style.minWidth = '220px';
+      popupContent.style.padding = '4px';
+      popupContent.innerHTML = `
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="background:#fee2e2;color:#dc2626;font-weight:700;padding:2px 6px;border-radius:4px;font-size:11px">ĐIỂM SỰ CỐ HIỆN TRƯỜNG</span>
+          <strong style="color:#b42318;font-size:13px">${esc(i?.id || '')}</strong>
+        </div>
+        <div style="font-size:12.5px;color:#1e293b;margin-bottom:4px"><b>Loại:</b> ${esc(incTypeVi(i?.type))}</div>
+        <div style="font-size:12px;color:#475569;margin-bottom:4px"><b>Vị trí:</b> ${esc(humanizeLocation(i?.location, incCoords, t))}</div>
+        <div style="font-size:11.5px;color:#64748b;margin-bottom:4px"><b>Thời điểm:</b> ${dt(i?.at)}</div>
+        <div style="font-size:11.5px;color:#64748b"><b>Người báo:</b> ${esc(getUserFullName(i?.reporterName || i?.by))}</div>
+        ${i?.description ? `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #e2e8f0;font-size:12px;color:#334155;font-style:italic">"${esc(i.description)}"</div>` : ''}
+      `;
+      incMarker.bindPopup(popupContent);
+    }
+
+    // 3. Tự động căn chỉnh khung hình bao quát cả chặng và điểm sự cố
+    const allValid: [number, number][] = pts.filter((p): p is [number, number] => p !== null);
+    if (incCoords) allValid.push(incCoords);
+
+    if (allValid.length === 1) {
+      map.setView(allValid[0], 14);
+    } else if (allValid.length > 1) {
+      try {
+        map.fitBounds(allValid, { padding: [40, 40], maxZoom: 14, animate: false });
+      } catch {
+        map.setView(allValid[0], 12);
+      }
+    }
+
+    const ro = new ResizeObserver(() => {
+      try { map.invalidateSize({ pan: false }); } catch {}
+    });
+    ro.observe(el.current);
+
+    return () => {
+      isCancelled = true;
+      ro.disconnect();
+      cancelTiles();
+      try { map.remove(); } catch {}
+      mapRef.current = null;
+      if (el.current && (el.current as unknown as { _leaflet_id?: number })._leaflet_id) {
+        delete (el.current as unknown as { _leaflet_id?: number })._leaflet_id;
+      }
+    };
+  }, [i, t, isMaximized]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!incCoords && (!stops || !stops.length)) {
+    return (
+      <div className="note grey" style={{ marginTop: 12 }}>
+        <Icon name="pin" />
+        <div>
+          <b>Bản đồ vị trí sự cố</b>
+          <p style={{ margin: '4px 0 0', fontSize: 13 }}>Chưa có tọa độ định vị GPS hoặc điểm dừng của chuyến.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`lf-wrap ${isMaximized ? 'is-maximized' : ''}`} style={{ marginTop: 14, background: '#fff', padding: 12, borderRadius: 8, border: '1px solid var(--border-color, #e5e7eb)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
+            {isMaximized ? 'Bản đồ vị trí sự cố trên tuyến (Toàn màn hình)' : 'Vị trí sự cố trên bản đồ tuyến'}
+          </span>
+          {incCoords && (
+            <span style={{ fontSize: 11, background: '#eff6ff', color: '#1d4ed8', fontWeight: 600, padding: '2px 8px', borderRadius: 12 }}>
+              📍 {humanizeLocation(i?.location, incCoords, t)}
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {incCoords && (
+            <button
+              type="button"
+              className="rp-map-maximize-btn"
+              onClick={() => {
+                if (mapRef.current && incCoords) {
+                  mapRef.current.setView(incCoords, 15, { animate: true });
+                }
+              }}
+              title="Phóng to vào tâm điểm sự cố"
+              style={{ fontSize: 12, padding: '4px 10px' }}
+            >
+              📍 Tới điểm sự cố
+            </button>
+          )}
+          <button
+            type="button"
+            className="rp-map-maximize-btn"
+            onClick={() => setIsMaximized((m) => !m)}
+            title={isMaximized ? 'Thu nhỏ về khung nhìn ban đầu (Esc)' : 'Phóng to bản đồ toàn màn hình'}
+            style={{ fontSize: 12, padding: '4px 10px' }}
+          >
+            {isMaximized ? 'Thu nhỏ (Esc)' : 'Phóng to'}
+          </button>
+        </div>
+      </div>
+
+      <div
+        ref={el}
+        className="lf-route"
+        style={{
+          height: isMaximized ? 'calc(100vh - 140px)' : '320px',
+          borderRadius: 8,
+          border: '1px solid #cbd5e1',
+        }}
+      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, fontSize: 12, color: '#64748b', flexWrap: 'wrap', gap: 4 }}>
+        <span>🔴 <b>Điểm đỏ (!):</b> Vị trí sự cố • 🔵 <b>Số 1..N:</b> Các mốc dừng • <span style={{ color: '#0369a1' }}>📍 Kéo ghim (!) để trượt vị trí dọc theo tuyến (cố định trên lộ trình, không thể kéo ra ngoài)</span></span>
+        {i?.location && <span>Địa điểm ghi nhận: <b>{humanizeLocation(i.location, incCoords, t)}</b></span>}
+      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ActorRole, TransportRequest } from '../../../types';
 import { fmtDateTime } from '../../../hooks/customerRules';
+import { getUserFullName } from '../../../../../shared/utils/userNameResolver';
 
 const ROLE_LABEL: Record<ActorRole, string> = {
   CUSTOMER: 'Khách hàng', LOGISTICS_MANAGER: 'Logistics Manager', TRANSPORT_SPECIALIST: 'Transport Specialist',
@@ -18,7 +19,7 @@ export const HistoryTab: React.FC<{ request: TransportRequest }> = ({ request: r
           {rows.map((x, i) => (
             <li key={`${x.at}-${i}`} className={x.role === 'CUSTOMER' ? 'now' : 'done'}>
               <b>{x.action}</b>
-              <span>{fmtDateTime(x.at)} • {x.actor} ({ROLE_LABEL[x.role]})</span>
+              <span>{fmtDateTime(x.at)} • {getUserFullName(x.actor)} ({ROLE_LABEL[x.role]})</span>
               {x.detail && <span>{x.detail}</span>}
             </li>
           ))}

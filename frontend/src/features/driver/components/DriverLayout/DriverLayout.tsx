@@ -1,7 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '../../../../shared/components';
 import { useDriver } from '../../hooks/useDriver';
+import { formatNotification } from '../../../../shared/utils/notificationFormat';
+import type { DriverNotification } from '../../data/mockData';
 import './DriverLayout.css';
 
 // ---------------------------------------------------------------------------
@@ -23,6 +25,9 @@ const PATHS: Record<string, React.ReactNode> = {
   close: <path d="M6 6l12 12M18 6 6 18" />,
   users: <><circle cx="9" cy="8" r="3.5" /><path d="M2 20c0-3.3 3.1-6 7-6s7 2.7 7 6" /></>,
   user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
+  file: <><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5M8 13h8M8 17h5" /></>,
+  card: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18M7 15h4" /></>,
+  search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>,
 };
 export const Icon: React.FC<{ name: string; className?: string }> = ({ name, className = '' }) => (
@@ -42,9 +47,24 @@ interface DriverLayoutProps {
 
 export const DriverLayout: React.FC<DriverLayoutProps> = ({ title, children }) => {
   const navigate = useNavigate();
-  const { me, activeTrips, incidents, toast, actions } = useDriver();
+  const { me, activeTrips, incidents, toast, notifications, unreadNotificationsCount, actions } = useDriver();
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const formattedNotifs = useMemo(() => {
+    return (notifications || []).map((raw: DriverNotification) =>
+      formatNotification({
+        id: raw.id,
+        title: raw.title,
+        body: raw.text,
+        at: raw.at,
+        read: raw.read,
+        link: raw.link,
+      })
+    );
+  }, [notifications]);
 
   useEffect(() => {
     if (!toast) return;
@@ -54,17 +74,23 @@ export const DriverLayout: React.FC<DriverLayoutProps> = ({ title, children }) =
 
   useEffect(() => {
     const close = (e: MouseEvent) => {
-      if (menuOpen && menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (notifOpen && notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+      if (menuOpen && menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
     };
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
-  }, [menuOpen]);
+  }, [notifOpen, menuOpen]);
 
   const logout = () => {
-    ['accessToken', 'user', 'userFullName', 'userEmail', 'userRole'].forEach((k) => sessionStorage.removeItem(k));
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
-    navigate('/login');
+    ['accessToken', 'user', 'userFullName', 'userEmail', 'userRole', 'token'].forEach((k) => {
+      sessionStorage.removeItem(k);
+      localStorage.removeItem(k);
+    });
+    window.location.href = '/login';
   };
 
   const openIncidents = incidents.filter((i) => activeTrips.some((t) => t.id === i.tripId) && !['RESOLVED', 'CLOSED'].includes(i.status)).length;
@@ -81,7 +107,7 @@ export const DriverLayout: React.FC<DriverLayoutProps> = ({ title, children }) =
         <NavLink to="/driver/journey" className="drv-brand">CBN Transport</NavLink>
         <div className="drv-role">
           <b>Tài xế &amp; Hộ tống</b>
-          <span>Driver / Escort portal</span>
+          <span>Cổng Tài xế &amp; Áp tải</span>
         </div>
         <nav className="drv-nav">
           {NAV.map(([to, label, icon, count]) => (
@@ -98,7 +124,89 @@ export const DriverLayout: React.FC<DriverLayoutProps> = ({ title, children }) =
         <header className="drv-topbar">
           <h1>{title}</h1>
           <div className="drv-topbar__right">
+            {/* Bell thông báo */}
+            <div className="drv-notif-wrap" ref={notifRef}>
+              <button
+                type="button"
+                className="drv-icon-btn drv-bell"
+                onClick={() => setNotifOpen((v) => !v)}
+                aria-expanded={notifOpen}
+                aria-label="Thông báo"
+              >
+                <Icon name="bell" />
+                {unreadNotificationsCount > 0 && <i className="drv-bell__dot" />}
+              </button>
+
+              {notifOpen && (
+                <div className="drv-notif" role="menu">
+                  <div className="drv-notif__head">
+                    <div className="drv-notif__title-wrap">
+                      <span className="drv-notif__title">Thông báo</span>
+                      {unreadNotificationsCount > 0 && (
+                        <span className="drv-notif__badge-count">{unreadNotificationsCount} mới</span>
+                      )}
+                    </div>
+                    {unreadNotificationsCount > 0 && (
+                      <button type="button" className="drv-link" onClick={actions.markAllNotificationsRead}>
+                        Đánh dấu đã đọc
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="drv-notif__list">
+                    {formattedNotifs.length === 0 && (
+                      <div className="drv-notif__empty">
+                        <Icon name="bell" />
+                        <p>Bạn không có thông báo nào.</p>
+                      </div>
+                    )}
+                    {formattedNotifs.slice(0, 8).map((n: ReturnType<typeof formatNotification>) => (
+                      <button
+                        key={n.id}
+                        type="button"
+                        className={`drv-notif__item ${n.read ? 'read' : 'unread'}`}
+                        onClick={() => {
+                          if (!n.read) actions.markNotificationRead(n.id);
+                          setNotifOpen(false);
+                          if (n.link) navigate(n.link);
+                        }}
+                      >
+                        <span className={`drv-notif__icon-box tone-${n.tone}`}>
+                          <Icon name={n.icon} />
+                        </span>
+                        <div className="drv-notif__content">
+                          <div className="drv-notif__item-head">
+                            <b>{n.title}</b>
+                            {!n.read && <span className="drv-notif__unread-dot" />}
+                          </div>
+                          <span className="drv-notif__body">{n.body}</span>
+                          <small className="drv-notif__time">
+                            <Icon name="clock" /> {n.at}
+                          </small>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="drv-notif__foot">
+                    <button
+                      type="button"
+                      className="drv-notif__view-all-btn"
+                      onClick={() => {
+                        setNotifOpen(false);
+                        navigate('/driver/notifications');
+                      }}
+                    >
+                      <span>Xem tất cả thông báo ({formattedNotifs.length})</span>
+                      <Icon name="chevron" className="drv-notif__chevron-right" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <ThemeToggle showLabel={false} />
+
             <div className="drv-user" ref={menuRef}>
               <button type="button" className="drv-user__btn" onClick={() => setMenuOpen((v) => !v)} aria-expanded={menuOpen} aria-label="Menu tài khoản">
                 <span className="drv-avatar">{initials(me?.name) || 'TX'}</span>

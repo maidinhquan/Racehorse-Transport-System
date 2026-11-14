@@ -82,6 +82,7 @@ import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import { mockHorses, mockNotifications, mockRequests } from '../data/mockData';
 import { getSharedRequests, saveSharedRequest, toCustomerRequest } from '../../../shared/utils/sharedRequests';
 import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
+import { getSharedNotificationsFor } from '../../../shared/utils/sharedNotifications';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
@@ -104,6 +105,43 @@ const getInitialProfile = (): CustomerProfile => {
   return p;
 };
 
+const CUSTOMER_READ_NOTIFS_KEY = 'customer_read_notifications';
+
+function getCustomerReadNotifIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(CUSTOMER_READ_NOTIFS_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function persistCustomerReadNotifIds(ids: string[]): void {
+  try {
+    const current = getCustomerReadNotifIds();
+    ids.forEach((id) => {
+      if (id) {
+        current.add(id);
+        current.add(cleanId(id));
+      }
+    });
+    localStorage.setItem(CUSTOMER_READ_NOTIFS_KEY, JSON.stringify([...current]));
+  } catch {
+    // ignore
+  }
+}
+
+const resolveCustomerNotifs = (listIn: CustomerNotification[]): CustomerNotification[] => {
+  const readIds = getCustomerReadNotifIds();
+  const shared: CustomerNotification[] = getSharedNotificationsFor('CUSTOMER', (() => { try { return state.requests.map((r) => r.id); } catch { return undefined; } })())
+    .map((n) => ({ id: n.id, title: n.title, body: n.body, at: n.at, read: n.read, link: n.link || '' }));
+  const list = [...shared.filter((n) => !listIn.some((x) => x.id === n.id)), ...listIn];
+  return list.map((n) => ({
+    ...n,
+    read: Boolean(n.read || readIds.has(n.id) || readIds.has(cleanId(n.id))),
+  }));
+};
+
 const initialDemo = getDemoMode('customer');
 let state: CustomerState = {
   profile: getInitialProfile(),
@@ -115,7 +153,7 @@ let state: CustomerState = {
         return [...initialShared, ...initialMock.filter((m) => !initialShared.some((s) => cleanId(s.id) === cleanId(m.id)))];
       })()
     : readRequestDrafts(),
-  notifications: initialDemo ? clone(mockNotifications) : [],
+  notifications: initialDemo ? resolveCustomerNotifs(clone(mockNotifications)) : [],
   otp: null,
   loading: false,
   loaded: false,
@@ -139,13 +177,23 @@ const syncController = createSyncController({
 
 let unsubscribeSyncController: (() => void) | null = null;
 
+const refreshSharedNotifs = () => setState({ notifications: resolveCustomerNotifs(state.notifications) });
+
 const subscribe = (l: () => void) => {
   listeners.add(l);
   if (listeners.size === 1) {
     unsubscribeSyncController = syncController.subscribe();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('rts_shared_notifications_changed', refreshSharedNotifs);
+      window.addEventListener('storage', refreshSharedNotifs);
+    }
   }
   return () => {
     listeners.delete(l);
+    if (listeners.size === 0 && typeof window !== 'undefined') {
+      window.removeEventListener('rts_shared_notifications_changed', refreshSharedNotifs);
+      window.removeEventListener('storage', refreshSharedNotifs);
+    }
     if (listeners.size === 0 && unsubscribeSyncController) {
       unsubscribeSyncController();
       unsubscribeSyncController = null;
@@ -282,15 +330,21 @@ async function syncRequestsOnly(): Promise<void> {
   if (inFlightSyncPromise) return inFlightSyncPromise;
   inFlightSyncPromise = (async () => {
     try {
-      const rawRequests = await customerApi.getRequests();
       const isDemo = getDemoMode('customer');
       if (!isDemo) {
+        // Lấy luôn thông báo để các nhắc nhở từ Quản lý hiện ngay, không cần tải lại trang
+        const [requestsRes, notificationsRes] = await Promise.allSettled([customerApi.getRequests(), customerApi.getNotifications()]);
+        if (requestsRes.status === 'rejected') throw requestsRes.reason;
+        const fetched = requestsRes.value;
+        const freshNotifications = notificationsRes.status === 'fulfilled' && Array.isArray(notificationsRes.value) ? notificationsRes.value : null;
         setState((prev) => ({
           ...prev,
-          requests: mergeRequestDrafts(rawRequests, prev.requests),
+          requests: mergeRequestDrafts(fetched, prev.requests),
+          ...(freshNotifications ? { notifications: resolveCustomerNotifs(freshNotifications) } : {}),
         }));
         return;
       }
+      const rawRequests = await customerApi.getRequests();
       const shared = getSharedRequests().map(toCustomerRequest);
       const merged = [...shared, ...rawRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
       const mock = clone(mockRequests);
@@ -393,7 +447,7 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
           profile,
           horses: horses || [],
           requests: mergeRequestDrafts(baseRequests, prev.requests),
-          notifications: notifications || [],
+          notifications: resolveCustomerNotifs(notifications || []),
           loading: false,
           loaded: true,
         }));
@@ -409,7 +463,7 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
         profile,
         horses: horses && horses.length > 0 ? horses : clone(mockHorses),
         requests: allDemoRequests,
-        notifications: notifications && notifications.length > 0 ? notifications : clone(mockNotifications),
+        notifications: resolveCustomerNotifs(notifications && notifications.length > 0 ? notifications : clone(mockNotifications)),
         loading: false,
         loaded: true,
       }));
@@ -465,12 +519,19 @@ const customerActions = {
   clearToast: () => setState({ toast: null }),
   showToast: (message: string) => toast(message),
   async markNotificationRead(id: string) {
-    try { await customerApi.markNotificationRead(id); setState(s => ({ notifications: s.notifications.map(n => n.id === id ? { ...n, read: true } : n) })); }
-    catch (error) { toast(apiMessage(error)); }
+    setState(s => ({ notifications: s.notifications.map(n => (n.id === id || cleanId(n.id) === cleanId(id)) ? { ...n, read: true } : n) }));
+    persistCustomerReadNotifIds([id]);
+    try { await customerApi.markNotificationRead(id); }
+    catch { /* backend sync error */ }
   },
   async markAllNotificationsRead() {
-    try { await customerApi.markAllNotificationsRead(); setState(s => ({ notifications: s.notifications.map(n => ({ ...n, read: true })) })); }
-    catch (error) { toast(apiMessage(error)); }
+    setState(s => {
+      const allIds = s.notifications.map(n => n.id);
+      persistCustomerReadNotifIds(allIds);
+      return { notifications: s.notifications.map(n => ({ ...n, read: true })) };
+    });
+    try { await customerApi.markAllNotificationsRead(); }
+    catch { /* backend sync error */ }
   },
 
   // ----- Bước 1: thông tin chuyến -----

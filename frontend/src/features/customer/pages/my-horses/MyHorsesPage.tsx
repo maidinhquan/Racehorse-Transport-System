@@ -4,7 +4,7 @@ import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { useCustomer } from '../../hooks/useCustomer';
 import { useHorseFilter } from '../../hooks/useCustomerFilter';
-import { PROFILE_LABEL, horseRequests, profileStatus, shortCity } from '../../hooks/customerRules';
+import { PROFILE_LABEL, activeHorseRequests, isActive, profileStatus, shortCity } from '../../hooks/customerRules';
 import './MyHorsesPage.css';
 import { AuthImage } from '../../../../shared/components/AuthImage';
 
@@ -12,7 +12,15 @@ import { AuthImage } from '../../../../shared/components/AuthImage';
 export const MyHorsesPage: React.FC = () => {
   const navigate = useNavigate();
   const { horses, requests } = useCustomer();
-  const usedIds = useMemo(() => new Set(requests.filter((r) => r.status !== 'DRAFT' && r.status !== 'CANCELLED' && r.status !== 'REJECTED').flatMap((r) => r.horses.filter(Boolean))), [requests]);
+  const usedIds = useMemo(
+    () =>
+      new Set(
+        requests
+          .filter((r) => isActive(r) && r.status !== 'DRAFT')
+          .flatMap((r) => r.horses.filter(Boolean))
+      ),
+    [requests]
+  );
   const f = useHorseFilter(horses, usedIds);
 
   return (
@@ -37,12 +45,12 @@ export const MyHorsesPage: React.FC = () => {
 
       <div className="cus-horse-grid">
         {f.rows.map((h) => {
-          const used = horseRequests(h, requests), ps = profileStatus(h);
+          const active = activeHorseRequests(h, requests), ps = profileStatus(h);
           return (
             <article key={h.id} className="cus-card cus-horse-card">
               <div className="cus-horse-card__photo">
                 <AuthImage framed src={h.photo?.url} alt={h.name} fallback={<Icon name="horse" />} />
-                <TripStatusBadge label={used.length ? 'Đã dùng trong yêu cầu' : 'Chưa dùng'} tone={used.length ? 'info' : 'muted'} />
+                <TripStatusBadge label={active.length ? 'Đã dùng trong yêu cầu' : 'Chưa dùng'} tone={active.length ? 'info' : 'muted'} />
               </div>
               <div className="cus-horse-card__body">
                 <div className="cus-horse-card__name"><b>{h.name}</b><span>{h.id}</span></div>
@@ -53,8 +61,8 @@ export const MyHorsesPage: React.FC = () => {
                   <div><span>Sổ tiêm ngừa</span><b>{h.flu ? 'Đã tải lên' : 'Chưa có'}</b></div>
                 </div>
                 <div className="cus-horse-card__usage">
-                  <b>{used.length ? `Đã dùng trong ${used.length} yêu cầu` : 'Chưa dùng trong yêu cầu nào'}</b>
-                  {used[0] && <span>Gần nhất: {shortCity(used[0].origin)} → {shortCity(used[0].destination)}</span>}
+                  <b>{active.length ? `Đã dùng trong ${active.length} yêu cầu` : 'Chưa dùng trong yêu cầu nào'}</b>
+                  {active[0] && <span>Gần nhất: {shortCity(active[0].origin)} → {shortCity(active[0].destination)}</span>}
                 </div>
                 <div className="cus-btn-row">
                   <button type="button" className="cus-btn cus-btn--solid" onClick={() => navigate(`/customer/horses/${h.id}`)}>Xem chi tiết</button>

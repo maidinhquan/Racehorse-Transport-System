@@ -13,9 +13,11 @@ namespace Infrastructure.Services
             ["EMP-23"] = "USER_015", // Pham Thanh Son
             ["EMP-25"] = "USER_016", // Bui Van Long
             ["EMP-26"] = "USER_017", // Dang Van Khoa
+            ["EMP-28"] = "USER_030", // Ngo Duc Anh
             ["EMP-31"] = "USER_018", // BS. Nguyen Minh Anh
             ["EMP-32"] = "USER_019", // BS. Tran Quoc Bao
             ["EMP-35"] = "USER_014", // BS. Le Thu Trang
+            ["EMP-36"] = "USER_031", // Dr. Hoang Gia Huy
         };
 
         /// <summary>Mã tài khoản của nhân sự trong danh bạ, hoặc null nếu người đó chưa có tài khoản được liên kết.</summary>

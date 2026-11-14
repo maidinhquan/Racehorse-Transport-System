@@ -8,7 +8,6 @@ import { MiniProgress } from '../../components/Common/Common';
 import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { CUSTOMER_DOC_NAME, countryName, docEffective, fmtDate, fmtDateTime, horseName, shortName, tripTotals, typeName } from '../../hooks/specialistRules';
-import { useSharedIncidents } from '../../../../shared/utils/sharedIncidents';
 import './SpecialistDashboardPage.css';
 
 type Alert = { tone: 'bad' | 'warn' | 'info'; title: string; sub: string; to: string };
@@ -17,7 +16,6 @@ type Alert = { tone: 'bad' | 'warn' | 'info'; title: string; sub: string; to: st
 export const SpecialistDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { data, trips, documents, customerDocs, requests, stats } = useSpecialist();
-  const incidents = useSharedIncidents();
   const active = trips.filter((t) => t.status !== 'COMPLETED');
 
   const alerts: Alert[] = [];
@@ -33,7 +31,6 @@ export const SpecialistDashboardPage: React.FC = () => {
   documents.filter((d) => d.status === 'REJECTED').forEach((d) => alerts.push({ tone: 'bad', title: `${typeName(data, d.typeId)} bị từ chối – cần bản mới`, sub: `${d.tripId} • ${d.rejectReason ?? ''}`, to: `/specialist/documents/${d.id}` }));
   documents.filter((d) => docEffective(d) === 'EXPIRED' && active.some((t) => t.id === d.tripId || t.id.replace(/-/g, '_') === d.tripId.replace(/-/g, '_'))).forEach((d) => alerts.push({ tone: 'bad', title: `${typeName(data, d.typeId)} đã hết hạn`, sub: `${d.tripId} • hết hạn ${fmtDate(d.expiry)}`, to: `/specialist/documents/${d.id}` }));
   requests.filter((q) => q.status === 'SUBMITTED').forEach((q) => alerts.push({ tone: 'info', title: `Khách đã phản hồi ${q.id}`, sub: `${CUSTOMER_DOC_NAME[q.key] || q.key} • ${q.tripId}`, to: `/specialist/trips/${q.tripId}/customer` }));
-  incidents.filter((i) => !i.complianceReview).forEach((i) => alerts.push({ tone: i.severity === 'CRITICAL' || i.severity === 'HIGH' ? 'bad' : 'warn', title: `${i.id}: Sự cố trên chuyến ${i.tripId}`, sub: `${i.type} • Cần chuyên viên rà soát pháp lý`, to: `/specialist/trips/${i.tripId}/incidents` }));
 
   const card = (to: string, icon: string, label: string, n: number, small: string, cls: 'warn' | 'bad' | '' = 'warn') => (
     <button type="button" className={`spc-stat ${n ? cls : ''}`} onClick={() => navigate(to)}>
@@ -70,7 +67,7 @@ export const SpecialistDashboardPage: React.FC = () => {
           </h3>
           <div className="spc-table-wrap">
             <table className="spc-table">
-              <thead><tr><th>Chuyến</th><th>Tuyến</th><th>Khởi hành</th><th>Tổng giấy tờ</th><th>Giao việc</th></tr></thead>
+              <thead><tr><th>Chuyến</th><th>Tuyến</th><th>Khởi hành</th><th>Tổng giấy tờ</th><th>Trạng thái</th></tr></thead>
               <tbody>
                 {active.map((t) => {
                   const x = tripTotals(data, t);
@@ -80,7 +77,7 @@ export const SpecialistDashboardPage: React.FC = () => {
                       <td>{shortName(t.origin)} → {shortName(t.destination)}</td>
                       <td>{fmtDateTime(t.plannedDepart)}</td>
                       <td><MiniProgress done={x.done} total={x.total} /></td>
-                      <td><TripStatusBadge kind="deployment" status={t.deployment} /></td>
+                      <td><TripStatusBadge kind="trip" status={t.status} /></td>
                     </tr>
                   );
                 })}

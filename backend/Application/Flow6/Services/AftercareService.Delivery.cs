@@ -155,6 +155,8 @@ public sealed partial class AftercareService
     {
         // Existing durable notification table; no claim of email delivery.
         var users=await Q("SELECT u.UserID FROM [USER] u WHERE u.IsActive=1 AND (u.UserID=(SELECT r.CustomerID FROM TRIP_PLAN t JOIN TRANSPORT_REQUEST r ON r.RequestID=t.RequestID WHERE t.TripID=@t) OR u.Role IN('Manager','MANAGER','LOGISTICS_MANAGER') OR u.UserID=(SELECT AssignedCoordinatorId FROM TRIP_PLAN WHERE TripID=@t))",ct,("@t",trip));
-        foreach(var u in users) await E("INSERT NOTIFICATION(NotificationID,UserID,Title,Message,IsRead,SentAt) VALUES(@id,@u,@k,@m,0,@now)",ct,("@id",await Next("NOTIFICATION","NOTIFICATION",ct)),("@u",S(u,"UserID")),("@k",kind),("@m",kind+": "+trip),("@now",Now));
+        var title = kind == "DELIVERY_CONFIRMED" ? "Giao ngựa thành công" : (kind == "DELIVERY_REFUSED" ? "Từ chối nhận bàn giao" : kind);
+        var message = kind == "DELIVERY_CONFIRMED" ? $"Chuyến vận chuyển {trip} đã hoàn thành và giao ngựa an toàn." : (kind == "DELIVERY_REFUSED" ? $"Chuyến vận chuyển {trip} bị từ chối nhận bàn giao." : $"{kind}: {trip}");
+        foreach(var u in users) await E("INSERT NOTIFICATION(NotificationID,UserID,Title,Message,IsRead,SentAt) VALUES(@id,@u,@k,@m,0,@now)",ct,("@id",await Next("NOTIFICATION","NOTIFICATION",ct)),("@u",S(u,"UserID")),("@k",title),("@m",message),("@now",Now));
     }
 }

@@ -111,6 +111,17 @@ namespace Domain.Entities
         [Column("RecordedAt")]
         public DateTime? RecordedAt { get; set; } = DateTime.UtcNow;
 
+        /// <summary>Vị trí tổ xe đang ở lúc báo sức khỏe.</summary>
+        [Column("Latitude", TypeName = "decimal(9, 6)")]
+        public decimal? Latitude { get; set; }
+
+        [Column("Longitude", TypeName = "decimal(9, 6)")]
+        public decimal? Longitude { get; set; }
+
+        [Column("LocationLabel")]
+        [StringLength(255)]
+        public string? LocationLabel { get; set; }
+
         // Navigation properties
         [ForeignKey(nameof(TripId))]
         [InverseProperty(nameof(TripPlan.HealthLogs))]

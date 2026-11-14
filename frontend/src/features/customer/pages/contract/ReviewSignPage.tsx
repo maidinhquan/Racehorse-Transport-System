@@ -5,14 +5,14 @@ import { ContractBody } from '../../components/ContractBody/ContractBody';
 import { LockedCard, Note } from '../../components/Common/Common';
 import { OtpModal, ReasonModal } from '../../components/Modals';
 import { useClock, useCustomer } from '../../hooks/useCustomer';
-import { canSign, ctRef, curVersion, depositAmount, fmtDateTime, fmtMoney, signBlock, timeLeft } from '../../hooks/customerRules';
+import { canCancel, canSign, ctRef, curVersion, depositAmount, fmtDateTime, fmtMoney, signBlock, timeLeft } from '../../hooks/customerRules';
 import './ContractPages.css';
 
 /** Xem lại toàn bộ trước khi ký (chỉ xem) → xác nhận lần cuối → gửi OTP → ký */
 export const ReviewSignPage: React.FC = () => {
   const navigate = useNavigate();
   const { requestId = '' } = useParams<{ requestId: string }>();
-  const { horses, getRequest, actions } = useCustomer(requestId);
+  const { horses, getRequest, otp, actions } = useCustomer(requestId);
   useClock(30000);
   const [confirmed, setConfirmed] = useState(false);
   const [otpOpen, setOtpOpen] = useState(false);
@@ -32,7 +32,11 @@ export const ReviewSignPage: React.FC = () => {
 
   const sendOtp = async () => {
     if (!confirmed) return actions.showToast('Vui lòng đọc hợp đồng và tích xác nhận lần cuối trước khi nhận OTP.');
-    if ((await actions.sendSignOtp(r.id)).ok) setOtpOpen(true);
+    // Đã gửi mã trước đó và còn hạn (ví dụ thoát ra rồi vào lại): mở lại ô nhập thay vì gửi mã mới
+    if (otp?.requestId === r.id && otp.expiresAtMs > Date.now()) { setOtpOpen(true); return; }
+    const res = await actions.sendSignOtp(r.id);
+    if (res.ok) setOtpOpen(true);
+    else actions.showToast(res.message);
   };
 
   return (
@@ -64,7 +68,7 @@ export const ReviewSignPage: React.FC = () => {
             Tôi đã đọc, kiểm tra và đồng ý toàn bộ nội dung {ctRef(v)}. Tôi hiểu rằng ký OTP sẽ kích hoạt yêu cầu vận chuyển.
           </label>
           <button type="button" className="cus-btn cus-btn--solid cus-btn--block" style={{ marginTop: 14 }} disabled={!confirmed} onClick={sendOtp}>Gửi mã OTP để ký</button>
-          <button type="button" className="cus-btn cus-btn--danger cus-btn--block" onClick={() => setCancelOpen(true)}>Hủy yêu cầu</button>
+          {canCancel(r) && <button type="button" className="cus-btn cus-btn--danger cus-btn--block" onClick={() => setCancelOpen(true)}>Hủy yêu cầu</button>}
           <button type="button" className="cus-btn cus-btn--block" onClick={back}>Quay lại hợp đồng</button>
         </div>
       </div>

@@ -19,6 +19,9 @@ export const QUICK_LOGIN_ACCOUNTS: ReadonlyArray<{
   { id: 'USER_012', role: 'DRIVER_ESCORT', label: 'Nguyễn Văn Hùng · Tài xế chính', email: 'nguyenvanhung.driver@cbntransport.com', password: 'HASH_SECURE_12' },
   { id: 'USER_013', role: 'DRIVER_ESCORT', label: 'Lê Quốc Tuấn · Phụ lái', email: 'lequoctuan.driver@cbntransport.com', password: 'HASH_SECURE_13' },
   { id: 'USER_014', role: 'DRIVER_ESCORT', label: 'Dr. Lê Thu Trang · Bác sĩ thú y', email: 'lethutrang.escort@cbntransport.com', password: 'HASH_SECURE_14' },
+  { id: 'USER_016', role: 'DRIVER_ESCORT', label: 'Bùi Văn Long · Tài xế', email: 'buivanlong.driver@cbntransport.com', password: 'HASH_SECURE_16' },
+  { id: 'USER_030', role: 'DRIVER_ESCORT', label: 'Ngô Đức Anh · Tài xế chính', email: 'ngoducanh.driver@cbntransport.com', password: 'HASH_SECURE_30' },
+  { id: 'USER_031', role: 'DRIVER_ESCORT', label: 'Dr. Hoàng Gia Huy · Bác sĩ thú y', email: 'hoanggiahuy.escort@cbntransport.com', password: 'HASH_SECURE_31' },
   { id: 'USER_024', role: 'ADMIN', label: 'Quản trị viên Hệ thống (System Admin)', email: 'admin@cbntransport.com', password: 'HASH_SECURE_24' },
 ];
 

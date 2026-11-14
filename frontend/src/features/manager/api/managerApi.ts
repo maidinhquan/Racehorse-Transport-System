@@ -1,6 +1,9 @@
 import type { ChangeReview, OptionKey } from '../../../shared/api/requestReviewApi';
 import { apiRequest } from '../../../shared/api/apiRequest';
 import { contractClient, type FormOptions } from '../../../shared/api/contractClient';
+import { incidentPhase, rememberClosedIncident } from '../../../shared/utils/incidentState';
+import { getSharedIncidents } from '../../../shared/utils/sharedIncidents';
+import { formatNotification } from '../../../shared/utils/notificationFormat';
 import { MANAGER_ENDPOINTS as E } from './managerEndpoints';
 import type { ActualCost, Complaint, ContractDraft, ContractVersion, CustomerInfo, HorseRef, Incident, ManagerNotification, RoutePlan, Staff, Transaction, TransportMode, TransportRequest, Trip } from '../types';
 import { attachContractFeedback, contractFromWire, documentKey, paymentFromWire, refundFromWire, type RefundEvidence, type WireContract, type WireHorse, type WirePayment } from '../../../shared/api/flow1Wire';
@@ -43,6 +46,101 @@ const versionFromWire = (v: WireContract): ContractVersion => {
 const PLACE_TEXT = ['name', 'address', 'postal', 'contact', 'phone', 'notes', 'cityId', 'cityName'];
 const placeFromWire = (p: Record<string, unknown> | null | undefined) =>
   Object.fromEntries(Object.entries(p ?? {}).map(([k, v]) => [k, v == null && PLACE_TEXT.includes(k) ? '' : v])) as unknown as TransportRequest['pickup'];
+
+const incidentTypeMap: Record<string, Incident['type']> = {
+  VEHICLE_BREAKDOWN: 'VEHICLE',
+  VEHICLE_RESOURCE: 'VEHICLE',
+  VEHICLE: 'VEHICLE',
+  BREAKDOWN: 'VEHICLE',
+  HORSE_HEALTH: 'HORSE_HEALTH',
+  HEALTH: 'HORSE_HEALTH',
+  TRAFFIC_ACCIDENT: 'DELAY',
+  ROAD_CLOSURE: 'DELAY',
+  DELAY_AIR: 'DELAY',
+  FLIGHT_DELAY: 'DELAY',
+  DELAY: 'DELAY',
+  ACCIDENT: 'DELAY',
+  BORDER_DELAY: 'BORDER',
+  BORDER: 'BORDER',
+  OTHER: 'OTHER',
+};
+
+const incidentStatusMap: Record<string, Incident['status']> = {
+  REPORTED: 'NEW',
+  NEW: 'NEW',
+  PLANNING: 'IN_PROGRESS',
+  PENDING_APPROVAL: 'IN_PROGRESS',
+  CHANGES_REQUESTED: 'IN_PROGRESS',
+  EXECUTING: 'IN_PROGRESS',
+  RECOVERY_APPLIED: 'IN_PROGRESS',
+  RECOVERY_APPROVED: 'IN_PROGRESS',
+  RECOVERY_REJECTED: 'IN_PROGRESS',
+  IN_TRANSIT: 'IN_PROGRESS',
+  CONTINUE_ALLOWED: 'IN_PROGRESS',
+  RESULT_REPORTED: 'IN_PROGRESS',
+  ESCALATED: 'IN_PROGRESS',
+  IN_PROGRESS: 'IN_PROGRESS',
+  RESOLVED: 'CLOSED',
+  CLOSED: 'CLOSED',
+  HALTED: 'CLOSED',
+};
+
+/** "2026-11-12T00:50:00Z" → giờ địa phương "2026-11-12 07:50" (chuỗi không có múi giờ giữ nguyên) */
+const localStamp = (iso: string): string => {
+  const hasZone = /(Z|[+-]\d{2}:?\d{2})$/.test(iso);
+  const d = new Date(iso);
+  if (!hasZone || Number.isNaN(d.getTime())) return iso.replace('T', ' ').slice(0, 16);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+
+/** Trạng thái do Tài xế / Điều phối ghi lên bộ nhớ dùng chung (cùng nguồn với trang Tài xế) chồng lên dữ liệu máy chủ */
+const withSharedIncidentState = (inc: Incident): Incident => {
+  const cid = (x?: string) => (x || '').replace(/-/g, '_');
+  const out: Incident = { ...inc };
+  const shared = getSharedIncidents(inc.tripId).find((s) => cid(s.id) === cid(inc.id));
+  if (shared) {
+    if (['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(shared.severity)) out.severity = shared.severity as Incident['severity'];
+    if (shared.at) out.at = shared.at;
+  }
+  const phase = incidentPhase(inc.id, inc.status);
+  if (phase === 'CLOSED' || phase === 'RESOLVED') out.status = phase;
+  else if (phase === 'IN_PROGRESS' && out.status === 'NEW') out.status = 'IN_PROGRESS';
+  return out;
+};
+
+export const incidentFromWire = (r: Record<string, any>): Incident => {
+  const hasPlan = Boolean(r.approvedPlan || r.resolutionNotes);
+  const status = incidentStatusMap[r.status] || (hasPlan ? 'IN_PROGRESS' : 'NEW');
+
+  return {
+    id: r.incidentId || r.id,
+    tripId: r.tripId,
+    type: incidentTypeMap[r.category || r.incidentType || r.type] || 'OTHER',
+    severity: r.severity || 'MEDIUM',
+    status,
+    at: r.reportedAt ? localStamp(r.reportedAt) : (r.at || ''),
+    by: r.reportedByUserName || r.reportedByUserId || r.by || 'Tài xế / Áp tải',
+    location: r.location || 'Trên đường vận chuyển',
+    horseId: r.horseId,
+    description: r.description || '',
+    safety: r.safety || r.immediateCare || 'Người và ngựa an toàn hoặc đã được sơ cứu',
+    photos: Array.isArray(r.photos) ? r.photos : (r.imageUrl ? [r.imageUrl] : []),
+    plans: Array.isArray(r.plans) && r.plans.length
+      ? r.plans
+      : (hasPlan ? [{
+          id: 'PLAN-APPROVED',
+          kind: r.resolutionType || 'NO_CHANGE',
+          desc: r.approvedPlan || r.resolutionNotes || 'Phương án xử lý đã được duyệt',
+          cost: 0,
+          payer: 'COMPANY',
+          status: 'APPROVED',
+          at: r.reportedAt || '',
+          by: 'Điều phối viên',
+        }] : []),
+    log: Array.isArray(r.log) ? r.log : [],
+  };
+};
 const requestFromWire = (r: WireRequest): TransportRequest => ({ ...r,
   id: r.id, customerId: r.customerId, origin: r.origin, destination: r.destination,
   horses: r.horses ?? [], pickup: placeFromWire(r.pickup), delivery: placeFromWire(r.delivery),
@@ -114,7 +212,17 @@ export const managerApi = {
   // Backend sends `body` (same as customer) and customer-side links; map to the manager UI shape.
   getNotifications: async (): Promise<ManagerNotification[]> =>
     (await contractClient<Array<{ id: string; at: string; title?: string | null; body?: string | null; read: boolean; link?: string | null }>>('get', '/manager/notifications'))
-      .map(n => ({ id: n.id, at: n.at, title: n.title ?? '', text: n.body ?? '', read: n.read, link: (n.link ?? '').replace(/^\/customer\//, '/manager/') })),
+      .map(n => {
+        const formatted = formatNotification({ id: n.id, title: n.title, body: n.body, at: n.at, read: n.read, link: n.link });
+        return {
+          id: formatted.id,
+          at: formatted.at,
+          title: formatted.title,
+          text: formatted.body,
+          read: formatted.read,
+          link: (formatted.link || '').replace(/^\/customer\//, '/manager/'),
+        };
+      }),
   markRead: (id: string) => contractClient('post', `/manager/notifications/${id}/read`),
   markAllRead: () => contractClient('post', '/manager/notifications/read-all'),
   acceptRequest: async (id: string, key: OptionKey) => requestFromWire(await contractClient<WireRequest>('post', `/manager/requests/${id}/accept`, key)),
@@ -195,7 +303,10 @@ export const managerApi = {
   decidePickupRelocation: (tripId: string, body: { expectedVersion: number; relocationId: string; decision: 'APPROVE' | 'RETURN'; reason?: string }) =>
     apiRequest('post', E.RELOCATION_DECISION_F3(tripId), body),
   // Out-of-scope screens keep their existing routes; no fabricated successful response.
-  getIncidents: () => apiRequest<Incident[]>('get', E.INCIDENTS),
+  getIncidents: async (): Promise<Incident[]> => {
+    const list = await apiRequest<Record<string, any>[]>('get', E.INCIDENTS);
+    return Array.isArray(list) ? list.map(incidentFromWire).map((i) => { if (i.status === 'CLOSED') rememberClosedIncident(i.id); return withSharedIncidentState(i); }) : [];
+  },
   getComplaints: () => apiRequest<Complaint[]>('get', E.COMPLAINTS),
   getActualCosts: () => apiRequest<ActualCost[]>('get', E.ACTUAL_COST_LIST),
   closeRequest: (id: string) => apiRequest('post', E.CLOSE_REQUEST(id)),

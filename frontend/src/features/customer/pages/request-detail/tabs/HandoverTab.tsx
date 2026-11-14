@@ -25,6 +25,7 @@ import { getDemoMode } from '../../../../../shared/context/DemoModeContext';
 import { generateUuidV4 } from '../../../../../shared/utils/uuid';
 import { flow6Api } from '../../../../aftercare/api/flow6Api';
 import type * as T6 from '../../../../aftercare/types/flow6.types';
+import { onSync } from '../../../../../shared/utils/syncChannel';
 
 const CONDITION_LABEL = { NORMAL: 'Bình thường', MONITOR: 'Cần theo dõi', ABNORMAL: 'Bất thường' } as const;
 
@@ -171,7 +172,8 @@ const RealCustomerHandoverTab: React.FC<{ request: TransportRequest }> = ({ requ
     void loadData();
     // Tự làm mới để thấy hóa đơn cuối / kết quả thanh toán mà không cần tải lại trang
     const timer = setInterval(() => { void loadData(true); }, 10000);
-    return () => clearInterval(timer);
+    const stopSync = onSync(() => { void loadData(true); });
+    return () => { clearInterval(timer); stopSync(); };
   }, [r.id]);
 
   const handlePayBalance = async () => {

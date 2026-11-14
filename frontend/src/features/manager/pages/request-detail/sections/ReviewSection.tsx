@@ -21,25 +21,80 @@ import {
   fmtDate,
   fmtDateTime,
   fmtMoney,
-  horseName,
   isAccepted,
+  isSigned,
   moneyHeld,
   shortLeadTime,
   timeLeft,
   versionState,
 } from '../../../hooks/managerRules';
+import { getUserFullName } from '../../../../../shared/utils/userNameResolver';
+import '../RequestDetailPage.css';
 
 type Dialog = '' | 'accept' | 'revise' | 'reject' | 'cancel' | 'cancel-ok' | 'cancel-no' | 'demo-cancel';
+
+const SEX_LABEL: Record<string, string> = {
+  STALLION: 'Ngựa đực giống',
+  MARE: 'Ngựa cái',
+  GELDING: 'Ngựa thiến',
+  MALE: 'Ngựa đực',
+  FEMALE: 'Ngựa cái',
+};
+
+const REPRODUCTIVE_LABEL: Record<string, string> = {
+  INTACT: 'Chưa phối giống',
+  PREGNANT: 'Đang mang thai',
+  NOT_PREGNANT: 'Không mang thai',
+  GELDED: 'Đã thiến',
+};
 
 /** Mục 1: thông tin yêu cầu, hồ sơ (chỉ xem), quyết định của Manager, lịch sử */
 export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
   const { data, horses, customer, actions } = useManager();
   const demo = getDemoMode('manager');
   const [dialog, setDialog] = useState<Dialog>('');
+  const [selectedHorseId, setSelectedHorseId] = useState<string | null>(null);
   const close = () => setDialog('');
   const c = customer(r), v = curVersion(r), held = moneyHeld(data, r);
   const horseInfo = (id: string) => horses.find((h) => h.id === id || h.id.replace(/-/g, '_') === id.replace(/-/g, '_'));
-  const dossierScopes = Array.from(new Set((r.dossier ?? []).map((d) => d.scope)));
+  const viewingHorse = selectedHorseId ? horseInfo(selectedHorseId) : null;
+
+  const renderHorseFileRow = (label: string, fileRef: any, fallbackName: string) => {
+    const dossierItem = (r.dossier ?? []).find(
+      (d) => (d.scope === selectedHorseId || d.scope === viewingHorse?.id) && (d.name === fallbackName || d.name.toLowerCase().includes(fallbackName.toLowerCase()))
+    );
+    const fileName =
+      fileRef?.name ||
+      (typeof fileRef === 'string' ? fileRef : '') ||
+      (typeof dossierItem?.file === 'object' && dossierItem?.file ? (dossierItem.file as any).name : dossierItem?.file) ||
+      '';
+    const fileUrl = fileRef?.url;
+
+    return (
+      <div className="mgr-horse-file-row">
+        <span>{label}:</span>
+        {fileUrl ? (
+          <button
+            type="button"
+            className="mgr-link"
+            onClick={() => window.open(fileUrl, '_blank')}
+          >
+            Tải / Xem tệp
+          </button>
+        ) : fileName ? (
+          <button
+            type="button"
+            className="mgr-link"
+            onClick={() => downloadFile(fileName).catch((err) => actions.showToast(err.message))}
+          >
+            Tải tệp ({fileName})
+          </button>
+        ) : (
+          <span className="mgr-muted">Chưa có tệp</span>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -83,38 +138,44 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
           </section>
 
           <section className="mgr-card">
-            <h3 className="mgr-card__title">Ngựa ({r.horses.length})</h3>
+            <div className="mgr-between">
+              <h3 className="mgr-card__title">Ngựa ({r.horses.length})</h3>
+              <span className="mgr-hint" style={{ margin: 0, fontSize: 12 }}>Bấm vào để xem hồ sơ chi tiết</span>
+            </div>
             {r.horses.map((id) => {
               const h = horseInfo(id);
               return (
-                <div key={id} className="mgr-row">
-                  <div><b>{h?.name ?? id}</b><span>{id} • {h?.breed} • Microchip {h?.microchip || 'chưa khai báo'} • Hộ chiếu {h?.passportNo}</span></div>
-                  {!h?.microchip && <StatusBadge tone="warn" label="Thiếu microchip" />}
+                <div
+                  key={id}
+                  className="mgr-row mgr-horse-row-clickable"
+                  onClick={() => setSelectedHorseId(id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedHorseId(id);
+                    }
+                  }}
+                  title={`Bấm để xem hồ sơ chi tiết ngựa: ${h?.name ?? id}`}
+                >
+                  <div className="mgr-horse-row-content">
+                    <div className="mgr-horse-row-title-line">
+                      <b className="mgr-horse-row-name">{h?.name ?? id}</b>
+                      <span className="mgr-horse-row-badge">Xem chi tiết ↗</span>
+                    </div>
+                    <span className="mgr-horse-row-meta">
+                      {id} • {h?.breed || 'Chưa rõ giống'} • Microchip {h?.microchip || 'chưa khai báo'} • Hộ chiếu {h?.passportNo || (h as any)?.passport?.number || 'chưa khai báo'}
+                    </span>
+                  </div>
+                  {!h?.microchip ? (
+                    <StatusBadge tone="warn" label="Thiếu microchip" />
+                  ) : (
+                    <span className="mgr-horse-row-arrow">›</span>
+                  )}
                 </div>
               );
             })}
-          </section>
-
-          <section className="mgr-card">
-            <div className="mgr-between"><h3 className="mgr-card__title">Hồ sơ khách hàng</h3><StatusBadge tone="muted" label="Chỉ xem" /></div>
-            <p className="mgr-hint" style={{ marginTop: 0 }}>Transport Specialist duyệt giấy tờ; Manager chỉ theo dõi để đánh giá yêu cầu.</p>
-            {dossierScopes.map((scope) => (
-              <div key={scope}>
-                <div className="mgr-section-title">{horseName(data, scope)}</div>
-                {(r.dossier ?? []).filter((d) => d.scope === scope).map((d) => {
-                  const fileName = typeof d.file === 'object' && d.file ? ((d.file as any).name || '') : (d.file || '');
-                  return (
-                    <div key={d.name} className="mgr-row">
-                      <div>
-                        <b>{{ photo: 'Ảnh nhận dạng', passport: 'Hộ chiếu FEI', ownership: 'Giấy chứng nhận sở hữu', valueProof: 'Chứng từ giá trị' }[d.name] || d.name}</b>
-                        <span>{fileName ? <button type="button" className="mgr-link" onClick={() => downloadFile(fileName).catch(error => actions.showToast(error.message))}>Tải tệp</button> : 'Chưa có tệp'}{d.note ? ` • ${d.note}` : ''}</span>
-                      </div>
-                      {demo ? <StatusBadge kind="dossier" status={d.status} /> : <StatusBadge tone="muted" label={fileName ? 'Đã cung cấp tệp' : 'Chưa có tệp'} />}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
           </section>
         </div>
 
@@ -151,7 +212,7 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
                   {v && versionState(v) !== 'VOID' ? 'Mở hợp đồng' : 'Soạn hợp đồng mới'}
                 </Link>
               )}
-              {CANCELLABLE.includes(r.status) && <button type="button" className="mgr-btn mgr-btn--sm mgr-btn--danger" onClick={() => setDialog('cancel')}>Hủy yêu cầu</button>}
+              {CANCELLABLE.includes(r.status) && !isSigned(r) && <button type="button" className="mgr-btn mgr-btn--sm mgr-btn--danger" onClick={() => setDialog('cancel')}>Hủy yêu cầu</button>}
             </div>
           </section>
 
@@ -160,7 +221,7 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
             <ul className="mgr-timeline">
               {[...r.history].reverse().map((h, i) => (
                 <li key={`${h.at}-${i}`} className={i === 0 ? 'now' : 'done'}>
-                  <b>{h.action}</b>{h.detail && <span>{h.detail}</span>}<span>{fmtDateTime(h.at)} • {h.actor} ({ROLE_LABEL[h.role]})</span>
+                  <b>{h.action}</b>{h.detail && <span>{h.detail}</span>}<span>{fmtDateTime(h.at)} • {getUserFullName(h.actor)} ({ROLE_LABEL[h.role]})</span>
                 </li>
               ))}
             </ul>
@@ -204,6 +265,116 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
           close();
           return true;
         }} />
+
+      {viewingHorse && (
+        <Modal
+          open={!!viewingHorse}
+          title={`Hồ sơ cá thể ngựa: ${viewingHorse.name || selectedHorseId}`}
+          onClose={() => setSelectedHorseId(null)}
+          cancelText="Đóng"
+          wide
+        >
+          <div className="mgr-horse-modal-layout">
+            <div className="mgr-horse-modal-header-banner">
+              <div className="mgr-horse-avatar">
+                {(viewingHorse.name || 'H').slice(0, 2).toUpperCase()}
+              </div>
+              <div className="mgr-horse-summary">
+                <h4>{viewingHorse.name || viewingHorse.id}</h4>
+                <p>
+                  <span className="mgr-id-pill">{viewingHorse.id}</span>
+                  {viewingHorse.breed && <span> • {viewingHorse.breed}</span>}
+                  {viewingHorse.sex && <span> • {SEX_LABEL[viewingHorse.sex as string] || viewingHorse.sex}</span>}
+                  {viewingHorse.microchip ? (
+                    <span className="mgr-chip-pill">Microchip: {viewingHorse.microchip}</span>
+                  ) : (
+                    <span className="mgr-chip-pill warn">Chưa có Microchip</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="mgr-horse-modal-grid">
+              {/* Thẻ 1: Thông tin sinh học & Nhận dạng */}
+              <div className="mgr-horse-detail-card">
+                <h5>Thông tin sinh học & Định danh</h5>
+                <div className="mgr-horse-kv-list">
+                  <div className="mgr-horse-kv-item"><span>Mã ngựa (ID)</span><b>{viewingHorse.id}</b></div>
+                  <div className="mgr-horse-kv-item"><span>Tên ngựa</span><b>{viewingHorse.name || '—'}</b></div>
+                  <div className="mgr-horse-kv-item"><span>Giống loài</span><b>{viewingHorse.breed || '—'}</b></div>
+                  <div className="mgr-horse-kv-item"><span>Giới tính</span><b>{SEX_LABEL[viewingHorse.sex as string] || viewingHorse.sex || '—'}</b></div>
+                  <div className="mgr-horse-kv-item"><span>Ngày sinh</span><b>{viewingHorse.dob ? fmtDate(viewingHorse.dob) : '—'}</b></div>
+                  <div className="mgr-horse-kv-item"><span>Cân nặng</span><b>{viewingHorse.weight ? `${viewingHorse.weight} kg` : '—'}</b></div>
+                  <div className="mgr-horse-kv-item"><span>Tình trạng sinh sản</span><b>{REPRODUCTIVE_LABEL[viewingHorse.reproductiveStatus as string] || viewingHorse.reproductiveStatus || '—'}</b></div>
+                  <div className="mgr-horse-kv-item"><span>Mã vi mạch (ISO)</span><b>{viewingHorse.microchip || <span className="mgr-bad">Chưa khai báo</span>}</b></div>
+                </div>
+              </div>
+
+              {/* Thẻ 2: Hộ chiếu FEI */}
+              <div className="mgr-horse-detail-card">
+                <h5>Hộ chiếu ngựa (FEI Passport)</h5>
+                <div className="mgr-horse-kv-list">
+                  <div className="mgr-horse-kv-item"><span>Số hộ chiếu</span><b>{viewingHorse.passportNo || viewingHorse.passport?.number || '—'}</b></div>
+                  <div className="mgr-horse-kv-item"><span>Cơ quan cấp</span><b>{viewingHorse.passport?.authority || '—'}</b></div>
+                  <div className="mgr-horse-kv-item"><span>Ngày cấp</span><b>{viewingHorse.passport?.issueDate ? fmtDate(viewingHorse.passport.issueDate) : '—'}</b></div>
+                  <div className="mgr-horse-kv-item"><span>Ngày hết hạn</span><b>{viewingHorse.passport?.expiryDate ? fmtDate(viewingHorse.passport.expiryDate) : '—'}</b></div>
+                </div>
+                {renderHorseFileRow('Bản scan hộ chiếu', viewingHorse.passport?.scan, 'passport')}
+              </div>
+
+              {/* Thẻ 3: Sở hữu & Giá trị thương mại */}
+              <div className="mgr-horse-detail-card">
+                <h5>Sở hữu & Giá trị thương mại</h5>
+                <div className="mgr-horse-kv-list">
+                  <div className="mgr-horse-kv-item"><span>Giá trị khai báo</span><b>{viewingHorse.value ? `${Number(viewingHorse.value).toLocaleString('vi-VN')} ${viewingHorse.currency || 'VND'}` : '—'}</b></div>
+                </div>
+                {renderHorseFileRow('Ảnh nhận dạng', viewingHorse.photo, 'photo')}
+                {renderHorseFileRow('Giấy chứng nhận sở hữu', viewingHorse.ownership, 'ownership')}
+                {renderHorseFileRow('Chứng từ định giá / hóa đơn', viewingHorse.valueProof, 'valueProof')}
+              </div>
+
+              {/* Thẻ 4: Sức khỏe & Lưu ý vận chuyển */}
+              <div className="mgr-horse-detail-card">
+                <h5>Sức khỏe & Lưu ý vận chuyển</h5>
+                <div className="mgr-horse-kv-list">
+                  <div className="mgr-horse-kv-item">
+                    <span>Ghi chú sức khỏe cá thể</span>
+                    <b>{viewingHorse.healthNotes || 'Không có ghi chú bất thường.'}</b>
+                  </div>
+                  <div className="mgr-horse-kv-item">
+                    <span>Yêu cầu chăm sóc theo đơn</span>
+                    <b>{r.careNotes || 'Không có.'}</b>
+                  </div>
+                </div>
+                {(r.dossier ?? []).filter((d) => d.scope === selectedHorseId || d.scope === viewingHorse.id).length > 0 && (
+                  <div className="mgr-horse-dossier-sublist">
+                    <span className="mgr-horse-dossier-sublist-title">Giấy tờ đính kèm trong đơn:</span>
+                    {(r.dossier ?? []).filter((d) => d.scope === selectedHorseId || d.scope === viewingHorse.id).map((d) => {
+                      const fileName = typeof d.file === 'object' && d.file ? ((d.file as any).name || '') : (d.file || '');
+                      return (
+                        <div key={d.name} className="mgr-horse-dossier-row">
+                          <span>{{ photo: 'Ảnh nhận dạng', passport: 'Hộ chiếu FEI', ownership: 'Giấy chứng nhận sở hữu', valueProof: 'Chứng từ giá trị' }[d.name] || d.name}</span>
+                          {fileName ? (
+                            <button
+                              type="button"
+                              className="mgr-link"
+                              onClick={() => downloadFile(fileName).catch((err) => actions.showToast(err.message))}
+                            >
+                              Tải tệp ({fileName})
+                            </button>
+                          ) : (
+                            <span className="mgr-muted">Chưa có tệp</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
     </>
   );
 };

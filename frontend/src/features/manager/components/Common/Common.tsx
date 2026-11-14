@@ -91,8 +91,16 @@ export const BackLink: React.FC<{ to: string; children: React.ReactNode }> = ({ 
   <Link className="mgr-back" to={to}><Icon name="back" />{children}</Link>
 );
 
-/** Mở tệp mẫu (bản demo không có tài liệu thật) */
+/** Mở tệp mẫu hoặc ảnh thật */
 export function openSampleFile(name: string) {
+  if (name.startsWith('data:image') || name.startsWith('http') || name.startsWith('blob:')) {
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write(`<title>Ảnh bằng chứng</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img src="${name}" style="max-width:95vw;max-height:95vh;object-fit:contain;"/></body>`);
+      w.document.close();
+    }
+    return;
+  }
   const html = `<title>${name}</title><body style="font-family:sans-serif;padding:40px;color:#334155"><h2>${name}</h2><p>Tệp mẫu trong dữ liệu demo CBN Transport. Không có tài liệu thật đính kèm.</p>`;
   window.open(URL.createObjectURL(new Blob([html], { type: 'text/html' })), '_blank', 'noopener');
 }

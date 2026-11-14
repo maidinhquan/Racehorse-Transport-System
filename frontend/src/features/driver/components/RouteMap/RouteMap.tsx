@@ -5,8 +5,9 @@ import './RouteMap.css';
 import type { RouteStop } from '../../types';
 import { STOP_LABEL } from '../../hooks/driverRules';
 import { addGeoapifyTiles } from '../../../../shared/maps/GeoapifyTiles';
-import { drawIncidentPins } from '../../../../shared/maps/incidentPinLayer';
+import { drawIncidentPins, snapPointToPolyline } from '../../../../shared/maps/incidentPinLayer';
 import type { IncidentPin } from '../../../../shared/utils/sharedIncidentPins';
+import { fetchRoadRoute, fetchTripSegments, inferStopCoords } from '../../../../shared/maps/roadRouting';
 
 type GeoPoint = { lat: number; lng: number };
 
@@ -23,11 +24,16 @@ interface RouteMapProps {
   draggablePin?: boolean;
 }
 
-function hasCoordinates(stop: RouteStop) {
-  return typeof stop.lat === 'number' && Number.isFinite(stop.lat)
+function getStopPosition(stop: RouteStop): L.LatLngTuple | null {
+  if (
+    typeof stop.lat === 'number' && Number.isFinite(stop.lat)
     && stop.lat >= -90 && stop.lat <= 90
     && typeof stop.lng === 'number' && Number.isFinite(stop.lng)
-    && stop.lng >= -180 && stop.lng <= 180;
+    && stop.lng >= -180 && stop.lng <= 180
+  ) {
+    return [stop.lat, stop.lng];
+  }
+  return inferStopCoords(stop.name);
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
@@ -45,10 +51,12 @@ export const RouteMap: React.FC<RouteMapProps> = ({
   const mapRef = useRef<L.Map | null>(null);
   const layersRef = useRef<L.LayerGroup | null>(null);
   const lastBounds = useRef('');
+  const activeLegCoordsRef = useRef<Array<[number, number]>>([]);
   const [tileError, setTileError] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
-  const missing = stops.filter((stop) => !hasCoordinates(stop));
+  const missing = stops.filter((stop) => !getStopPosition(stop));
   const pinsKey = JSON.stringify(pins ?? []);
+  const hasAir = stops.some((s, i) => i > 0 && stops[i - 1].type === 'AIRPORT' && s.type === 'AIRPORT');
 
   useEffect(() => {
     if (!isMaximized) return;
@@ -94,7 +102,12 @@ export const RouteMap: React.FC<RouteMapProps> = ({
     if (!map || !onPick) return;
     const handleClick = (event: L.LeafletMouseEvent) => {
       const point = event.latlng.wrap();
-      onPick({ lat: point.lat, lng: point.lng });
+      if (activeLegCoordsRef.current && activeLegCoordsRef.current.length > 0) {
+        const snapped = snapPointToPolyline(point, activeLegCoordsRef.current);
+        onPick(snapped);
+      } else {
+        onPick({ lat: point.lat, lng: point.lng });
+      }
     };
     map.on('click', handleClick);
     return () => {
@@ -107,38 +120,103 @@ export const RouteMap: React.FC<RouteMapProps> = ({
     const layers = layersRef.current;
     if (!map || !layers) return;
     layers.clearLayers();
-    const located = stops.flatMap((stop, index) =>
-      hasCoordinates(stop)
-        ? [{ stop, index, position: [stop.lat!, stop.lng!] as L.LatLngTuple }]
-        : []
-    );
+    let isCancelled = false;
+
+    const located = stops.flatMap((stop, index) => {
+      const position = getStopPosition(stop);
+      return position ? [{ stop, index, position }] : [];
+    });
     const lastConfirmed =
       Number.isInteger(current) && current >= 0 && current < stops.length ? current : -1;
+    const targetLeg = Number.isInteger(current) && current !== undefined && current >= 0 ? current : null;
+    activeLegCoordsRef.current = [];
 
+    const polylines: Array<{ legIndex: number; poly: L.Polyline; prevPos: L.LatLngTuple; nextPos: L.LatLngTuple; confirmed: boolean; flight: boolean }> = [];
     for (let i = 1; i < located.length; i++) {
       const previous = located[i - 1], next = located[i];
       if (next.index !== previous.index + 1) continue;
+      const legIndex = i - 1;
       const confirmed = next.index <= lastConfirmed;
-      L.polyline([previous.position, next.position], {
-        color: confirmed ? '#f57c00' : '#2563eb',
-        weight: 5,
-        dashArray: confirmed ? undefined : '7 8',
+      const flight = previous.stop.type === 'AIRPORT' && next.stop.type === 'AIRPORT';
+      const poly = L.polyline([previous.position, next.position], {
+        color: flight ? '#ea580c' : confirmed ? '#f57c00' : '#2563eb',
+        weight: flight ? 3 : 5,
+        opacity: 0.88,
+        dashArray: flight ? '2 10' : confirmed ? undefined : '6 8',
         interactive: false,
       }).addTo(layers);
+      polylines.push({
+        legIndex,
+        poly,
+        prevPos: previous.position,
+        nextPos: next.position,
+        confirmed,
+        flight,
+      });
+
+      const isTargetLeg = targetLeg === null ? true : (previous.index === targetLeg || legIndex === targetLeg);
+      if (isTargetLeg) {
+        const prevTuple: [number, number] = [previous.position[0], previous.position[1]];
+        const nextTuple: [number, number] = [next.position[0], next.position[1]];
+        if (targetLeg !== null) {
+          activeLegCoordsRef.current = [prevTuple, nextTuple];
+        } else {
+          activeLegCoordsRef.current.push(prevTuple, nextTuple);
+        }
+      }
+    }
+
+    if (!hasAir && located.length === stops.length && located.length >= 2) {
+      const roadPoints = located.map((p) => ({ lat: p.position[0], lng: p.position[1] }));
+      void fetchTripSegments(roadPoints).then((segments) => {
+        if (isCancelled) return;
+        polylines.forEach(({ legIndex, poly, confirmed }) => {
+          const seg = segments[legIndex];
+          if (seg && seg.length > 1) {
+            (poly as any).setLatLngs?.(seg);
+            if (!confirmed) poly.setStyle({ dashArray: undefined });
+            const isTargetLeg = targetLeg === null ? false : (targetLeg === legIndex || (located[legIndex] && located[legIndex].index === targetLeg));
+            if (isTargetLeg) {
+              activeLegCoordsRef.current = seg;
+            }
+          }
+        });
+        if (targetLeg === null) {
+          activeLegCoordsRef.current = segments.flat();
+        }
+      });
+    } else {
+      polylines.forEach(({ legIndex, poly, prevPos, nextPos, confirmed, flight }) => {
+        if (flight) return;
+        void fetchRoadRoute([
+          { lat: prevPos[0], lng: prevPos[1] },
+          { lat: nextPos[0], lng: nextPos[1] },
+        ]).then((roadCoords) => {
+          if (!isCancelled && roadCoords && roadCoords.length > 1) {
+            (poly as any).setLatLngs?.(roadCoords);
+            if (!confirmed) poly.setStyle({ dashArray: undefined });
+            const isTargetLeg = targetLeg === null ? false : (targetLeg === legIndex || (located[legIndex] && located[legIndex].index === targetLeg));
+            if (isTargetLeg) {
+              activeLegCoordsRef.current = roadCoords;
+            }
+          }
+        });
+      });
     }
 
     located.forEach(({ stop, index, position }) => {
       const latest = index === lastConfirmed;
-      const isEnd = index === 0 || index === stops.length - 1;
+      const isEnd = index === 0 || index === stops.length - 1 || stop.type === 'ORIGIN' || stop.type === 'DESTINATION';
       const isReq =
         stop.type === 'CHECKPOINT' ||
+        stop.type === 'QUARANTINE_STATION' ||
         stop.type === 'AIRPORT' ||
         Boolean((stop as unknown as { required?: boolean }).required);
       const pinClass = `rp-pin ${isEnd ? 'end' : isReq ? 'req' : 'sel'} ${latest ? 'cur' : ''}`;
       const html = `<div class="${pinClass}">${index + 1}</div>`;
       const marker = L.marker(position, {
         icon: L.divIcon({ html, className: '', iconSize: [26, 26], iconAnchor: [13, 13] }),
-        zIndexOffset: latest ? 1200 : 1000,
+        zIndexOffset: stop.type === 'AIRPORT' ? 1100 : latest ? 1200 : 1000,
       }).addTo(layers);
       const tooltip = document.createElement('span');
       tooltip.textContent = `${index + 1}. ${stop.name}`;
@@ -160,6 +238,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
     drawIncidentPins(layers, JSON.parse(pinsKey) as IncidentPin[], {
       draggable: draggablePin,
       onDrag: onPick,
+      constrainPolyline: () => activeLegCoordsRef.current,
     });
 
     const boundsKey = JSON.stringify(located.map((point) => [point.stop.id, ...point.position]));
@@ -174,6 +253,10 @@ export const RouteMap: React.FC<RouteMapProps> = ({
       }
       lastBounds.current = boundsKey;
     }
+
+    return () => {
+      isCancelled = true;
+    };
   }, [stops, current, pinsKey, draggablePin, onPick]);
 
   return (
@@ -232,10 +315,10 @@ export const RouteMap: React.FC<RouteMapProps> = ({
 
       {!compact && (
         <div className="drv-geo-map__legend">
-          <span><i style={{ background: '#0f172a' }} />Điểm nhận</span>
-          <span><i style={{ background: '#2563eb' }} />Sân bay</span>
-          <span><i style={{ background: '#16a34a' }} />Điểm giao</span>
-          <span><i style={{ background: '#f57c00' }} />Mốc xác nhận gần nhất</span>
+          <span><i style={{ background: '#0f172a' }} />Điểm nhận/giao</span>
+          <span><i style={{ background: '#dc2626', borderRadius: 3 }} />Điểm bắt buộc</span>
+          <span><i style={{ background: '#f08a2b' }} />Điểm dừng</span>
+          <span><i style={{ background: '#f57c00', outline: '2px solid #fde047' }} />Mốc xác nhận gần nhất</span>
           {pins && pins.length > 0 && <span><i style={{ background: '#dc2626' }} />Vị trí sự cố</span>}
         </div>
       )}

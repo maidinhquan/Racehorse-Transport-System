@@ -187,5 +187,101 @@ namespace WebApi.Controllers
                 return Failure(ex.Message);
             }
         }
+
+        // =========================================================================
+        // ACTUAL COSTS (CHI PHÍ THỰC TẾ & BÁO CÁO)
+        // =========================================================================
+
+        private static readonly object _actualCostLock = new();
+        private static readonly string _actualCostFilePath = Path.Combine(AppContext.BaseDirectory, "App_Data", "actual_costs.json");
+
+        public class ActualCostExtraDto
+        {
+            public string Label { get; set; } = "";
+            public decimal Amount { get; set; }
+            public string Payer { get; set; } = "COMPANY";
+        }
+
+        public class ActualCostRecordDto
+        {
+            public string TripId { get; set; } = "";
+            public Dictionary<string, decimal> Costs { get; set; } = new();
+            public List<ActualCostExtraDto> Extra { get; set; } = new();
+            public string EnteredAt { get; set; } = "";
+        }
+
+        public class SaveActualCostInputDto
+        {
+            public Dictionary<string, decimal>? Costs { get; set; }
+            public List<ActualCostExtraDto>? Extra { get; set; }
+        }
+
+        [HttpGet("actual-costs")]
+        public IActionResult GetActualCosts()
+        {
+            lock (_actualCostLock)
+            {
+                try
+                {
+                    if (!System.IO.File.Exists(_actualCostFilePath))
+                    {
+                        return Success(new List<ActualCostRecordDto>());
+                    }
+                    var json = System.IO.File.ReadAllText(_actualCostFilePath);
+                    var list = System.Text.Json.JsonSerializer.Deserialize<List<ActualCostRecordDto>>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                    return Success(list);
+                }
+                catch
+                {
+                    return Success(new List<ActualCostRecordDto>());
+                }
+            }
+        }
+
+        [HttpPut("trips/{tripId}/actual-costs")]
+        public IActionResult SaveActualCosts(string tripId, [FromBody] SaveActualCostInputDto input)
+        {
+            lock (_actualCostLock)
+            {
+                try
+                {
+                    var dir = Path.GetDirectoryName(_actualCostFilePath);
+                    if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    {
+                        Directory.CreateDirectory(dir);
+                    }
+
+                    List<ActualCostRecordDto> list = new();
+                    if (System.IO.File.Exists(_actualCostFilePath))
+                    {
+                        var json = System.IO.File.ReadAllText(_actualCostFilePath);
+                        list = System.Text.Json.JsonSerializer.Deserialize<List<ActualCostRecordDto>>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                    }
+
+                    var cleanId = tripId.Replace("-", "_").ToUpperInvariant();
+                    var existing = list.FirstOrDefault(x => (x.TripId ?? "").Replace("-", "_").ToUpperInvariant() == cleanId);
+                    var record = new ActualCostRecordDto
+                    {
+                        TripId = tripId,
+                        Costs = input.Costs ?? new(),
+                        Extra = input.Extra ?? new(),
+                        EnteredAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")
+                    };
+
+                    if (existing != null)
+                    {
+                        list.Remove(existing);
+                    }
+                    list.Add(record);
+
+                    System.IO.File.WriteAllText(_actualCostFilePath, System.Text.Json.JsonSerializer.Serialize(list, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+                    return Success(record, "Đã lưu chi phí thực tế thành công");
+                }
+                catch (Exception ex)
+                {
+                    return Failure($"Lỗi khi lưu chi phí thực tế: {ex.Message}");
+                }
+            }
+        }
     }
 }

@@ -66,7 +66,7 @@ public static class Flow4MilestoneFactory
                         Label = $"Xuất phát từ {name}",
                         Status = "PENDING",
                         PlannedTime = arrivePlanned,
-                        RequiresHealthCheck = false,
+                        RequiresHealthCheck = true,
                         Latitude = lat,
                         Longitude = lng,
                     });
@@ -111,7 +111,7 @@ public static class Flow4MilestoneFactory
                         Label = arriveLabel.Length > 255 ? arriveLabel[..255] : arriveLabel,
                         Status = "PENDING",
                         PlannedTime = arrivePlanned,
-                        RequiresHealthCheck = arriveKind == "STOP_ARRIVED",
+                        RequiresHealthCheck = false,
                         Latitude = lat,
                         Longitude = lng,
                     });
@@ -129,7 +129,7 @@ public static class Flow4MilestoneFactory
                         Label = departLabel.Length > 255 ? departLabel[..255] : departLabel,
                         Status = "PENDING",
                         PlannedTime = departPlanned,
-                        RequiresHealthCheck = false,
+                        RequiresHealthCheck = departKind == "STOP_DEPARTED",
                         Latitude = lat,
                         Longitude = lng,
                     });

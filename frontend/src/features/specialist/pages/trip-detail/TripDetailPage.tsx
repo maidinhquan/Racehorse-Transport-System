@@ -11,7 +11,6 @@ import { DocsReadyCard } from './sections/DocsReadyCard';
 import { CustomerDocsTab } from './tabs/CustomerDocsTab';
 import { CompanyDocsTab } from './tabs/CompanyDocsTab';
 import { InsuranceTab } from './tabs/InsuranceTab';
-import { IncidentsTab } from './tabs/IncidentsTab';
 import './TripDetailPage.css';
 
 /** Tải danh mục hồ sơ đi đường (CSV) để in và bàn giao cho tổ xe */
@@ -42,7 +41,7 @@ export const TripDetailPage: React.FC = () => {
   if (!t) {
     return <SpecialistLayout title="Chuyến được giao"><Note tone="grey" title="Không tìm thấy chuyến">Chuyến {tripId} không có trong danh sách được giao.</Note></SpecialistLayout>;
   }
-  const active: TripDetailTab = (['customer', 'required', 'insurance', 'incidents'] as const).includes(tab as TripDetailTab) ? (tab as TripDetailTab) : 'customer';
+  const active: TripDetailTab = (['customer', 'required', 'insurance'] as const).includes(tab as TripDetailTab) ? (tab as TripDetailTab) : 'customer';
   const x = tripTotals(data, t);
 
   return (
@@ -50,7 +49,7 @@ export const TripDetailPage: React.FC = () => {
       <button type="button" className="spc-back" onClick={() => navigate('/specialist/trips')}><Icon name="back" />Chuyến được giao</button>
       <div className="spc-head">
         <div>
-          <h2 className="spc-title spc-trip__title">{t.id} <TripStatusBadge kind="trip" status={t.status} /> <TripStatusBadge kind="deployment" status={t.deployment} /></h2>
+          <h2 className="spc-title spc-trip__title">{t.id} <TripStatusBadge kind="trip" status={t.status} />{t.deployment !== 'CONFIRMED' && <TripStatusBadge kind="deployment" status={t.deployment} />}</h2>
           <p className="spc-subtitle">{t.requestId} • {t.customerName} • {t.origin} → {t.destination} • {MODE_VI[t.mode]} • khởi hành {fmtDateTime(t.plannedDepart)} • dự kiến đến {fmtDateTime(t.eta)}</p>
           <p className="spc-muted" style={{ marginTop: 4 }}>Ngựa: {t.horses.map((h) => `${h.name} (${h.microchip || 'chưa có microchip'})`).join(', ')}</p>
         </div>
@@ -74,7 +73,6 @@ export const TripDetailPage: React.FC = () => {
               {active === 'customer' && <CustomerDocsTab trip={t} />}
               {active === 'required' && <CompanyDocsTab trip={t} />}
               {active === 'insurance' && <InsuranceTab trip={t} />}
-              {active === 'incidents' && <IncidentsTab trip={t} />}
             </div>
             <DemoPanel trip={t} />
           </div>

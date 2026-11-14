@@ -8,4 +8,5 @@ public interface IRegistrationService
     Task VerifyOtpAsync(RegisterVerifyOtpDto request, CancellationToken cancellationToken = default);
     Task<ResendOtpResponseData> ResendOtpAsync(RegisterResendOtpDto request, CancellationToken cancellationToken = default);
     Task<ValidateEmailResponseData> ValidateEmailAsync(string email, CancellationToken cancellationToken = default);
+    Task<CheckEmailAvailabilityResponseData> CheckEmailAvailabilityAsync(string email, CancellationToken cancellationToken = default);
 }

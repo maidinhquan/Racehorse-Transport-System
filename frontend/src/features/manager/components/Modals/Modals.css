@@ -5,7 +5,7 @@
   background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 24px 60px rgba(15, 23, 42, .3);
   font-family: Inter, system-ui, sans-serif; color: #0f172a;
 }
-.mgr-modal__box--wide { max-width: 760px; }
+.mgr-modal__box--wide { max-width: 860px; width: 92vw; }
 .mgr-modal__title { margin: 0 0 14px; font-size: 18px; font-weight: 700; }
 .mgr-modal__body { font-size: 13px; }
 .mgr-modal__body p { margin: 0 0 12px; line-height: 1.5; }

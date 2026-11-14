@@ -1,4 +1,5 @@
 // Chi tiết chuyến của Điều phối: Tổng quan • Tuyến đường (lập lộ trình) • Xe & nhân sự • Chuyến bay • Theo dõi hành trình
+import { sortIncidentsNewestFirst } from '../../../../../shared/utils/incidentState';
 import { Icon } from '../../../components/common/ui';
 import { RouteMap } from '../../../components/maps/LeafletMaps';
 import { agoText, emp, etaOverdue, handoverState, holdText, hoursSince, lastMilestone, legHolds, livePos, nextMilestone, tripStops } from '../../../domain/coordinatorRules';
@@ -8,6 +9,7 @@ import { db, go, ui } from '../../../store/coordinatorStore';
 import { dt, human, incTypeVi, MILESTONE_LABEL, STOP_LABEL } from '../../../utils/format';
 import { ALERT_CAUSE, etaUpdate, manualMilestone, manualSteps, scheduleAlert } from '../../../workflows/coordinatorActions';
 import { f5Pill } from '../../../workflows/incidentOperations';
+import { getUserFullName } from '../../../../../shared/utils/userNameResolver';
 
 function ManualCard({ t }: { t: Any }) {
   if (t.status === 'COMPLETED') return null;
@@ -40,7 +42,7 @@ export function ProgressTab({ t }: { t: Any }) {
   useAutoRefresh();
   const stops = tripStops(t), m = lastMilestone(t), cur = m ? m.stop : -1;
   const next = t.status === 'IN_TRANSIT' && !handoverState(t) ? nextMilestone(t) : null, target = next && stops[next.stop];
-  const active = db.incidents.filter((i: Any) => i.tripId === t.id && i.status !== 'CLOSED');
+  const active = sortIncidentsNewestFirst(db.incidents.filter((i: Any) => i.tripId === t.id && i.status !== 'CLOSED') as Array<{ id: string; at?: string }>) as Any[];
   const editable = t.status !== 'COMPLETED';
   const nextLabel = next ? (MILESTONE_LABEL[next.type] || human(next.type)) : t.status === 'READY_TO_DEPART' ? 'Chờ tổ xe xác nhận xuất phát' : t.status === 'COMPLETED' ? 'Hành trình đã hoàn tất' : handoverState(t) ? 'Đã đến điểm giao' : t.status === 'PLANNING' ? 'Chuyến đang lập kế hoạch' : 'Chưa có mốc tiếp theo';
   const late = etaOverdue(t);
@@ -83,7 +85,7 @@ export function ProgressTab({ t }: { t: Any }) {
           return (
             <li key={i} className={done ? 'green' : i === cur ? 'orange' : ''}><div className="journey-stop-heading"><b>{i + 1}. {s.name}</b>{i === cur && !done ? <span className="journey-here">Mốc hiện tại</span> : null}</div>
               <span className="muted">{STOP_LABEL[s.type] || human(s.type)}{s.plannedAt ? ' · Dự kiến ' + dt(s.plannedAt) : ''}</span>
-              {ms.length ? ms.map((x: Any, k: number) => <span key={k}>{MILESTONE_LABEL[x.type] || human(x.type)} · {dt(x.at)} · {emp(x.by)?.name || x.by || ''}{x.manual ? ' · Ghi thay tổ xe' : ''}</span>) : <span className="muted">Chưa ghi nhận mốc</span>}
+              {ms.length ? ms.map((x: Any, k: number) => <span key={k}>{MILESTONE_LABEL[x.type] || human(x.type)} · {dt(x.at)} · {getUserFullName(emp(x.by)?.name || x.by, '')}{x.manual ? ' · Ghi thay tổ xe' : ''}</span>) : <span className="muted">Chưa ghi nhận mốc</span>}
             </li>);
         })}</ul> : <p className="hint">Chưa có tuyến được duyệt.</p>}
       </section>

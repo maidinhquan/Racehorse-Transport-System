@@ -158,6 +158,39 @@ public sealed class RegistrationService : IRegistrationService
         }, cancellationToken);
     }
 
+    public async Task<CheckEmailAvailabilityResponseData> CheckEmailAvailabilityAsync(string email, CancellationToken cancellationToken = default)
+    {
+        var cleanedEmail = email?.Trim().ToLowerInvariant() ?? "";
+
+        if (string.IsNullOrWhiteSpace(cleanedEmail) || cleanedEmail.Length > 100 || !new EmailAddressAttribute().IsValid(cleanedEmail) || cleanedEmail.Any(c => c > 127))
+        {
+            return new CheckEmailAvailabilityResponseData
+            {
+                IsAvailable = false,
+                ExistsInSystem = false,
+                Message = "Định dạng email không hợp lệ hoặc vượt quá 100 ký tự."
+            };
+        }
+
+        var exists = await users.ExistsByEmailAsync(cleanedEmail, cancellationToken);
+        if (exists)
+        {
+            return new CheckEmailAvailabilityResponseData
+            {
+                IsAvailable = false,
+                ExistsInSystem = true,
+                Message = "Email này đã được sử dụng trong hệ thống."
+            };
+        }
+
+        return new CheckEmailAvailabilityResponseData
+        {
+            IsAvailable = true,
+            ExistsInSystem = false,
+            Message = "Email có thể sử dụng (chưa đăng ký trong hệ thống)."
+        };
+    }
+
     public async Task<ValidateEmailResponseData> ValidateEmailAsync(string email, CancellationToken cancellationToken = default)
     {
         var cleanedEmail = email?.Trim().ToLowerInvariant() ?? "";

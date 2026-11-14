@@ -28,6 +28,7 @@ import {
 } from '../../hooks/managerRules';
 import { ContractWizard } from './ContractWizard';
 import './ContractEditorPage.css';
+import { onSync } from '../../../../shared/utils/syncChannel';
 
 type Dialog = '' | 'view' | 'cancel' | 'extend' | 'demo-cancel' | 'demo-change';
 
@@ -40,7 +41,8 @@ export const ContractEditorPage: React.FC = () => {
     if (!requestId) return;
     void actions.loadRequest(requestId);
     const timer = setInterval(() => { void actions.loadRequest(requestId); }, 15000);
-    return () => clearInterval(timer);
+    const stopSync = onSync(() => { void actions.loadRequest(requestId); });
+    return () => { clearInterval(timer); stopSync(); };
   }, [requestId, actions]);
   const [editing, setEditing] = useState(false);
   const [response, setResponse] = useState('');
@@ -196,7 +198,7 @@ export const ContractEditorPage: React.FC = () => {
               </div>
             </section>
           )}
-          {CANCELLABLE.includes(r.status) && state !== 'VOID' && (
+          {CANCELLABLE.includes(r.status) && !isSigned(r) && state !== 'VOID' && (
             <section className="mgr-card">
               <h3 className="mgr-card__title">Hủy / Thu hồi hợp đồng</h3>
               <p className="mgr-hint" style={{ marginTop: 0 }}>Chỉ hủy/thu hồi được trước khi khách ký OTP. Hợp đồng chưa ký sẽ bị thu hồi.</p>

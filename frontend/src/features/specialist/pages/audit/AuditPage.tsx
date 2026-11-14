@@ -4,13 +4,14 @@ import { Pager } from '../../components/Common/Common';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { useSpecialistFilter } from '../../hooks/useSpecialistFilter';
 import { ROLE_LABEL, fmtDateTime } from '../../hooks/specialistRules';
+import { getUserFullName } from '../../../../shared/utils/userNameResolver';
 import './AuditPage.css';
 
 /** Lịch sử thao tác của mọi vai trò trên hồ sơ, mới nhất trước */
 export const AuditPage: React.FC = () => {
   const { audit } = useSpecialist();
   const rows = [...audit].sort((a, b) => b.at.localeCompare(a.at));
-  const f = useSpecialistFilter(rows, (x) => [x.actor, x.action, x.entity, x.detail ?? ''].join(' '), { role: (x, v) => x.role === v }, 12);
+  const f = useSpecialistFilter(rows, (x) => [getUserFullName(x.actor), x.actor, x.action, x.entity, x.detail ?? ''].join(' '), { role: (x, v) => x.role === v }, 12);
   return (
     <SpecialistLayout title="Lịch sử thao tác">
       <div className="spc-head">
@@ -30,7 +31,7 @@ export const AuditPage: React.FC = () => {
               {f.rows.map((x, i) => (
                 <tr key={`${x.at}-${i}`}>
                   <td className="spc-audit__time">{fmtDateTime(x.at)}</td>
-                  <td><b>{x.actor}</b><div className="spc-muted">{ROLE_LABEL[x.role]}</div></td>
+                  <td><b>{getUserFullName(x.actor)}</b><div className="spc-muted">{ROLE_LABEL[x.role]}</div></td>
                   <td>{x.action}</td>
                   <td>{x.entity}</td>
                   <td><span className="spc-wrap" style={{ maxWidth: 340 }}>{x.detail || '—'}</span></td>

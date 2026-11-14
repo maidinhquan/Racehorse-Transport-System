@@ -56,6 +56,19 @@ public static class Flow4Helper
         };
     }
 
+    /// <summary>Xuất phát và rời điểm dừng đều phải kiểm tra sức khỏe ngựa trước (chỉ theo loại mốc, bỏ qua cờ lưu sẵn của chuyến cũ; đến điểm dừng không bị chặn).</summary>
+    public static bool NeedsHealthCheck(TripMilestone m) =>
+        m.MilestoneKind == "DEPARTED" || m.MilestoneKind == "STOP_DEPARTED";
+
+    /// <summary>Các ngựa của chuyến chưa có nhật ký sức khỏe gắn với mốc này.</summary>
+    public static async Task<List<string>> HorsesMissingHealthLogAsync(HorseTransportDbContext context, string tripId, string milestoneId)
+    {
+        var requestId = await context.TripPlans.Where(t => t.TripId == tripId).Select(t => t.RequestId).FirstOrDefaultAsync();
+        var horseIds = await context.RequestHorseMappings.Where(m => m.RequestId == requestId).Select(m => m.HorseId).ToListAsync();
+        var logged = await context.HealthLogs.Where(h => h.TripId == tripId && h.MilestoneId == milestoneId).Select(h => h.HorseId).Distinct().ToListAsync();
+        return horseIds.Where(id => !logged.Contains(id)).ToList();
+    }
+
     public static Flow4MilestoneDto BuildMilestoneDto(TripMilestone m, string? role, HorseTransportDbContext context)
     {
         var actions = new Flow4MilestoneActionsDto
@@ -66,16 +79,21 @@ public static class Flow4Helper
         };
 
         // Nếu mốc yêu cầu kiểm tra sức khỏe
-        if (m.RequiresHealthCheck && m.Status == "PENDING")
+        if (NeedsHealthCheck(m) && m.Status == "PENDING")
         {
-            var hasLogs = context.HealthLogs.Any(h => h.TripId == m.TripId && h.MilestoneId == m.MilestoneId);
-            if (!hasLogs)
+            var requestId = context.TripPlans.Where(t => t.TripId == m.TripId).Select(t => t.RequestId).FirstOrDefault();
+            var horseIds = context.RequestHorseMappings.Where(x => x.RequestId == requestId).Select(x => x.HorseId).ToList();
+            var logged = context.HealthLogs.Where(h => h.TripId == m.TripId && h.MilestoneId == m.MilestoneId).Select(h => h.HorseId).Distinct().ToList();
+            var missing = horseIds.Count == 0 ? (logged.Count == 0 ? 1 : 0) : horseIds.Count(id => !logged.Contains(id));
+            if (missing > 0)
             {
                 actions.Blockers.Add(new Flow4BlockerDto
                 {
                     Code = "HEALTH_CHECK_REQUIRED",
                     Field = "health",
-                    Message = "Cần ghi nhật ký sức khỏe cho ngựa tại trạm dừng này trước khi tiếp tục."
+                    Message = m.MilestoneKind == "DEPARTED"
+                        ? "Cần kiểm tra sức khỏe cho toàn bộ ngựa trước khi xuất phát."
+                        : "Cần kiểm tra sức khỏe cho toàn bộ ngựa trước khi rời điểm dừng này."
                 });
             }
         }
@@ -97,7 +115,7 @@ public static class Flow4Helper
             PlannedAt = m.PlannedTime.ToString("yyyy-MM-dd HH:mm"),
             OccurredAt = m.OccurredAt?.ToString("yyyy-MM-dd HH:mm"),
             Revision = m.Revision,
-            RequiresHealthCheck = m.RequiresHealthCheck,
+            RequiresHealthCheck = NeedsHealthCheck(m),
             EvidenceFileIds = evidenceIds,
             Note = m.Note ?? "",
             Geo = m.Latitude is decimal lat && m.Longitude is decimal lng ? new Flow4GeoDto { Lat = lat, Lng = lng } : null,

@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { DemoGuide } from '../../components/DemoGuide/DemoGuide';
-import { RouteText, horseNames } from '../../components/Common/Common';
+import { RouteText } from '../../components/Common/Common';
 import { useCustomer } from '../../hooks/useCustomer';
 import { useCustomerFilter, type RequestStatusFilter } from '../../hooks/useCustomerFilter';
 import './CustomerHistoryPage.css';
-import { FINAL_STATUSES, REQUEST_STATUS_LABEL, contractTotal, curVersion, fmtDate, fmtDateTime, fmtMoney, isActive, versionState } from '../../hooks/customerRules';
+import { FINAL_STATUSES, REQUEST_STATUS_LABEL, contractTotal, curVersion, fmtDate, fmtDateTime, fmtMoney, isActive } from '../../hooks/customerRules';
 
 /** Lịch sử: yêu cầu đã đóng, đã hủy hoặc bị từ chối (chỉ xem) */
 export const CustomerHistoryPage: React.FC = () => {
@@ -44,7 +44,7 @@ export const CustomerHistoryPage: React.FC = () => {
       <div className="cus-card" style={{ padding: 0 }}>
         <div className="cus-table-wrap">
           <table className="cus-table">
-            <thead><tr><th>Mã yêu cầu</th><th>Tuyến</th><th>Ngựa</th><th>Ngày vận chuyển</th><th>Hợp đồng</th><th className="num">Giá trị</th><th>Kết thúc</th><th>Trạng thái</th></tr></thead>
+            <thead><tr><th>Mã yêu cầu</th><th>Tuyến</th><th>Ngày vận chuyển</th><th className="num">Giá trị</th><th>Kết thúc</th><th>Trạng thái</th></tr></thead>
             <tbody>
               {f.rows.map((r) => {
                 const v = curVersion(r);
@@ -52,16 +52,14 @@ export const CustomerHistoryPage: React.FC = () => {
                   <tr key={r.id} className="clickable" onClick={() => navigate(`/customer/requests/${r.id}`)}>
                     <td className="cus-id">{r.id}</td>
                     <td><RouteText r={r} /></td>
-                    <td>{horseNames(r, horses)}</td>
                     <td>{fmtDate(r.date)}</td>
-                    <td>{v ? <TripStatusBadge kind="contract" status={versionState(v)} /> : <span className="cus-muted">—</span>}</td>
                     <td className="num">{v ? fmtMoney(contractTotal(r)) : '—'}</td>
                     <td className="cus-history__closed">{r.closedAt ? fmtDateTime(r.closedAt) : <span className="cus-muted">{r.reason ?? '—'}</span>}</td>
                     <td><TripStatusBadge status={r.status} /></td>
                   </tr>
                 );
               })}
-              {!f.rows.length && <tr><td colSpan={8} className="cus-empty">Không có yêu cầu nào khớp bộ lọc.</td></tr>}
+              {!f.rows.length && <tr><td colSpan={6} className="cus-empty">Không có yêu cầu nào khớp bộ lọc.</td></tr>}
             </tbody>
           </table>
         </div>

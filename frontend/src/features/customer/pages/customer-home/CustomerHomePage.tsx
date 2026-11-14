@@ -5,6 +5,7 @@ import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadg
 import { RouteText, horseNames } from '../../components/Common/Common';
 import { needsCustomerAction, useCustomer } from '../../hooks/useCustomer';
 import { displayRequestId, fmtDate, fmtDateTime, isActive, tripSummary } from '../../hooks/customerRules';
+import { formatNotification } from '../../utils/notificationFormat';
 import './CustomerHomePage.css';
 
 /** Trang chủ khách hàng: chuyến hiện tại, việc cần làm, thông báo và yêu cầu gần đây */
@@ -86,9 +87,12 @@ export const CustomerHomePage: React.FC = () => {
             <>
               <div className="cus-eyebrow" style={{ marginTop: 16 }}>Thông báo mới</div>
               <ul className="cus-home__notifs">
-                {notifications.filter((n) => !n.read).slice(0, 3).map((n) => (
+                {notifications.filter((n) => !n.read).slice(0, 3).map((raw) => {
+                  const n = formatNotification(raw);
+                  return (
                   <li key={n.id}><button type="button" className="cus-link" onClick={() => navigate(n.link)}>{n.title}</button><span>{fmtDateTime(n.at)}</span></li>
-                ))}
+                );
+                })}
               </ul>
             </>
           )}

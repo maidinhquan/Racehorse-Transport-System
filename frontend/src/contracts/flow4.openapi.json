@@ -16206,6 +16206,45 @@
                 "type": "null"
               }
             ]
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90,
+                "example": 10.9289
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180,
+                "example": 108.1021
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "locationLabel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255,
+                "example": "Gần Phan Thiết rest area"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [

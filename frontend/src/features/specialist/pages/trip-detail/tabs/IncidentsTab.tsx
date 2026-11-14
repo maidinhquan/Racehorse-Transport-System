@@ -1,9 +1,11 @@
+import { sortIncidentsNewestFirst } from '../../../../../shared/utils/incidentState';
 import React, { useState } from 'react';
 import type { SpecTrip } from '../../../types';
 import { useSharedIncidents, updateSharedIncidentReview, type SharedIncident } from '../../../../../shared/utils/sharedIncidents';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
 import { fmtDateTime } from '../../../hooks/specialistRules';
 import { apiClient } from '../../../../../shared/api/apiClient';
+import { getUserFullName } from '../../../../../shared/utils/userNameResolver';
 import './IncidentsTab.css';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -42,7 +44,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export const IncidentsTab: React.FC<{ trip: SpecTrip }> = ({ trip }) => {
-  const incidents = useSharedIncidents(trip.id);
+  const incidents = sortIncidentsNewestFirst(useSharedIncidents(trip.id));
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [status, setStatus] = useState<'VALID' | 'PERMIT_REISSUED' | 'REJECTED'>('VALID');
   const [findings, setFindings] = useState('');
@@ -126,7 +128,7 @@ export const IncidentsTab: React.FC<{ trip: SpecTrip }> = ({ trip }) => {
                     <b>{inc.id}</b> • {TYPE_LABELS[inc.type] || inc.type}
                   </div>
                   <div className="spc-incident-item__meta">
-                    Báo lúc: <b>{fmtDateTime(inc.at)}</b> • Bởi: <b>{inc.by}</b> • Vị trí: <b>{inc.location || 'Trên tuyến'}</b>
+                    Báo lúc: <b>{fmtDateTime(inc.at)}</b> • Bởi: <b>{getUserFullName(inc.by)}</b> • Vị trí: <b>{inc.location || 'Trên tuyến'}</b>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

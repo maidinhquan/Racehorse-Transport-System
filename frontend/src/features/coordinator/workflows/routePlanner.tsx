@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { Chk, Field, Inp, Sel } from '../components/common/ui';
 import { PlacePickMap } from '../components/maps/LeafletMaps';
 import seed from '../data/seed.json';
-import { canPlan, checkpoint, curRoute, groundCountry, groundLegs, opsBlock, placeById, placeByName, reqOfTrip, trip, tripHorses } from '../domain/coordinatorRules';
+import { approvedRoute, canPlan, checkpoint, curRoute, groundCountry, groundLegs, opsBlock, placeById, placeByName, reqOfTrip, trip, tripHorses } from '../domain/coordinatorRules';
 import type { Any } from '../store/coordinatorStore';
 import { audit, closeModal, commit, confirmAction, db, demoOn, flushTripStateToStorage, go, me, nextId, notify, nowStamp, onReset, openModal, savePlacesToStorage, toast, ui } from '../store/coordinatorStore';
 import { addHours, dt, human, stampMs } from '../utils/format';
@@ -20,7 +20,19 @@ export const PF: Record<string, string> = { REST: 'Nghỉ & chăm sóc ngựa', 
 export const PF_COLOR: Record<string, string> = { REST: '#d97706', FUEL: '#64748b', QUARANTINE: '#0284c7', BORDER: '#dc2626', AIRPORT: '#ea580c' };
 export const PLACE_ST: Record<string, [string, string]> = { ACTIVE: ['READY', 'Đang hoạt động'], SUSPENDED: ['PENDING', 'Tạm ngừng'], INACTIVE: ['CANCELLED', 'Ngừng sử dụng'] };
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
-export const ROUTE_POLICY: Any = clone((seed as Any).policy);
+const POLICY_KEY = 'coordinator_route_policy';
+/** Chính sách nghỉ chăm sóc là cấu hình chung của hệ thống: lưu lại trên trình duyệt, không đổi khi tải lại trang hay làm mới dữ liệu mẫu */
+const loadSavedPolicy = (): Any => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(POLICY_KEY) || 'null');
+    if (!saved || typeof saved !== 'object') return {};
+    const base = (seed as Any).policy;
+    return Object.fromEntries(Object.keys(base).filter((k) => typeof base[k] === 'number' && Number.isFinite(saved[k]) && saved[k] >= 0).map((k) => [k, saved[k]]));
+  } catch {
+    return {};
+  }
+};
+export const ROUTE_POLICY: Any = { ...clone((seed as Any).policy), ...loadSavedPolicy() };
 export const ROUTING: Any = {
   ...clone((seed as Any).routing),
   avoidBorders: true,
@@ -85,6 +97,41 @@ function rpRestErrors(t: Any, s: Any, p: Any, policy: Any) {
   return errors;
 }
 
+export function inferGeoFromText(rawText: string): [number, number] | null {
+  const addr = String(rawText || '').toLowerCase();
+  if (!addr) return null;
+  if (addr.includes('cái mép') || addr.includes('thị vải') || addr.includes('tân phước') || addr.includes('phú mỹ')) return [10.5667, 107.0333];
+  if (addr.includes('vũng tàu') || addr.includes('bà rịa')) return [10.4114, 107.1362];
+  if (addr.includes('cang da nang') || addr.includes('cảng đà nẵng') || addr.includes('hải châu') || addr.includes('đà nẵng') || addr.includes('da nang')) return [16.0748, 108.2240];
+  if (addr.includes('lê đức thọ') || addr.includes('gò vấp')) return [10.8550, 106.6565];
+  if (addr.includes('hà nội') || addr.includes('ha noi') || addr.includes('hanoi') || addr.includes('hoàn kiếm') || addr.includes('ba đình') || addr.includes('cầu giấy')) return [21.0285, 105.8542];
+  if (addr.includes('hải phòng') || addr.includes('hai phong')) return [20.8449, 106.6881];
+  if (addr.includes('vinh') || addr.includes('nghệ an')) return [18.6796, 105.6813];
+  if (addr.includes('huế') || addr.includes('thừa thiên')) return [16.4637, 107.5909];
+  if (addr.includes('quy nhơn') || addr.includes('bình định')) return [13.7820, 109.2190];
+  if (addr.includes('nha trang') || addr.includes('khánh hòa')) return [12.2388, 109.1967];
+  if (addr.includes('phan thiết') || addr.includes('bình thuận')) return [10.9289, 108.1021];
+  if (addr.includes('đà lạt') || addr.includes('lâm đồng')) return [11.9404, 108.4583];
+  if (addr.includes('cần thơ') || addr.includes('can tho')) return [10.0452, 105.7469];
+  if (addr.includes('tây ninh') || addr.includes('mộc bài')) return [11.0776, 106.1583];
+  if (addr.includes('tokyo') || addr.includes('narita')) return [35.67686, 139.763895];
+  if (addr.includes('bangkok')) return [13.7563, 100.5018];
+  return null;
+}
+
+export function isBackendFallbackGeo(lat: Any, lng: Any): boolean {
+  const la = Number(lat), lo = Number(lng);
+  if (!Number.isFinite(la) || !Number.isFinite(lo)) return true;
+  return (
+    (Math.abs(la - 10.7769) < 0.005 && Math.abs(lo - 106.7009) < 0.005) ||
+    (Math.abs(la - 11.0) < 0.005 && Math.abs(lo - 106.9) < 0.005) ||
+    (Math.abs(la - 10.8231) < 0.005 && Math.abs(lo - 106.6297) < 0.005) ||
+    (Math.abs(la - 10.85135) < 0.001) ||
+    (Math.abs(la - 21.05) < 0.005 && Math.abs(lo - 105.35) < 0.005) ||
+    (Math.abs(la - 35.66) < 0.005 && Math.abs(lo - 139.48) < 0.005)
+  );
+}
+
 // ---- điểm dừng: tọa độ, điểm bắt buộc, mục đích ----
 export function rpEnsure(t: Any, rt: Any) {
   const r = reqOfTrip(t), s = rt.stops;
@@ -103,23 +150,20 @@ export function rpEnsure(t: Any, rt: Any) {
       }
     }
   }
-  const end = (place: Any, c: string): [Any, Any, boolean] => {
-    const addr = String(place?.address || place?.name || '').toLowerCase();
-    if (addr.includes('lê đức thọ') || addr.includes('gò vấp')) {
-      if (place?.geo) { place.geo.lat = 10.8550; place.geo.lng = 106.6565; }
-      return [10.8550, 106.6565, true];
-    }
-    if (addr.includes('tokyo')) {
-      if (place?.geo) { place.geo.lat = 35.67686; place.geo.lng = 139.763895; }
-      return [35.67686, 139.763895, true];
-    }
-    if (place && place.geo && place.geo.lat != null && place.geo.lng != null && !(Math.abs(place.geo.lat - 10.7769) < 0.0001 && Math.abs(place.geo.lng - 106.7009) < 0.0001)) {
+  const end = (place: Any, c: string, stopName = ''): [Any, Any, boolean] => {
+    const inferred = inferGeoFromText(`${place?.address || ''} ${place?.name || ''} ${stopName} ${c || ''}`);
+    const hasGeo = place && place.geo && place.geo.lat != null && place.geo.lng != null;
+    if (hasGeo && !isBackendFallbackGeo(place.geo.lat, place.geo.lng)) {
       return [Number(place.geo.lat), Number(place.geo.lng), true];
     }
-    if (place && place.geo && place.geo.lat != null && place.geo.lng != null) {
+    if (inferred) {
+      if (place?.geo) { place.geo.lat = inferred[0]; place.geo.lng = inferred[1]; }
+      return [inferred[0], inferred[1], true];
+    }
+    if (hasGeo) {
       return [Number(place.geo.lat), Number(place.geo.lng), false];
     }
-    return CITY_GEO[c] ? [CITY_GEO[c][0], CITY_GEO[c][1], false] : [null, null, false];
+    return CITY_GEO[c] ? [CITY_GEO[c][0], CITY_GEO[c][1], false] : [10.7769, 106.7009, false];
   };
   if (!s.length || s[0].type !== 'ORIGIN') s.unshift(stop(r.pickup.name || r.origin, 'ORIGIN', t.plannedDepart));
   if (s[s.length - 1].type !== 'DESTINATION') s.push(stop(r.delivery.name || r.destination, 'DESTINATION', t.eta));
@@ -128,11 +172,11 @@ export function rpEnsure(t: Any, rt: Any) {
       const isOrigin = x.type === 'ORIGIN';
       const place = isOrigin ? r.pickup : r.delivery;
       const c = isOrigin ? r.origin : r.destination;
-      const [la, lo, exact] = end(place, c);
-      const isStuckQ1 = isOrigin && (Math.abs(x.lat - 10.7769) < 0.005 || Math.abs(x.lat - 10.85135) < 0.001);
+      const [la, lo, exact] = end(place, c, x.name);
+      const isFallback = isBackendFallbackGeo(x.lat, x.lng);
       const isStuckVNForTokyo = !isOrigin && String(x.name || place?.name || place?.address || '').toLowerCase().includes('tokyo') && x.lat < 20;
 
-      if (x.lat == null || isStuckQ1 || isStuckVNForTokyo || (exact && !x.exactGeo)) {
+      if (x.lat == null || isFallback || isStuckVNForTokyo || (exact && !x.exactGeo)) {
         x.lat = la;
         x.lng = lo;
         x.exactGeo = exact;
@@ -211,17 +255,34 @@ export function isPointInVietnam(lat: number, lng: number): boolean {
   return !isPointOutsideVietnam(lat, lng).outside;
 }
 
-/** Tọa độ hành lang ven biển QL1A (Quy Nhơn, Bình Định) dùng để ép OSRM giữ tuyến trong nước cho các chặng Bắc-Nam */
+/** Hành lang ven biển QL1A / Cao tốc Bắc-Nam để ép OSRM giữ tuyến trong nước cho các chặng nội địa */
+export const VN_CORRIDORS: Array<{ lat: number; lng: number; desc: string }> = [
+  { lat: 18.6800, lng: 105.6800, desc: 'Vinh - Nghệ An' },
+  { lat: 16.0500, lng: 108.2000, desc: 'Đà Nẵng' },
+  { lat: 13.7800, lng: 109.2200, desc: 'Quy Nhơn - Bình Định' },
+  { lat: 12.2400, lng: 109.1900, desc: 'Nha Trang - Khánh Hòa' },
+  { lat: 10.9300, lng: 108.1000, desc: 'Phan Thiết - Bình Thuận' },
+];
+
+/** Tọa độ hành lang ven biển QL1A giữ lại để tương thích ngược */
 export const VN_CORRIDOR_WAYPOINT = [13.7820, 109.2190];
 
-/** Kiểm tra xem một chặng đường bộ giữa 2 điểm nội địa có nguy cơ bị OSRM cắt qua Lào/Campuchia hay không */
-export function needsVietnamDomesticCorridor(pA: number[], pB: number[]): boolean {
-  if (!pA || !pB || pA.length < 2 || pB.length < 2) return false;
-  if (!isPointInVietnam(pA[0], pA[1]) || !isPointInVietnam(pB[0], pB[1])) return false;
+/** Lấy danh sách tọa độ hành lang ven biển giữa 2 điểm nếu là chặng nội địa có nguy cơ cắt qua Lào/Campuchia */
+export function getDomesticCorridors(pA: number[], pB: number[]): number[][] {
+  if (!pA || !pB || pA.length < 2 || pB.length < 2) return [];
+  if (!isPointInVietnam(pA[0], pA[1]) || !isPointInVietnam(pB[0], pB[1])) return [];
   const minLat = Math.min(pA[0], pB[0]), maxLat = Math.max(pA[0], pB[0]);
-  const minLng = Math.min(pA[1], pB[1]);
-  // Tuyến nối giữa miền Nam (lat < 13.5, lng < 107.5) và Bắc/Bắc Trung Bộ (lat >= 16.6)
-  return minLat < 13.5 && minLng < 107.5 && maxLat >= 16.6;
+  if (maxLat - minLat < 2.5) return [];
+
+  const goingSouth = pA[0] > pB[0];
+  const filtered = VN_CORRIDORS.filter((c) => c.lat > minLat + 0.3 && c.lat < maxLat - 0.3);
+  const sorted = goingSouth ? filtered.sort((a, b) => b.lat - a.lat) : filtered.sort((a, b) => a.lat - b.lat);
+  return sorted.map((c) => [c.lat, c.lng]);
+}
+
+/** Kiểm tra xem một chặng đường bộ giữa 2 điểm nội địa có cần chèn hành lang duyên hải hay không */
+export function needsVietnamDomesticCorridor(pA: number[], pB: number[]): boolean {
+  return getDomesticCorridors(pA, pB).length > 0;
 }
 
 // ---- routing (OSRM, Geoapify hoặc mô phỏng do người dùng chọn); yêu cầu mới nhất thắng; nhớ đệm theo tọa độ ----
@@ -275,10 +336,13 @@ export async function routeVia(points: number[][]): Promise<Any> {
       const segLegCount: number[] = [];
       for (let i = 0; i < points.length - 1; i++) {
         const pA = points[i], pB = points[i + 1];
-        if (ROUTING.avoidBorders !== false && needsVietnamDomesticCorridor(pA, pB)) {
-          osrmPoints.push(VN_CORRIDOR_WAYPOINT);
+        const corridors = ROUTING.avoidBorders !== false ? getDomesticCorridors(pA, pB) : [];
+        if (corridors.length > 0) {
+          for (const c of corridors) {
+            osrmPoints.push(c);
+          }
           osrmPoints.push(pB);
-          segLegCount.push(2);
+          segLegCount.push(1 + corridors.length);
         } else {
           osrmPoints.push(pB);
           segLegCount.push(1);
@@ -464,7 +528,7 @@ export function rpSchedule(t: Any, rt: Any, legs: Any[]) {
 /** hạn giao cam kết – không bị kéo dài khi ETA bị sửa */
 export const rpDeadline = (t: Any) => { const r = reqOfTrip(t); return t.deliveryDeadline || r.deliveryDeadline || (r.date ? r.date + ' 23:59' : '') || t.etaOriginal || ''; };
 export const rpState: Record<string, Any> = {};
-onReset(() => { Object.keys(rpState).forEach((k) => delete rpState[k]); routeCache.clear(); Object.assign(ROUTE_POLICY, clone((seed as Any).policy)); Object.assign(ROUTING, clone((seed as Any).routing)); });
+onReset(() => { Object.keys(rpState).forEach((k) => delete rpState[k]); routeCache.clear(); Object.assign(ROUTING, clone((seed as Any).routing)); });
 export const RP = (id: string) => (rpState[id] = rpState[id] || { seg: null, sel: null, selStop: null, filters: { fn: [], country: '', radius: 25, status: 'ACTIVE', hoursOk: false, capOk: false, loading: false, stabling: false, water: false, onboard: false }, seq: 0, routing: { status: 'idle' }, detour: {} });
 export const rpEditable = (t: Any, rt: Any) => !!rt && rt.status === 'DRAFT' && canPlan(t) && !opsBlock(t, true);
 export const fmtMin = (m: number | null | undefined) => (m == null ? '—' : m < 60 ? `${Math.round(m)} phút` : `${Math.floor(m / 60)} giờ ${String(Math.round(m % 60)).padStart(2, '0')}`);
@@ -488,7 +552,7 @@ function rpSimulateDemo(t: Any, rt: Any) {
 }
 
 export async function rpRoute(t: Any, force = false) {
-  const rt = curRoute(t), ps = RP(t.id); if (!rt) return;
+  const rt = (t?.status !== 'PLANNING' && approvedRoute(t)) || curRoute(t), ps = RP(t.id); if (!rt) return;
   if (force) rpClearRouteCache();
   rpEnsure(t, rt);
   const key = rpRouteKey(t, rt);
@@ -635,12 +699,22 @@ export function rpWriteTimes(t: Any, rt: Any, calc: Any) {
 export function rpCoords(t: Any, rt: Any) {
   const r = reqOfTrip(t); if (!r) return;
   (rt.stops || []).forEach((x: Any) => {
-    if (x.lat != null) return;
     if (x.type === 'ORIGIN' || x.type === 'DESTINATION') {
       const pl = x.type === 'ORIGIN' ? r.pickup : r.delivery, c = x.type === 'ORIGIN' ? r.origin : r.destination;
-      if (pl && pl.geo) { x.lat = pl.geo.lat; x.lng = pl.geo.lng; x.exactGeo = true; } else if (CITY_GEO[c]) { x.lat = CITY_GEO[c][0]; x.lng = CITY_GEO[c][1]; }
+      const inferred = inferGeoFromText(`${pl?.address || ''} ${pl?.name || ''} ${x.name || ''} ${c || ''}`);
+      if (x.lat != null && !isBackendFallbackGeo(x.lat, x.lng)) return;
+      if (pl && pl.geo && pl.geo.lat != null && pl.geo.lng != null && !isBackendFallbackGeo(pl.geo.lat, pl.geo.lng)) {
+        x.lat = Number(pl.geo.lat); x.lng = Number(pl.geo.lng); x.exactGeo = true;
+      } else if (inferred) {
+        x.lat = inferred[0]; x.lng = inferred[1]; x.exactGeo = true;
+      } else if (pl && pl.geo && pl.geo.lat != null && pl.geo.lng != null) {
+        x.lat = Number(pl.geo.lat); x.lng = Number(pl.geo.lng);
+      } else if (CITY_GEO[c]) {
+        x.lat = CITY_GEO[c][0]; x.lng = CITY_GEO[c][1];
+      }
       return;
     }
+    if (x.lat != null) return;
     const p = (x.placeId && placeById(x.placeId)) || (x.cp && placeById(x.cp)) || placeByName(x.name); if (p) { x.placeId = p.id; x.lat = p.lat; x.lng = p.lng; }
   });
 }
@@ -675,34 +749,41 @@ export async function rpDetour(tid: string, pid: string) {
   ps.detour[pid] = res.ok ? { status: 'ok', firstMin: res.legs[0].min * ROUTE_POLICY.truckFactor, km: res.legs[0].km + res.legs[1].km - base.km, min: (res.legs[0].min + res.legs[1].min - base.min) * ROUTE_POLICY.truckFactor, sim: !!res.sim } : { status: 'error', error: res.noroute ? 'Không tìm được đường qua địa điểm này.' : res.error };
   if (ps.sel === pid) commit();
 }
-/** Helper tính hình chiếu và sắp xếp mảng stops theo đúng tiến trình địa lý từ điểm nhận đến điểm giao */
+/** Helper sắp xếp mảng stops theo đúng tiến trình địa lý từ điểm nhận đến điểm giao (Greedy TSP with destination heuristic) */
 export function autoSortStopsArray(t: Any, rt: Any) {
   if (!rt || !rt.stops || rt.stops.length <= 3) return;
   rpCoords(t, rt);
   const grouping = rpGroups(t, rt);
 
-  const projectScalar = (start: Any, end: Any, p: Any): number => {
-    if (start.lat == null || start.lng == null || end.lat == null || end.lng == null || p.lat == null || p.lng == null) return 0;
-    const vLat = end.lat - start.lat;
-    const vLng = end.lng - start.lng;
-    const vLenSq = vLat * vLat + vLng * vLng;
-    if (vLenSq === 0) return 0;
-    const wLat = p.lat - start.lat;
-    const wLng = p.lng - start.lng;
-    return (wLat * vLat + wLng * vLng) / vLenSq;
-  };
-
   const sortLegStops = (startStop: Any, endStop: Any, intermediateStops: Any[]) => {
-    return [...intermediateStops].sort((a, b) => {
-      const scalarA = projectScalar(startStop, endStop, a);
-      const scalarB = projectScalar(startStop, endStop, b);
-      if (Math.abs(scalarA - scalarB) > 0.0001) {
-        return scalarA - scalarB;
+    let curr = startStop;
+    const remaining = [...intermediateStops];
+    const sorted: Any[] = [];
+
+    while (remaining.length > 0) {
+      let bestIdx = 0;
+      let bestCost = Infinity;
+
+      for (let i = 0; i < remaining.length; i++) {
+        const p = remaining[i];
+        if (p.lat == null || p.lng == null) {
+          continue;
+        }
+        const dCurr = kmBetween([curr.lat, curr.lng], [p.lat, p.lng]);
+        const dEnd = kmBetween([p.lat, p.lng], [endStop.lat, endStop.lng]);
+        // Chi phí tối ưu: Khoảng cách từ điểm hiện tại + trọng số tiến về đích đến
+        const cost = dCurr + dEnd * 0.35;
+        if (cost < bestCost) {
+          bestCost = cost;
+          bestIdx = i;
+        }
       }
-      const distA = kmBetween([startStop.lat, startStop.lng], [a.lat, a.lng]);
-      const distB = kmBetween([startStop.lat, startStop.lng], [b.lat, b.lng]);
-      return distA - distB;
-    });
+
+      const [chosen] = remaining.splice(bestIdx, 1);
+      sorted.push(chosen);
+      curr = chosen;
+    }
+    return sorted;
   };
 
   if (t.mode === 'AIR' && grouping.flight && grouping.flight.length >= 2) {
@@ -1206,6 +1287,8 @@ export function rpPolicyModal() {
       const n = (k: string) => Number(v[k]);
       if (['a', 'b', 'c', 'd', 'e'].some((k) => !(n(k) > 0))) return 'Giá trị không hợp lệ.';
       Object.assign(ROUTE_POLICY, { careIntervalH: n('a'), shortRestMin: n('b'), roadEpisodeH: n('c'), recoveryRestH: n('d'), truckFactor: n('e'), airportHandoverH: n('f'), airportReceiveH: n('g') });
+      try { localStorage.setItem(POLICY_KEY, JSON.stringify(ROUTE_POLICY)); } catch { /* không lưu được thì vẫn áp dụng trong phiên này */ }
+      toast('Đã lưu chính sách nghỉ chăm sóc cho mọi chuyến từ nay.');
     },
   });
 }

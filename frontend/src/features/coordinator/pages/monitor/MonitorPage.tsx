@@ -73,7 +73,7 @@ export function MonitorPage() {
     <CoordinatorLayout title="Giám sát hành trình">
       <EmptyPlanLaunch />
       <div className="head"><div><h2 className="page-title">Giám sát hành trình</h2><p className="subtitle">Cập nhật lúc {dt(nowStamp())}</p></div></div>
-      <div className="dr-stats" style={{ gridTemplateColumns: 'repeat(5,minmax(0,1fr))', marginTop: 16 }}>
+      <div className="dr-stats" style={{ gridTemplateColumns: 'repeat(5,minmax(0,1fr))' }}>
         {stat('Đang chạy / chờ xuất phát', live.length)}{stat('Đang lập kế hoạch', planning.length)}{stat('Trễ so với ETA ban đầu', late, true)}{stat(`Quá ${STALE_H} giờ chưa cập nhật`, stale, true)}{stat('Sự cố đang mở', openInc, true)}
       </div>
       <h3 className="card-title mon-sec">Đang chạy &amp; chờ xuất phát ({live.length})</h3>

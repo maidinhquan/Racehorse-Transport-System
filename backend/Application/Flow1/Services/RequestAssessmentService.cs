@@ -22,8 +22,7 @@ public sealed partial class RequestAssessmentService(
     {
         var request = await access.RequestAsync(id, actor, true, ct);
         var review = await LatestAsync(id, ct);
-        var staff = request.Status == Pending && (review is null || review.Status == "CLOSED")
-            ? await data.ListAsync<Account>(x => x.IsActive, ct) : [];
+        var staff = await data.ListAsync<Account>(x => x.IsActive, ct);
         return new
         {
             requestRevision = review is null ? 1 : review.RequestRevision + (review.Status == "CLOSED" ? 1 : 0),
@@ -351,10 +350,15 @@ public sealed partial class RequestAssessmentService(
             });
         }
         var links = await data.ListAsync<RequestHorse>(x => x.RequestID == request.RequestID, ct);
+        var staffAccounts = await data.ListAsync<Account>(x => x.UserID == review.CoordinatorID || x.UserID == review.SpecialistID, ct);
+        var coord = staffAccounts.FirstOrDefault(x => x.UserID == review.CoordinatorID);
+        var spec = staffAccounts.FirstOrDefault(x => x.UserID == review.SpecialistID);
         return new
         {
             reviewId = review.ReviewID, requestId = review.RequestID, review.RequestRevision, review.Status,
-            coordinatorId = review.CoordinatorID, specialistId = review.SpecialistID, review.SelectedOptionID,
+            coordinatorId = review.CoordinatorID, coordinatorName = coord?.FullName,
+            specialistId = review.SpecialistID, specialistName = spec?.FullName,
+            review.SelectedOptionID,
             customerDeadlineUtc = Utc(review.CustomerDeadlineUtc), origin = request.Departure, destination = request.Destination,
             originCountry = request.OriginCountry, destinationCountry = request.DestinationCountry,
             mode = request.TransportType, expectedTransportDate = Day(request.ExpectedDate),

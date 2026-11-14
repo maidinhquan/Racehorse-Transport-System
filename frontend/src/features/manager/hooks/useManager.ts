@@ -5,6 +5,7 @@ import type {
   ActualCost,
   ContractDraft,
   ExtraCost,
+  ManagerNotification,
   Transaction,
   TransportRequest,
   Trip,
@@ -72,6 +73,7 @@ const DATA_KEYS: Array<keyof ManagerData> = ['customers', 'horses', 'staff', 're
 const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
 
 import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
+import { getSharedNotificationsFor } from '../../../shared/utils/sharedNotifications';
 import { getSharedTrips, saveSharedTrip } from '../../../shared/utils/sharedTrips';
 import { flow4Api } from '../../tracking/api/flow4Api';
 import { progressFromMilestones } from '../../tracking/utils/progress';
@@ -146,6 +148,43 @@ function mergeTripsWithShared(baseTrips: Trip[]): Trip[] {
   return res;
 }
 
+const MANAGER_READ_NOTIFS_KEY = 'manager_read_notifications';
+
+function getManagerReadNotifIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(MANAGER_READ_NOTIFS_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function persistManagerReadNotifIds(ids: string[]): void {
+  try {
+    const current = getManagerReadNotifIds();
+    ids.forEach((id) => {
+      if (id) {
+        current.add(id);
+        current.add(cleanId(id));
+      }
+    });
+    localStorage.setItem(MANAGER_READ_NOTIFS_KEY, JSON.stringify([...current]));
+  } catch {
+    // ignore
+  }
+}
+
+const resolveManagerNotifs = (listIn: ManagerNotification[]): ManagerNotification[] => {
+  const readIds = getManagerReadNotifIds();
+  const shared: ManagerNotification[] = getSharedNotificationsFor('MANAGER')
+    .map((n) => ({ id: n.id, title: n.title, text: n.body, at: n.at, read: n.read, link: n.link || '' }));
+  const list = [...shared.filter((n) => !listIn.some((x) => x.id === n.id)), ...listIn];
+  return list.map((n) => ({
+    ...n,
+    read: Boolean(n.read || readIds.has(n.id) || readIds.has(cleanId(n.id))),
+  }));
+};
+
 const initialDemo = getDemoMode('manager');
 let state: ManagerState = {
   customers: initialDemo ? clone(mockCustomers) : [],
@@ -162,8 +201,8 @@ let state: ManagerState = {
   transactions: initialDemo ? clone(mockTransactions) : [],
   incidents: initialDemo ? clone(mockIncidents) : [],
   complaints: initialDemo ? clone(mockComplaints) : [],
-  actualCosts: initialDemo ? clone(mockActualCosts) : [],
-  notifications: initialDemo ? clone(mockNotifications) : [],
+  actualCosts: clone(mockActualCosts),
+  notifications: initialDemo ? resolveManagerNotifs(clone(mockNotifications)) : [],
   loading: false,
   loaded: false,
   toast: null,
@@ -182,13 +221,23 @@ const syncController = createSyncController({
 
 let unsubscribeSyncController: (() => void) | null = null;
 
+const refreshSharedNotifs = () => setState({ notifications: resolveManagerNotifs(state.notifications) });
+
 const subscribe = (l: () => void) => {
   listeners.add(l);
   if (listeners.size === 1) {
     unsubscribeSyncController = syncController.subscribe();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('rts_shared_notifications_changed', refreshSharedNotifs);
+      window.addEventListener('storage', refreshSharedNotifs);
+    }
   }
   return () => {
     listeners.delete(l);
+    if (listeners.size === 0 && typeof window !== 'undefined') {
+      window.removeEventListener('rts_shared_notifications_changed', refreshSharedNotifs);
+      window.removeEventListener('storage', refreshSharedNotifs);
+    }
     if (listeners.size === 0 && unsubscribeSyncController) {
       unsubscribeSyncController();
       unsubscribeSyncController = null;
@@ -226,6 +275,29 @@ if (typeof window !== 'undefined') {
       trips: mergeTripsWithShared(s.trips),
     }));
   });
+
+  const refreshIncidents = () => {
+    if (typeof managerApi.getIncidents !== 'function') return;
+    void managerApi.getIncidents().then((incidents) => {
+      if (incidents?.length) {
+        setState((s) => {
+          const existing = [...s.incidents];
+          for (const inc of incidents) {
+            const idx = existing.findIndex((x) => cleanId(x.id) === cleanId(inc.id));
+            if (idx >= 0) existing[idx] = { ...existing[idx], ...inc };
+            else existing.unshift(inc);
+          }
+          return { incidents: existing };
+        });
+      }
+    });
+  };
+  window.addEventListener('rts_incident_created', refreshIncidents);
+  window.addEventListener('rts_incident_pins_changed', refreshIncidents);
+  window.addEventListener('storage', (e: StorageEvent) => {
+    if (e.key === null || /^(rts_incident_|rts_ack_|rts_vet_|rts_shared_incidents)/.test(e.key)) refreshIncidents();
+  });
+  window.addEventListener('focus', refreshIncidents);
 
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
     const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
@@ -294,8 +366,9 @@ let currentLoadSeq = 0;
 let inFlightPromise: Promise<void> | null = null;
 let inFlightSyncPromise: Promise<void> | null = null;
 const mergeRequestList = (incoming: TransportRequest[], current: TransportRequest[]) => incoming.map(r => {
-  const previous = current.find(p => p.id === r.id);
-  return previous?.status === r.status ? { ...r, versions: previous.versions, dossier: previous.dossier, draft: previous.draft } : r;
+  const previous = current.find(p => p.id === r.id || cleanId(p.id) === cleanId(r.id));
+  const prevVersions = (previous?.versions && previous.versions.length > 0) ? previous.versions : r.versions;
+  return previous?.status === r.status ? { ...r, versions: prevVersions, dossier: previous.dossier ?? r.dossier, draft: previous.draft ?? r.draft } : r;
 });
 
 async function syncRequestsOnly(): Promise<void> {
@@ -308,18 +381,37 @@ async function syncRequestsOnly(): Promise<void> {
         const readiness = typeof managerApi.getTripReadiness === 'function'
           ? await managerApi.getTripReadiness().catch(() => [])
           : [];
+        // Chuyến mới được tạo khi khách ký hợp đồng: nạp thêm để trang Chuyến đi hiện ngay, không cần tải lại trang
+        const knownTrips = new Set(state.trips.map((t) => cleanId(t.id)));
+        const newTrips = readiness.some((x) => !knownTrips.has(cleanId(x.id)))
+          ? await managerApi.getTrips().then((list) => list.filter((t) => !knownTrips.has(cleanId(t.id)))).catch(() => [])
+          : [];
         const shared = getSharedRequests().map(toManagerRequest);
-        const merged = [...shared, ...rawRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
+        const enrichedShared = shared.map((s) => {
+          const b = rawRequests.find((br) => cleanId(br.id) === cleanId(s.id));
+          if (b && (!s.versions || s.versions.length === 0) && b.versions?.length) {
+            return { ...s, versions: b.versions, total: (b as any).total ?? (b.versions[0]?.total || s.total) };
+          }
+          return s;
+        });
+        const merged = [...enrichedShared, ...rawRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
         setState((prev) => ({
           ...prev,
           requests: mergeRequestList(merged.length ? merged : prev.requests, prev.requests),
           // Hồ sơ/bảo hiểm do Specialist cập nhật phải hiện lên Quản lý mà không cần tải lại trang
-          trips: readiness.length ? prev.trips.map((t) => { const r = readiness.find((x) => cleanId(x.id) === cleanId(t.id)); return r ? { ...t, readiness: { ...t.readiness, ...r.readiness } } : t; }) : prev.trips,
+          trips: readiness.length ? [...prev.trips, ...newTrips.filter((n) => !prev.trips.some((t) => cleanId(t.id) === cleanId(n.id)))].map((t) => { const r = readiness.find((x) => cleanId(x.id) === cleanId(t.id)); return r ? { ...t, readiness: { ...t.readiness, ...r.readiness } } : t; }) : prev.trips,
         }));
         return;
       }
       const shared = getSharedRequests().map(toManagerRequest);
-      const merged = [...shared, ...rawRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
+        const enrichedShared = shared.map((s) => {
+          const b = rawRequests.find((br) => cleanId(br.id) === cleanId(s.id));
+          if (b && (!s.versions || s.versions.length === 0) && b.versions?.length) {
+            return { ...s, versions: b.versions, total: (b as any).total ?? (b.versions[0]?.total || s.total) };
+          }
+          return s;
+        });
+        const merged = [...enrichedShared, ...rawRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
       const mock = clone(mockRequests);
       const allDemoRequests = [...merged, ...mock.filter((m) => !merged.some((r) => cleanId(r.id) === cleanId(m.id)))];
       setState((prev) => ({ ...prev, requests: allDemoRequests }));
@@ -377,32 +469,72 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
       }
 
       const isDemo = getDemoMode('manager');
+      const extra = await Promise.allSettled([
+        typeof managerApi.getIncidents === 'function' ? managerApi.getIncidents() : Promise.resolve([]),
+        typeof managerApi.getComplaints === 'function' ? managerApi.getComplaints() : Promise.resolve([]),
+        typeof managerApi.getActualCosts === 'function' ? managerApi.getActualCosts() : Promise.resolve([]),
+      ]);
+      if (seq !== currentLoadSeq) return;
+      const apiIncidents = extra[0].status === 'fulfilled' && extra[0].value?.length ? extra[0].value : [];
+      const apiComplaints = extra[1].status === 'fulfilled' && extra[1].value?.length ? extra[1].value : [];
+      const apiCosts = extra[2].status === 'fulfilled' && extra[2].value?.length ? extra[2].value : [];
+
+      const localCosts: ActualCost[] = (() => {
+        try {
+          return JSON.parse(localStorage.getItem('manager_actual_costs') || '[]');
+        } catch {
+          return [];
+        }
+      })();
+      const resolveCosts = (base: ActualCost[]) => {
+        const res = [...base];
+        localCosts.forEach((lc) => {
+          const idx = res.findIndex((c) => c.tripId === lc.tripId || cleanId(c.tripId) === cleanId(lc.tripId));
+          if (idx >= 0) res[idx] = lc; else res.push(lc);
+        });
+        return res;
+      };
+
       if (!isDemo) {
         const shared = getSharedRequests().map(toManagerRequest);
-        const merged = [...shared, ...baseRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
-        const allRequests = merged.length ? merged : clone(mockRequests);
-        const baseTrips = trips?.length ? trips : clone(mockTrips);
+        const enrichedShared = shared.map((s) => {
+          const b = baseRequests.find((br) => cleanId(br.id) === cleanId(s.id));
+          if (b && (!s.versions || s.versions.length === 0) && b.versions?.length) {
+            return { ...s, versions: b.versions, total: (b as any).total ?? (b.versions[0]?.total || s.total) };
+          }
+          return s;
+        });
+        const merged = [...enrichedShared, ...baseRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
+        const allRequests = merged;
+        const baseTrips = trips || [];
         const finalTrips = mergeTripsWithShared(baseTrips);
 
         setState((prev) => ({
           ...prev,
-          customers: customers?.length ? customers : clone(mockCustomers),
-          horses: horses?.length ? horses : clone(mockHorses),
-          staff: staff?.length ? staff : clone(mockStaff),
+          customers: customers || [],
+          horses: horses || [],
+          staff: staff || [],
           requests: mergeRequestList(allRequests, prev.requests),
           trips: finalTrips,
-          transactions: transactions?.length ? transactions : clone(mockTransactions),
-          incidents: prev.incidents?.length ? prev.incidents : clone(mockIncidents),
-          complaints: prev.complaints?.length ? prev.complaints : clone(mockComplaints),
-          actualCosts: prev.actualCosts?.length ? prev.actualCosts : clone(mockActualCosts),
-          notifications: notifications?.length ? notifications : clone(mockNotifications),
+          transactions: transactions || [],
+          incidents: apiIncidents.length ? apiIncidents : (prev.incidents?.length ? prev.incidents : []),
+          complaints: apiComplaints.length ? apiComplaints : (prev.complaints?.length ? prev.complaints : []),
+          actualCosts: resolveCosts(apiCosts.length ? apiCosts : (prev.actualCosts?.length ? prev.actualCosts : clone(mockActualCosts))),
+          notifications: resolveManagerNotifs(notifications || []),
           loading: false,
           loaded: true,
         }));
         return;
       }
       const shared = getSharedRequests().map(toManagerRequest);
-      const merged = [...shared, ...baseRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
+        const enrichedShared = shared.map((s) => {
+          const b = baseRequests.find((br) => cleanId(br.id) === cleanId(s.id));
+          if (b && (!s.versions || s.versions.length === 0) && b.versions?.length) {
+            return { ...s, versions: b.versions, total: (b as any).total ?? (b.versions[0]?.total || s.total) };
+          }
+          return s;
+        });
+        const merged = [...enrichedShared, ...baseRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
       const mock = clone(mockRequests);
       const allDemoRequests = [...merged, ...mock.filter((m) => !merged.some((r) => cleanId(r.id) === cleanId(m.id)))];
       const baseTrips = trips?.length ? trips : clone(mockTrips);
@@ -415,15 +547,13 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
         requests: allDemoRequests,
         trips: finalTrips,
         transactions: transactions?.length ? transactions : clone(mockTransactions),
-        notifications: notifications?.length ? notifications : clone(mockNotifications),
+        incidents: apiIncidents.length ? apiIncidents : clone(mockIncidents),
+        complaints: apiComplaints.length ? apiComplaints : clone(mockComplaints),
+        actualCosts: resolveCosts(apiCosts.length ? apiCosts : clone(mockActualCosts)),
+        notifications: resolveManagerNotifs(notifications?.length ? notifications : clone(mockNotifications)),
         loading: false,
         loaded: true,
       }));
-      const extra = await Promise.allSettled([managerApi.getIncidents(), managerApi.getComplaints(), managerApi.getActualCosts()]);
-      if (seq !== currentLoadSeq) return;
-      if (extra[0].status === 'fulfilled') setState({ incidents: extra[0].value?.length ? extra[0].value : clone(mockIncidents) });
-      if (extra[1].status === 'fulfilled') setState({ complaints: extra[1].value?.length ? extra[1].value : clone(mockComplaints) });
-      if (extra[2].status === 'fulfilled') setState({ actualCosts: extra[2].value?.length ? extra[2].value : clone(mockActualCosts) });
     } catch (error) {
       if (seq === currentLoadSeq) {
         setState({ loading: false, loaded: true });
@@ -513,8 +643,38 @@ const managerActions = {
   },
   clearToast: () => setState({ toast: null }),
   showToast: (m: string) => toast(m),
-  markAllRead: () => perform('notifications', () => managerApi.markAllRead(), 'Đã đánh dấu thông báo đã đọc.'),
-  markRead: (id: string) => perform(id, () => managerApi.markRead(id), 'Đã đọc thông báo.'),
+  markAllRead: () => {
+    setState((s) => {
+      const allIds = s.notifications.map((n) => n.id);
+      persistManagerReadNotifIds(allIds);
+      return {
+        notifications: s.notifications.map((n) => ({ ...n, read: true })),
+      };
+    });
+    toast('Đã đánh dấu thông báo đã đọc.');
+    void (async () => {
+      try {
+        await managerApi.markAllRead();
+      } catch (e) {
+        console.warn('[useManager] markAllRead sync failed:', e);
+      }
+    })();
+  },
+  markRead: (id: string) => {
+    setState((s) => ({
+      notifications: s.notifications.map((n) =>
+        n.id === id || cleanId(n.id) === cleanId(id) ? { ...n, read: true } : n
+      ),
+    }));
+    persistManagerReadNotifIds([id]);
+    void (async () => {
+      try {
+        await managerApi.markRead(id);
+      } catch (e) {
+        console.warn('[useManager] markRead sync failed:', e);
+      }
+    })();
+  },
   async acceptRequest(id: string, key?: OptionKey): Promise<ActionResult> {
     const r = reqIn(state, id);
     if (!r || r.status !== 'PENDING_REVIEW') return fail('Yêu cầu chưa ở hàng chờ xét duyệt.');
@@ -609,6 +769,8 @@ const managerActions = {
   },
   cancelRequest(id: string, reason: string) {
     if (reason.trim().length < 10) return Promise.resolve(fail('Nhập lý do ít nhất 10 ký tự.'));
+    const r = reqIn(state, id);
+    if (r && isSigned(r)) return Promise.resolve(fail('Hợp đồng đã được ký, không thể hủy yêu cầu.'));
     return perform(id, () => managerApi.cancelRequest(id, reason.trim()), 'Đã xử lý hủy theo trạng thái máy chủ.');
   },
   decideCancellation(id: string, approve: boolean, note: string) {
@@ -873,14 +1035,23 @@ const managerActions = {
     return ok('Đã ghi quyết định. Tổ xe được phép bàn giao lại.');
   },
   saveActualCosts(tripId: string, costs: ActualCost['costs'], extra: ExtraCost[]): ActionResult {
-    if (Object.values(costs).some((v) => !(v >= 0)) || extra.some((e) => !e.label.trim() || !(e.amount > 0))) return fail('Chi phí phải là số không âm; khoản phát sinh cần tên và số tiền.');
+    if (Object.values(costs).some((v) => isNaN(v) || !(v >= 0)) || extra.some((e) => !e.label.trim() || !(e.amount > 0))) return fail('Chi phí phải là số không âm; khoản phát sinh cần tên và số tiền.');
     mutate((d) => {
       const rec: ActualCost = { tripId, costs: clone(costs), extra: clone(extra), enteredAt: nowStamp() };
-      const i = d.actualCosts.findIndex((a) => a.tripId === tripId);
+      const i = d.actualCosts.findIndex((a) => a.tripId === tripId || cleanId(a.tripId) === cleanId(tripId));
       if (i >= 0) d.actualCosts[i] = rec; else d.actualCosts.push(rec);
+
+      try {
+        const stored = JSON.parse(localStorage.getItem('manager_actual_costs') || '[]') as ActualCost[];
+        const idx = stored.findIndex((a) => a.tripId === tripId || cleanId(a.tripId) === cleanId(tripId));
+        if (idx >= 0) stored[idx] = rec; else stored.push(rec);
+        localStorage.setItem('manager_actual_costs', JSON.stringify(stored));
+      } catch { /* storage ignore */ }
     });
-    void managerApi.saveActualCosts(tripId, { costs, extra });
-    return ok(`Đã lưu chi phí thực tế ${tripId}.`);
+    void managerApi.saveActualCosts(tripId, { costs, extra }).catch((err) => {
+      console.warn('[manager] saveActualCosts API notice:', err);
+    });
+    return ok(`Đã lưu chi phí thực tế cho chuyến ${tripId}.`);
   },
 
   // ----- Sự cố -----
@@ -907,14 +1078,6 @@ const managerActions = {
     });
     void managerApi.decidePlan(id, planId, { approve, note });
     return ok(approve ? `Đã duyệt ${planId}.` : `Đã từ chối ${planId}.`);
-  },
-  closeIncident(id: string): ActionResult {
-    const i = state.incidents.find((x) => x.id === id);
-    if (!i || i.status === 'CLOSED') return fail('Sự cố đã đóng.');
-    if (i.plans.some((p) => p.status === 'PENDING_APPROVAL')) return fail('Còn phương án chờ quyết định – duyệt hoặc từ chối trước khi đóng.');
-    mutate((d) => { const x = d.incidents.find((y) => y.id === id)!; x.status = 'CLOSED'; x.log.push([nowStamp(), `${MANAGER_NAME} đóng sự cố`]); });
-    void managerApi.setIncidentStatus(id, 'CLOSED');
-    return ok(`Đã đóng ${id}.`);
   },
 
   // ----- Khiếu nại -----

@@ -3,6 +3,7 @@ import { DateTimeInput } from '../../../../../shared/components/DateTimeInput/Da
 import type { HorseCondition, Trip } from '../../../types';
 import { useDriver } from '../../../hooks/useDriver';
 import { CONDITION_LABEL, fmtDateTime, nowStamp, toInputValue } from '../../../hooks/driverRules';
+import { getUserFullName } from '../../../../../shared/utils/userNameResolver';
 
 const CONDITIONS: HorseCondition[] = ['NORMAL', 'MONITOR', 'ABNORMAL'];
 const TONE: Record<HorseCondition, string> = { NORMAL: 'green', MONITOR: 'orange', ABNORMAL: 'red' };
@@ -80,14 +81,38 @@ export const HealthTab: React.FC<{ trip: Trip }> = ({ trip }) => {
       <div className="drv-card">
         <h3 className="drv-card__title">Các lần quan sát</h3>
         {trip.health.length ? (
+          <div className="drv-hlog__scroll">
           <ul className="drv-timeline">
-            {[...trip.health].reverse().map((h) => (
-              <li key={h.id} className={TONE[h.condition]}>
-                <b>{horse(h.horseId)?.name ?? h.horseId} • {CONDITION_LABEL[h.condition]}</b>
-                <span>{fmtDateTime(h.at)} • {h.temp.toFixed(1)}°C • {h.hr} lần/phút{h.notes ? ' • ' + h.notes : ''} • {crewMember(h.by)?.name ?? h.by}</span>
-              </li>
-            ))}
+            {[...trip.health].sort((x, y) => y.at.localeCompare(x.at)).map((h) => {
+              const label = h.locationLabel ?? '';
+              const atStop = /^Tại\s/i.test(label);
+              const onRoad = /^Trên tuyến|^Gần\s/i.test(label);
+              const placeText = atStop ? label.replace(/^Tại\s+/i, '') : onRoad ? label.replace(/^Trên tuyến\s*/i, '') : label;
+              return (
+                <li key={h.id} className={TONE[h.condition]}>
+                  <div className="drv-hlog__head">
+                    <b>{horse(h.horseId)?.name ?? h.horseId}</b>
+                    <span className={`drv-badge drv-badge--${h.condition === 'NORMAL' ? 'ok' : h.condition === 'MONITOR' ? 'warn' : 'bad'}`}>{CONDITION_LABEL[h.condition]}</span>
+                  </div>
+                  <div className="drv-hlog__time">{fmtDateTime(h.at)} • {getUserFullName(crewMember(h.by)?.name || h.by)}</div>
+                  <div className="drv-hlog__stats">
+                    <span><small>Thân nhiệt</small><b>{h.temp.toFixed(1)}°C</b></span>
+                    <span><small>Nhịp tim</small><b>{h.hr} lần/phút</b></span>
+                  </div>
+                  {h.notes && h.notes !== 'Quan sát sức khỏe trên đường' && <div className="drv-hlog__note">{h.notes}</div>}
+                  <div className="drv-hlog__place">
+                    {label ? (
+                      <>
+                        <span className={`drv-badge drv-badge--${atStop ? 'info' : 'muted'}`}>{atStop ? 'Tại trạm nghỉ' : onRoad ? 'Trên đường đi' : 'Vị trí'}</span>
+                        <span>{placeText}</span>
+                      </>
+                    ) : <span className="drv-badge drv-badge--muted">Chưa ghi vị trí</span>}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
+          </div>
         ) : <p className="drv-hint">Chưa có quan sát nào.</p>}
       </div>
     </div>

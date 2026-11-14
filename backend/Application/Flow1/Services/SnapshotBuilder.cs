@@ -46,7 +46,7 @@ public sealed class SnapshotBuilder(IDataSession data, Flow1ContractOptions opti
             commercial = new { currency = "VND", items = input.Items, totalPrice = input.Items.Sum(x => x.Amount), depositPercent = input.DepositPct,
                 depositAmount = decimal.Round(input.Items.Sum(x => x.Amount) * input.DepositPct / 100m, 0, MidpointRounding.AwayFromZero),
                 remainingAmount = input.Items.Sum(x => x.Amount) - decimal.Round(input.Items.Sum(x => x.Amount) * input.DepositPct / 100m, 0, MidpointRounding.AwayFromZero),
-                taxAndFees = "Included only as specified in the commercial items and terms", notes = input.Note },
+                taxAndFees = "Included only as specified in the commercial items and terms", notes = input.Note, budget = input.Budget },
             terms = input.Terms, appliedPolicies = new { minPreparationDays = preparation, contractDeadlineHours = hours },
             paymentObligations = new { depositRequiredBeforeSignature = true, channel = "VNPAY", completionDeadlineUtc = (DateTime?)null }
         };

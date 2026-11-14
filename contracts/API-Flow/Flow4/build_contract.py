@@ -137,7 +137,9 @@ define('HealthInput', {'expectedVersion': v, 'horseId': ident('HORSE'), 'leg': l
                        'feeding': note, 'water': note, 'rest': note, 'care': note,
                        'temperatureC': null(num(38, 20, 50)), 'heartRateBpm': null(integer(40, 1, 300)),
                        'respiratoryRatePerMin': null(integer(16, 1, 200)), 'photoFileIds': files,
-                       'incidentId': null(ident('INCIDENT'))})
+                       'incidentId': null(ident('INCIDENT')),
+                       'latitude': null(num(10.9289, -90, 90)), 'longitude': null(num(108.1021, -180, 180)),
+                       'locationLabel': null(st('Gần Phan Thiết rest area', minLength=1, maxLength=255))})
 define('HealthLog', {'id': key('HEALTH_001'), 'entry': ref('HealthInput'), 'recordedBy': ref('Actor'), 'recordedAt': stamp,
                      'supersedesId': null(key('HEALTH_001')), 'amendmentReason': null(reason),
                      'incidentRequired': boolean})

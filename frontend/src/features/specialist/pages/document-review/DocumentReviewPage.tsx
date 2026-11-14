@@ -7,6 +7,7 @@ import { Modal } from '../../components/Modals';
 import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { GROUP_VI, PROVIDER_VI, SCOPE_VI, docEffective, docType, fmtDate, fmtDateTime, horseName, latestVersion, opsBlock } from '../../hooks/specialistRules';
+import { getUserFullName } from '../../../../shared/utils/userNameResolver';
 import './DocumentReviewPage.css';
 
 /** Xét duyệt một chứng từ CBN: phiên bản hiện hành, thông tin, lịch sử phiên bản và quyết định */
@@ -84,14 +85,14 @@ export const DocumentReviewPage: React.FC = () => {
           <div className="spc-card">
             <div className="spc-eyebrow">Các phiên bản</div>
             <ul className="spc-timeline" style={{ marginTop: 10 }}>
-              {[...d.versions].reverse().map((x, i) => <li key={x.v} className={i ? '' : 'now'}><b>v{x.v} • {x.file}</b><span>{fmtDateTime(x.at)} • {x.by}</span></li>)}
+              {[...d.versions].reverse().map((x, i) => <li key={x.v} className={i ? '' : 'now'}><b>v{x.v} • {x.file}</b><span>{fmtDateTime(x.at)} • {getUserFullName(x.by)}</span></li>)}
             </ul>
           </div>
           <div className="spc-card">
             <div className="spc-eyebrow">Quyết định xét duyệt</div>
             {d.reviews.length ? (
               <ul className="spc-timeline" style={{ marginTop: 10 }}>
-                {[...d.reviews].reverse().map((x, i) => <li key={i} className={x.decision === 'APPROVED' ? 'done' : ''}><b>v{x.v} • {x.decision === 'APPROVED' ? 'Đã duyệt' : 'Từ chối'}</b><span>{fmtDateTime(x.at)} • {x.by}{x.remark ? ` • ${x.remark}` : ''}</span></li>)}
+                {[...d.reviews].reverse().map((x, i) => <li key={i} className={x.decision === 'APPROVED' ? 'done' : ''}><b>v{x.v} • {x.decision === 'APPROVED' ? 'Đã duyệt' : 'Từ chối'}</b><span>{fmtDateTime(x.at)} • {getUserFullName(x.by)}{x.remark ? ` • ${x.remark}` : ''}</span></li>)}
               </ul>
             ) : <p className="spc-muted" style={{ marginTop: 8 }}>Chưa có quyết định.</p>}
           </div>

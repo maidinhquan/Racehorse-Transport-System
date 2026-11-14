@@ -4,7 +4,7 @@ namespace Application.Flow1.Mapping;
 
 public static class RequestMapper
 {
-    public static object View(TransportRequest request, IReadOnlyList<RequestHorse> horses, Contract? contract = null) =>
+    public static object View(TransportRequest request, IReadOnlyList<RequestHorse> horses, Contract? contract = null, IReadOnlyList<ContractVersion>? versions = null) =>
         new
         {
             createdAt = request.CreatedAtUtc is DateTime created
@@ -27,6 +27,35 @@ public static class RequestMapper
             careInstructions = request.CareInstructions,
             preparationDays = request.PreparationDays,
             contractId = contract?.ContractID,
+            versions = versions is not null && versions.Count > 0
+                ? (object)versions.Select(v => ContractMapper.View(contract!, v, request)).ToArray()
+                : (contract?.TotalQuotedPrice is not null
+                    ? new object[]
+                    {
+                        new
+                        {
+                            contractId = contract.ContractID,
+                            requestId = contract.RequestID,
+                            versionNo = contract.CurrentVersionNo ?? 1,
+                            requestStatus = request.Status,
+                            contractStatus = contract.ContractStatus,
+                            versionStatus = contract.SignedAt is not null ? "SIGNED" : "ISSUED",
+                            issuedAt = contract.PublishedAtUtc?.ToString("yyyy-MM-dd HH:mm"),
+                            signedAt = contract.SignedAt?.ToString("yyyy-MM-dd HH:mm"),
+                            termsAcceptedAt = (string?)null,
+                            currentDeadline = contract.CompletionDeadline?.ToString("yyyy-MM-dd HH:mm"),
+                            currency = "VND",
+                            total = (object?)contract.TotalQuotedPrice,
+                            depositPct = (object?)(contract.DepositRateStandard ?? 40m),
+                            depositAmount = (object?)contract.DepositAmount,
+                            note = contract.CommercialNotes,
+                            mode = request.TransportType,
+                            items = Array.Empty<object>(),
+                            terms = Array.Empty<object>(),
+                            pdfUrl = (string?)null
+                        }
+                    }
+                    : Array.Empty<object>()),
             refund = RefundMapper.View(contract),
             pickup = new
             {

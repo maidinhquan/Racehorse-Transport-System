@@ -3,16 +3,16 @@ import { Link, useParams } from 'react-router-dom';
 import { ManagerLayout } from '../../components/ManagerLayout';
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
 import { BackLink, LockedCard, Note, openSampleFile } from '../../components/Common/Common';
-import { Modal, ReasonModal } from '../../components/Modals';
+import { ReasonModal } from '../../components/Modals';
 import { useManager } from '../../hooks/useManager';
 import { INCIDENT_TYPE_LABEL, PAYER_LABEL, TRIP_STATUS_LABEL, fmtDateTime, fmtMoney, horseName, reqOfTrip, routeText } from '../../hooks/managerRules';
+import { humanizeLocation, locationBadgeInfo } from '../../../../shared/utils/locationResolver';
 
 /** Chi tiết sự cố: mô tả, biện pháp an toàn, phương án xử lý chờ Manager quyết định, nhật ký */
 export const IncidentDetailPage: React.FC = () => {
   const { incidentId } = useParams();
   const { data, incidents, getTrip, actions } = useManager();
   const [decision, setDecision] = useState<{ planId: string; approve: boolean } | null>(null);
-  const [closing, setClosing] = useState(false);
   const i = incidents.find((x) => x.id === incidentId);
   if (!i) {
     return (
@@ -33,8 +33,7 @@ export const IncidentDetailPage: React.FC = () => {
           <p className="mgr-subtitle">{INCIDENT_TYPE_LABEL[i.type] || i.type} • {i.tripId || '—'}{r ? ` • ${routeText(r)}` : ''}</p>
         </div>
         <div className="mgr-btn-row">
-          {i.status === 'NEW' && <button type="button" className="mgr-btn" onClick={() => actions.ackIncident(i.id)}>Tiếp nhận xử lý</button>}
-          {i.status !== 'CLOSED' && <button type="button" className="mgr-btn mgr-btn--solid" onClick={() => setClosing(true)}>Đóng sự cố</button>}
+          {i.status !== 'CLOSED' && <span className="mgr-hint">Chỉ xem: Điều phối viên tiếp nhận và đóng sự cố khi xử lý xong.</span>}
         </div>
       </div>
       <div className="mgr-grid-main">
@@ -45,7 +44,21 @@ export const IncidentDetailPage: React.FC = () => {
             <div className="mgr-kv">
               <div><span>Báo lúc</span><b>{fmtDateTime(i.at)}</b></div>
               <div><span>Người báo</span><b>{i.by}</b></div>
-              <div><span>Địa điểm</span><b>{i.location}</b></div>
+              <div>
+                <span>Địa điểm</span>
+                {(() => {
+                  const locText = humanizeLocation(i.location, (i as any).locationCoordinates, t);
+                  const { badgeLabel, isStop, cleanText } = locationBadgeInfo(locText);
+                  return (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+                      <span className={`mgr-badge ${isStop ? 'mgr-badge--ok' : 'mgr-badge--info'}`} style={{ fontSize: 11 }}>
+                        {badgeLabel}
+                      </span>
+                      <b>{cleanText}</b>
+                    </div>
+                  );
+                })()}
+              </div>
               <div><span>Ngựa liên quan</span><b>{i.horseId ? horseName(data, i.horseId) : (r?.horses || []).map((h) => horseName(data, h)).join(', ') || 'Không'}</b></div>
             </div>
             <Note tone={i.safety ? 'green' : 'grey'} title="Biện pháp an toàn tức thời">{i.safety || 'Người báo xác nhận người và ngựa an toàn. Chăm sóc khẩn cấp không cần chờ phê duyệt.'}</Note>
@@ -99,9 +112,6 @@ export const IncidentDetailPage: React.FC = () => {
         label={decision?.approve ? 'Ghi chú (không bắt buộc)' : 'Lý do từ chối *'}
         intro={decision?.approve ? <p>Chi phí do công ty chịu được cộng vào chi phí thực tế của chuyến.</p> : undefined}
         onClose={() => setDecision(null)} onSubmit={(x) => actions.decidePlan(i.id, decision!.planId, decision!.approve, x).ok} />
-      <Modal open={closing} title={`Đóng ${i.id}`} okText="Đóng sự cố" onClose={() => setClosing(false)} onOk={() => { if (actions.closeIncident(i.id).ok) setClosing(false); }}>
-        <p>Xác nhận sự cố đã được xử lý xong. Sự cố mở sẽ chặn việc đóng yêu cầu {r?.id || i.tripId || ''}.</p>
-      </Modal>
     </ManagerLayout>
   );
 };

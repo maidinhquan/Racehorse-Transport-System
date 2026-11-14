@@ -1377,6 +1377,8 @@ INSERT INTO [USER] (UserID, Username, PasswordHash, Role, FullName, Email, Phone
 ('USER_020', 'spec_hha', 'HASH_SECURE_20', 'TRANSPORT_SPECIALIST', N'Hoàng Thu Hà (Chuyên viên thẩm định hồ sơ)', 'ha.specialist@cbntransport.com', '0905556601', NULL, NULL, 1),
 ('USER_021', 'spec_vmchau', 'HASH_SECURE_21', 'TRANSPORT_SPECIALIST', N'Vũ Minh Châu (Chuyên viên kiểm dịch & hải quan)', 'chau.specialist@cbntransport.com', '0905556602', NULL, NULL, 1),
 ('USER_022', 'coord_tbngoc', 'HASH_SECURE_22', 'FLEET_ROUTE_COORDINATOR', N'Trần Bảo Ngọc (Điều phối xe & lịch trình)', 'ngoc.coord@cbntransport.com', '0905556603', NULL, NULL, 1),
+('USER_030', 'driver_ndanh', 'HASH_SECURE_30', 'DRIVER_ESCORT', N'Ngô Đức Anh (Tài xế chính)', 'ngoducanh.driver@cbntransport.com', '0905551028', NULL, NULL, 1),
+('USER_031', 'escort_hgh', 'HASH_SECURE_31', 'DRIVER_ESCORT', N'Dr. Hoàng Gia Huy (Bác sĩ thú y)', 'hoanggiahuy.escort@cbntransport.com', '0245550136', NULL, NULL, 1),
 ('USER_024', 'admin_system', 'HASH_SECURE_24', 'ADMIN', N'Quản trị viên Hệ thống (System Admin)', 'admin@cbntransport.com', '0905556605', NULL, NULL, 1);
 
 -- Sample catalogs and mutable policy values. These are data, not service constants.
@@ -1427,7 +1429,11 @@ INSERT INTO STAFF_DOCUMENT (DocumentID, UserID, DocType, CountryOfIssue, ValidFo
 ('STAFF_DOCUMENT_008', 'USER_013', 'DRIVING_LICENSE', 'VN', N'VN, JP', '2023-04-20', '2028-04-20', 'https://storage.cbntransport.com/docs/lic_lqtuan.pdf', 'VALID'),
 ('STAFF_DOCUMENT_009', 'USER_013', 'PASSPORT', 'VN', N'VN, JP', '2023-02-15', '2033-02-15', 'https://storage.cbntransport.com/docs/pass_lqtuan.pdf', 'VALID'),
 ('STAFF_DOCUMENT_010', 'USER_014', 'VET_CERTIFICATE', 'VN', N'VN, JP', '2022-09-01', '2032-09-01', 'https://storage.cbntransport.com/docs/vet_lttrang.pdf', 'VALID'),
-('STAFF_DOCUMENT_011', 'USER_014', 'PASSPORT', 'VN', N'VN, JP', '2022-07-10', '2032-07-10', 'https://storage.cbntransport.com/docs/pass_lttrang.pdf', 'VALID');
+('STAFF_DOCUMENT_011', 'USER_014', 'PASSPORT', 'VN', N'VN, JP', '2022-07-10', '2032-07-10', 'https://storage.cbntransport.com/docs/pass_lttrang.pdf', 'VALID'),
+('STAFF_DOCUMENT_012', 'USER_030', 'DRIVING_LICENSE', 'VN', N'VN', '2023-12-05', '2028-12-05', 'https://storage.cbntransport.com/docs/lic_ndanh.pdf', 'VALID'),
+('STAFF_DOCUMENT_013', 'USER_030', 'PASSPORT', 'VN', N'VN, JP', '2023-06-01', '2033-06-01', 'https://storage.cbntransport.com/docs/pass_ndanh.pdf', 'VALID'),
+('STAFF_DOCUMENT_014', 'USER_031', 'VET_CERTIFICATE', 'VN', N'VN, JP', '2023-09-30', '2028-09-30', 'https://storage.cbntransport.com/docs/vet_hgh.pdf', 'VALID'),
+('STAFF_DOCUMENT_015', 'USER_031', 'PASSPORT', 'VN', N'VN, JP', '2023-05-12', '2033-05-12', 'https://storage.cbntransport.com/docs/pass_hgh.pdf', 'VALID');
 
 -- 4. Bảng NOTIFICATION: Lịch sử thông báo hệ thống gửi qua App/Email/SMS
 INSERT INTO NOTIFICATION (NotificationID, UserID, ReferenceID, Type, Channel, Title, Message, IsRead, SentAt) VALUES
@@ -2089,6 +2095,16 @@ IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG
 
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'RecordedAt')
     ALTER TABLE HEALTH_LOG ADD RecordedAt DATETIME2 NOT NULL DEFAULT GETDATE();
+
+-- Vị trí tổ xe đang ở lúc báo sức khỏe
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'Latitude')
+    ALTER TABLE HEALTH_LOG ADD Latitude DECIMAL(9, 6) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'Longitude')
+    ALTER TABLE HEALTH_LOG ADD Longitude DECIMAL(9, 6) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'LocationLabel')
+    ALTER TABLE HEALTH_LOG ADD LocationLabel NVARCHAR(255) NULL;
 
 IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE name = 'FK_HealthLog_Supersedes')
 BEGIN

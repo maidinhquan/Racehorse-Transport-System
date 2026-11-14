@@ -1,0 +1,251 @@
+.coord-notif-page {
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.coord-notif-page__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.coord-notif-page__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.coord-notif-page__search {
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 14px;
+}
+
+.coord-notif-page__search input {
+  border: 0;
+  outline: none;
+  background: transparent;
+  width: 100%;
+  font-size: 14px;
+  color: inherit;
+}
+
+.coord-notif-page__filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.coord-notif-chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.coord-notif-chip:hover {
+  background: #f8fafc;
+}
+
+.coord-notif-chip.on {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+.coord-notif-page__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Card */
+.coord-notif-card {
+  display: flex;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.coord-notif-card:hover {
+  transform: translateY(-1px);
+  border-color: #0284c7;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+
+.coord-notif-card.unread {
+  background: #f0f9ff;
+  border-left: 4px solid #0284c7;
+}
+
+/* Icon */
+.coord-notif-card__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.coord-notif-card__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.coord-notif-card__icon.tone-success {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.coord-notif-card__icon.tone-info {
+  background: rgba(14, 165, 233, 0.12);
+  color: #0284c7;
+}
+
+.coord-notif-card__icon.tone-warn {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+
+.coord-notif-card__icon.tone-alert {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+/* Body */
+.coord-notif-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.coord-notif-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.coord-notif-card__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coord-notif-card__new-pill {
+  font-size: 10px;
+  font-weight: 700;
+  color: #0284c7;
+  background: #e0f2fe;
+  padding: 1px 6px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.coord-notif-card__time {
+  font-size: 12px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.coord-notif-card__time svg {
+  width: 13px;
+  height: 13px;
+}
+
+.coord-notif-card__text {
+  margin: 0 0 10px 0;
+  font-size: 13.5px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.coord-notif-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coord-notif-card__link {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Empty State */
+.coord-notif-empty {
+  padding: 60px 20px;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.coord-notif-empty__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  color: #94a3b8;
+}
+
+.coord-notif-empty__icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.coord-notif-empty h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.coord-notif-empty p {
+  margin: 0;
+  font-size: 13.5px;
+  color: #64748b;
+  max-width: 420px;
+  margin: 0 auto;
+}

@@ -26,9 +26,6 @@ export const SPECIALIST_INITIALS = 'HH';
 // Danh mục giấy tờ
 // ---------------------------------------------------------------------------
 export const mockDocTypes: DocType[] = [
-  { id: 'DT-1', name: 'Hộ chiếu ngựa', group: 'IDENTITY', scope: 'PER_HORSE', provider: 'CUSTOMER', validityDays: null, status: 'ACTIVE' },
-  { id: 'DT-2', name: 'Giấy chứng nhận sức khỏe', group: 'MEDICAL', scope: 'PER_HORSE', provider: 'CUSTOMER', validityDays: 10, status: 'ACTIVE' },
-  { id: 'DT-3', name: 'Sổ tiêm phòng cúm ngựa', group: 'MEDICAL', scope: 'PER_HORSE', provider: 'CUSTOMER', validityDays: 365, status: 'ACTIVE' },
   { id: 'DT-4', name: 'Giấy phép xuất khẩu', group: 'CUSTOMS', scope: 'PER_TRIP', provider: 'CBN', validityDays: 30, status: 'ACTIVE' },
   { id: 'DT-5', name: 'Giấy phép nhập khẩu', group: 'CUSTOMS', scope: 'PER_TRIP', provider: 'CBN', validityDays: 30, status: 'ACTIVE' },
   { id: 'DT-6', name: 'Giấy chứng nhận kiểm dịch', group: 'QUARANTINE', scope: 'PER_HORSE', provider: 'CBN', validityDays: 14, status: 'ACTIVE' },
@@ -45,27 +42,21 @@ const line = (typeId: string, provider: RequirementLine['provider'], scope: Requ
 export const mockRegulations: Regulation[] = [
   {
     id: 'REG-1', country: 'VN', direction: 'EXPORT', v: 1, effectiveFrom: '2026-08-12', status: 'ACTIVE',
-    note: 'Giấy chứng nhận sức khỏe do Cục Thú y cấp trong vòng 10 ngày trước khởi hành.',
+    note: 'Thủ tục kiểm dịch và hải quan xuất khẩu qua Cục Thú y và Hải quan Việt Nam.',
     lines: [
-      line('DT-1', 'CUSTOMER', 'PER_HORSE', 'BEFORE_SUBMIT'),
-      line('DT-2', 'CUSTOMER', 'PER_HORSE', 'BEFORE_DEPART', 'Cấp trong vòng 10 ngày trước khởi hành'),
-      line('DT-3', 'CUSTOMER', 'PER_HORSE'),
       line('DT-4', 'CBN', 'PER_TRIP'),
       line('DT-7', 'CBN', 'PER_TRIP'),
     ],
   },
   {
     id: 'REG-5', country: 'VN', direction: 'DOMESTIC', v: 1, effectiveFrom: '2026-05-10', status: 'ACTIVE',
-    note: 'Giấy phép vận chuyển thú y cấp tỉnh.',
-    lines: [line('DT-1', 'CUSTOMER', 'PER_HORSE', 'BEFORE_SUBMIT'), line('DT-3', 'CUSTOMER', 'PER_HORSE'), line('DT-8', 'CBN', 'PER_TRIP')],
+    note: 'Giấy phép vận chuyển thú y cấp tỉnh cho tuyến trong nước.',
+    lines: [line('DT-8', 'CBN', 'PER_TRIP')],
   },
   {
     id: 'REG-10', country: 'JP', direction: 'IMPORT', v: 1, effectiveFrom: '2026-10-01', status: 'ACTIVE',
     note: 'Giấy phép nhập khẩu và kiểm dịch nhập cảnh tại Cơ quan Kiểm dịch Động vật (AQS) – cách ly tại sân bay đến.',
     lines: [
-      line('DT-1', 'CUSTOMER', 'PER_HORSE', 'BEFORE_SUBMIT'),
-      line('DT-2', 'CUSTOMER', 'PER_HORSE'),
-      line('DT-3', 'CUSTOMER', 'PER_HORSE'),
       line('DT-5', 'CBN', 'PER_TRIP'),
       line('DT-6', 'CBN', 'PER_HORSE', 'AT_CHECKPOINT', 'Kiểm dịch nhập cảnh do AQS thực hiện khi ngựa đến sân bay'),
     ],
@@ -74,8 +65,6 @@ export const mockRegulations: Regulation[] = [
     id: 'REG-2', country: 'TH', direction: 'IMPORT', v: 1, effectiveFrom: '2026-07-30', status: 'ACTIVE',
     note: 'Giấy phép nhập khẩu DLD trước khi tới cửa khẩu; kiểm dịch tại biên giới.',
     lines: [
-      line('DT-1', 'CUSTOMER', 'PER_HORSE', 'BEFORE_SUBMIT'),
-      line('DT-2', 'CUSTOMER', 'PER_HORSE'),
       line('DT-5', 'CBN', 'PER_TRIP'),
       line('DT-6', 'CBN', 'PER_HORSE', 'AT_CHECKPOINT', 'Kiểm dịch tại cửa khẩu Poipet'),
     ],
@@ -162,11 +151,11 @@ export const mockTrips: SpecTrip[] = [
 // ---------------------------------------------------------------------------
 const NOTE: Partial<Record<CustomerDocKey, string>> = {
   bio: 'Giống, giới tính, ngày sinh, microchip',
-  valueProof: 'Không bắt buộc',
-  conditions: 'Không bắt buộc',
+  valueProof: 'Chứng nhận giá trị khai báo',
+  conditions: 'Ghi chú sức khỏe đặc biệt',
 };
-const PER_HORSE: CustomerDocKey[] = ['passport', 'ownership', 'bio', 'valueProof', 'flu', 'health', 'conditions'];
-const OPTIONAL_KEYS: CustomerDocKey[] = ['valueProof', 'conditions'];
+const PER_HORSE: CustomerDocKey[] = ['passport', 'ownership', 'bio', 'valueProof', 'flu', 'health'];
+const OPTIONAL_KEYS: CustomerDocKey[] = [];
 
 function dossier(t: SpecTrip, base: CustomerDocStatus, over: Partial<Record<string, Partial<CustomerDoc>>> = {}): CustomerDoc[] {
   const make = (key: CustomerDocKey, scope: string): CustomerDoc => {
@@ -205,6 +194,9 @@ const doc = (id: string, tripId: string, typeId: string, horseId: string | null,
 });
 
 export const mockDocuments: TripDocument[] = [
+  doc('DOC-502', 'TRIP_002', 'DT-8', null, 'APPROVED', { issuer: 'Chi cục Thú y TP.HCM', issuedAt: '2026-11-04', expiry: '2026-12-04' }),
+  doc('DOC-504', 'TRIP_004', 'DT-8', null, 'APPROVED', { issuer: 'Chi cục Thú y TP.HCM', issuedAt: '2026-11-04', expiry: '2026-12-04' }),
+  doc('DOC-505', 'TRIP_005', 'DT-8', null, 'APPROVED', { issuer: 'Chi cục Thú y Hà Nội', issuedAt: '2026-11-04', expiry: '2026-12-04' }),
   doc('DOC-501', 'TRP-904', 'DT-8', null, 'SUBMITTED', { issuer: 'Chi cục Thú y TP.HCM', versions: [{ v: 1, file: 'trp-904-giay-phep-noi-dia.pdf', at: '2026-10-04 09:20', by: SPECIALIST_NAME }] }),
   doc('DOC-480', 'TRP-903', 'DT-8', null, 'APPROVED', { issuer: 'Chi cục Thú y TP.HCM' }),
   doc('DOC-460', 'TRP-901', 'DT-4', null, 'APPROVED'),
@@ -238,4 +230,21 @@ export const mockAudit: AuditEntry[] = [
   { at: '2026-10-03 14:10', actor: SPECIALIST_NAME, role: 'TRANSPORT_SPECIALIST', action: 'Từ chối giấy tờ khách hàng', entity: 'TRP-902', detail: 'Sổ tiêm ngừa – Shadowfax' },
   { at: '2026-10-03 14:00', actor: SPECIALIST_NAME, role: 'TRANSPORT_SPECIALIST', action: 'Xác nhận hồ sơ sẵn sàng (Docs READY)', entity: 'TRP-903' },
   { at: '2026-10-02 10:00', actor: 'Linh Pham', role: 'LOGISTICS_MANAGER', action: 'Giao chuyến cho Specialist', entity: 'TRP-902' },
+];
+
+export interface SpecialistNotification {
+  id: string;
+  at: string;
+  title: string;
+  text: string;
+  link?: string;
+  read: boolean;
+}
+
+export const mockSpecialistNotifications: SpecialistNotification[] = [
+  { id: 'SN-1', at: '2026-10-04 11:20', title: 'Hồ sơ cần thẩm định', text: 'HOR-1092 • Sổ tiêm phòng cúm & Chứng nhận sức khỏe cần rà soát.', link: '/specialist/request-reviews', read: false },
+  { id: 'SN-2', at: '2026-10-04 10:45', title: 'Sự cố cần kiểm tra pháp lý', text: 'INC-301 • TRP-901 – Chuyển đổi phương án y tế và quy định tại Phnom Penh.', link: '/specialist/incidents', read: false },
+  { id: 'SN-3', at: '2026-10-04 09:30', title: 'Giấy phép kiểm dịch sắp hết hạn', text: 'DOC-510 • TRP-906 – Giấy phép xuất khẩu cần gia hạn trước 10/11.', link: '/specialist/trips/TRP-906', read: false },
+  { id: 'SN-4', at: '2026-10-03 16:00', title: 'Khách hàng đã nộp giấy tờ mới', text: 'TRP-902 • shadowfax-health-cert.pdf đã được khách hàng tải lên.', link: '/specialist/trips/TRP-902', read: true },
+  { id: 'SN-5', at: '2026-10-03 14:10', title: 'Chuyến đi được phân công mới', text: 'TRP-904 • Tuyến nội địa TP.HCM → Hà Nội đã được phân công phụ trách hồ sơ.', link: '/specialist/trips/TRP-904', read: true },
 ];

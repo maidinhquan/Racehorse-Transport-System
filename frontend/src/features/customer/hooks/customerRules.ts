@@ -162,7 +162,7 @@ export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
   ACTIVATED: 'Đã kích hoạt – chuẩn bị',
   SCHEDULED: 'Đã lên lịch',
   IN_TRANSIT: 'Đang vận chuyển',
-  DELIVERED: 'Đã giao – chưa đóng',
+  DELIVERED: 'Đã giao',
   CLOSED: 'Đã đóng',
   CANCELLED: 'Đã hủy',
 };
@@ -397,8 +397,10 @@ export const depositAmount = (r: TransportRequest) => {
   return v ? v.depositAmount ?? Math.round((v.total * v.depositPct) / 100) : 0;
 };
 export const contractTotal = (r: TransportRequest) => curVersion(r)?.total ?? 0;
-export const signedVersion = (r: TransportRequest) => (r.versions || []).find((v) => v && ['SIGNED', 'EFFECTIVE', 'FULFILLED'].includes(v.state));
-export const isSigned = (r: TransportRequest) => !!signedVersion(r);
+export const signedVersion = (r: TransportRequest) =>
+  (r.versions || []).find((v) => v && (['SIGNED', 'EFFECTIVE', 'FULFILLED'].includes(v.state) || !!v.signedAt));
+export const isSigned = (r: TransportRequest) =>
+  !!signedVersion(r) || ['ACTIVATED', 'SCHEDULED', 'IN_TRANSIT', 'DELIVERED', 'CLOSED'].includes(r.status);
 
 export const depositPayments = (r: TransportRequest) => {
   const v = curVersion(r);
@@ -461,7 +463,8 @@ export const canRequestContractChange = (r: TransportRequest) => {
   return !!v && r.status === 'CONTRACT_READY' && ['ISSUED', 'EXPIRED'].includes(versionState(v)) && !hasReceivedDeposit(r);
 };
 export const canCancel = (r: TransportRequest) =>
-  ['DRAFT', 'PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED', 'AWAITING_DEPOSIT']
+  !isSigned(r) &&
+  ['DRAFT', 'PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED']
     .includes(r.status);
 
 // ============================================================================
@@ -710,7 +713,7 @@ export const DEMO_GUIDE: Record<'active' | 'history', Array<[string, string, str
     ['TRN-8924', 'Đang chuẩn bị – có giấy tờ bị từ chối', 'Xem lý do từ chối / yêu cầu bổ sung và tải lại giấy tờ.'],
     ['TRN-8945', 'Đã lên lịch', 'Dùng nút demo tổ xe xuất phát để bắt đầu hành trình.'],
     ['TRN-8923', 'Đang vận chuyển', 'Theo dõi các mốc hành trình đã được xác nhận; nút demo chạy tiếp tới bàn giao.'],
-    ['TRN-8810', 'Đã giao – chưa đóng', 'Nghiệm thu, thanh toán số dư bằng VNPay hoặc gửi khiếu nại.'],
+    ['TRN-8810', 'Đã giao', 'Xác nhận nghiệm thu hoặc gửi khiếu nại nếu có.'],
   ],
   history: [
     ['TRN-8750', 'Đã đóng – hợp đồng đã hoàn thành', 'Đã giao, thanh toán đủ, hết 24 giờ phản hồi; hợp đồng hết hiệu lực, chỉ xem.'],

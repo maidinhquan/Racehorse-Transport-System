@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { onSync } from '../../../../../shared/utils/syncChannel';
 import { Link } from 'react-router-dom';
 import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
 import { CheckList, LockedCard, Note, openSampleFile } from '../../../components/Common/Common';
@@ -172,9 +173,11 @@ const MockClosureSection: React.FC<{ request: TransportRequest }> = ({ request: 
 
 /** Mục 3: Bàn giao, tất toán và đóng đơn (CHẾ ĐỘ BACKEND FLOW 6 THỰC TẾ) */
 const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
-  const { tripFor, actions } = useManager();
+  const { data, tripFor, actions } = useManager();
   const notify = (message: string) => actions.showToast(message);
   const t = tripFor(r.id);
+  const cost = t ? data.actualCosts.find((x) => x.tripId === t.id || x.tripId.replace(/-/g, '_') === t.id.replace(/-/g, '_')) : undefined;
+  const [costModalOpen, setCostModalOpen] = useState(false);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [refundTarget, setRefundTarget] = useState('');
   const [refundRef, setRefundRef] = useState('');
@@ -245,7 +248,8 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
     void loadFlow6Data();
     // Tự làm mới để thấy thanh toán của khách mà không cần tải lại trang
     const timer = setInterval(() => { void loadFlow6Data(true); }, 10000);
-    return () => clearInterval(timer);
+    const stopSync = onSync(() => { void loadFlow6Data(true); });
+    return () => { clearInterval(timer); stopSync(); };
   }, [r.id, t?.id]);
 
   // F6-J15: Chuẩn bị tất toán DRAFT
@@ -256,7 +260,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       const key = generateUuidV4();
       const s = await flow6Api.prepareSettlement(t.id, key);
       setSettlement(s);
-      await loadFlow6Data();
+      await loadFlow6Data(true);
       notify('Đã chuẩn bị hồ sơ tất toán DRAFT!');
     } catch (err: any) {
       notify(`Không thể tạo hồ sơ tất toán: ${err?.message || 'Có lỗi xảy ra'}`);
@@ -293,7 +297,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       setShowAdjModal(false);
       setAdjAmount(0);
       setAdjReason('');
-      await loadFlow6Data();
+      await loadFlow6Data(true);
       notify('Đã thêm khoản điều chỉnh chi phí thành công!');
     } catch (err: any) {
       notify(`Không thể thêm điều chỉnh: ${err?.message || 'Có lỗi xảy ra'}`);
@@ -310,7 +314,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       const key = generateUuidV4();
       const dueAtUtc = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
       await flow6Api.issueFinalInvoice(settlement.id, { dueAtUtc }, key);
-      await loadFlow6Data();
+      await loadFlow6Data(true);
       notify('Đã phát hành hóa đơn cuối thành công!');
     } catch (err: any) {
       notify(`Không thể phát hành hóa đơn: ${err?.message || 'Có lỗi xảy ra'}`);
@@ -326,7 +330,9 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
     try {
       const key = generateUuidV4();
       await flow6Api.settleSettlement(settlement.id, key);
-      await loadFlow6Data();
+      await loadFlow6Data(true);
+      void actions.loadRequest(r.id);
+      void actions.refreshReadiness();
       notify('Nghiệm thu và tất toán thành công! Trạng thái hồ sơ chuyển sang Đã tất toán, mở thời hạn phản hồi.');
     } catch (err: any) {
       notify(`Không thể tất toán: ${err?.message || 'Biên bản chưa CONFIRMED hoặc chưa thanh toán đủ tiền'}`);
@@ -342,7 +348,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
     try {
       const key = generateUuidV4();
       await flow6Api.restartFeedbackWindow(settlement.id, key);
-      await loadFlow6Data();
+      await loadFlow6Data(true);
       notify('Đã khởi động lại thời hạn phản hồi 24 giờ sau khi giải quyết khiếu nại!');
     } catch (err: any) {
       notify(`Không thể khởi động lại hạn phản hồi: ${err?.message || 'Có lỗi xảy ra'}`);
@@ -359,7 +365,9 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
     try {
       const key = generateUuidV4();
       await flow6Api.closeSettlement(settlement.id, key);
-      await loadFlow6Data();
+      await loadFlow6Data(true);
+      void actions.loadRequest(r.id);
+      void actions.refreshReadiness();
       notify('Hồ sơ tất toán, Yêu cầu và Hợp đồng đã được đóng hoàn tất !');
     } catch (err: any) {
       notify(`Không thể đóng hồ sơ: ${err?.message || 'Còn khiếu nại chưa xử lý hoặc nghĩa vụ tiền chưa thanh toán'}`);
@@ -374,7 +382,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
     try {
       const key = generateUuidV4();
       await flow6Api.startCaseProcessing(caseId, key);
-      await loadFlow6Data();
+      await loadFlow6Data(true);
     } catch (err: any) {
       notify(`Lỗi: ${err?.message}`);
     } finally {
@@ -395,7 +403,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       await flow6Api.resolveCase(activeCase.id, { resolution: resolutionText.trim() }, key);
       setActiveCase(null);
       setResolutionText('');
-      await loadFlow6Data();
+      await loadFlow6Data(true);
       notify('Đã ghi nhận giải quyết khiếu nại thành công!');
     } catch (err: any) {
       notify(`Lỗi: ${err?.message}`);
@@ -410,7 +418,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
     try {
       const key = generateUuidV4();
       await flow6Api.startRefundProcessing(adjustmentId, key);
-      await loadFlow6Data();
+      await loadFlow6Data(true);
       notify('Đã bắt đầu xử lý hoàn tiền!');
     } catch (err: any) {
       notify(`Lỗi: ${err?.message}`);
@@ -430,7 +438,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       const key = generateUuidV4();
       const nowUtc = new Date().toISOString();
       await flow6Api.completeRefund(adjustmentId, { reference: ref.trim(), refundedAtUtc: nowUtc }, key);
-      await loadFlow6Data();
+      await loadFlow6Data(true);
       notify('Đã xác nhận hoàn tiền thành công!');
     } catch (err: any) {
       notify(`Lỗi: ${err?.message}`);
@@ -454,7 +462,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       setReviewPaymentId('');
       setReviewReason('');
       setConfirmMode(false);
-      await loadFlow6Data();
+      await loadFlow6Data(true);
       notify(confirmMode ? 'Đã xác nhận thanh toán. Khoản này cần đối soát sao kê sau.' : 'Đã duyệt đối soát thanh toán thành công!');
     } catch (err: any) {
       notify(`Lỗi đối soát: ${err?.message}`);
@@ -632,7 +640,14 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
                 </div>
               )}
 
-              {(settlement.status === 'DRAFT' || (settlement.status === 'AWAITING_PAYMENT' && (balance?.finalPaidVnd ?? 0) === 0)) && (
+              {settlement.finalInvoiceId && adjustments.some((a) => a.type !== 'REFUND' && a.adjustedInvoiceId) && (
+                <p className="mgr-hint" style={{ marginTop: 12 }}>
+                  Hóa đơn cuối cùng đã được cập nhật và phát hành cho khách hàng, không thể chỉnh sửa thêm.
+                </p>
+              )}
+
+              {(settlement.status === 'DRAFT' || (settlement.status === 'AWAITING_PAYMENT' && (balance?.finalPaidVnd ?? 0) === 0))
+                && !adjustments.some((a) => a.type !== 'REFUND' && a.adjustedInvoiceId) && (
                 <div style={{ marginTop: 14 }}>
                   <div className="mgr-btn-row">
                     <button
@@ -821,9 +836,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
               )}
 
               {settlement.status === 'CLOSED' && (
-                <Note tone="green" title="Hồ sơ đã đóng hoàn tất">
-                  Hồ sơ tất toán, Yêu cầu và Hợp đồng đã hoàn thành trọn vẹn chu kỳ Flow 6.
-                </Note>
+                <Note tone="green" title="Hồ sơ đã đóng hoàn tất" />
               )}
             </section>
           )}
@@ -839,8 +852,31 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
               </div>
             </section>
           )}
+
+          {/* Chi phí thực tế của chuyến */}
+          {t && (
+            <section className="mgr-card">
+              <h3 className="mgr-card__title">Chi phí thực tế {t.id}</h3>
+              <p className="mgr-hint" style={{ marginTop: 0 }}>
+                {cost ? `Đã nhập ${fmtDateTime(cost.enteredAt)} • tổng ${fmtMoney(sumActual(cost))}` : 'Chưa nhập chi phí thực tế.'}
+              </p>
+              <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => setCostModalOpen(true)}>
+                {cost ? 'Cập nhật chi phí' : 'Nhập chi phí thực tế'}
+              </button>
+            </section>
+          )}
         </aside>
       </div>
+
+      {t && (
+        <ActualCostModal
+          open={costModalOpen}
+          tripId={t.id}
+          current={cost}
+          onClose={() => setCostModalOpen(false)}
+          onSubmit={(c, e) => actions.saveActualCosts(t.id, c, e).ok}
+        />
+      )}
 
       {/* Modal thêm điều chỉnh phí */}
       {showAdjModal && (

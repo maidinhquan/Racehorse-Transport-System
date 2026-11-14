@@ -23,6 +23,7 @@ import {
 import { Icon } from '../../../components/CustomerLayout';
 import { ContractBody } from '../../../components/ContractBody/ContractBody';
 import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
+import { getUserFullName } from '../../../../../shared/utils/userNameResolver';
 import { AcceptTermsModal, Modal, ReasonModal } from '../../../components/Modals';
 import { LockedCard, Note } from '../../../components/Common/Common';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
@@ -173,7 +174,7 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
               <div className="cus-eyebrow">Thay đổi hạn ký</div>
               <ul className="cus-timeline" style={{ marginTop: 10 }}>
                 {[...v.deadlineHistory!].reverse().map((h) => (
-                  <li key={h.at}><b>{fmtDateTime(h.from)} → {fmtDateTime(h.to)}</b><span>{fmtDateTime(h.at)} • {h.by} • {h.reason}</span></li>
+                  <li key={h.at}><b>{fmtDateTime(h.from)} → {fmtDateTime(h.to)}</b><span>{fmtDateTime(h.at)} • {getUserFullName(h.by)} • {h.reason}</span></li>
                 ))}
               </ul>
             </div>

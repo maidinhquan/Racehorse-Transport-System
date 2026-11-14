@@ -56,7 +56,7 @@ export const TripHero: React.FC<TripHeroProps> = ({ trip, compact, actions }) =>
           <Icon name={n.blocked ? 'clock' : 'pin'} />
           <div>
             <b>Mốc tiếp theo: {milestoneText(trip, n)}</b>
-            {n.blocked ? 'Đang chờ ghi nhận kết quả thông quan.'
+            {n.blocked ? (n.healthCheckRequired ? 'Cần kiểm tra sức khỏe toàn bộ ngựa trước khi đi tiếp.' : 'Đang chờ ghi nhận kết quả thông quan.')
               : 'Ghi nhận khi sự kiện thực tế xảy ra.'}
           </div>
         </div>

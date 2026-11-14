@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { TransportRequest } from '../../../types';
 import { useCustomer } from '../../../hooks/useCustomer';
 import { canComplain, fmtDateTime } from '../../../hooks/customerRules';
-import { COMPLAINT_TYPE_LABEL, ComplaintModal } from '../../../components/Modals';
+import { ComplaintModal } from '../../../components/Modals';
 import { TripStatusBadge, type BadgeTone } from '../../../components/TripStatusBadge/TripStatusBadge';
 import { getDemoMode } from '../../../../../shared/context/DemoModeContext';
 import { generateUuidV4 } from '../../../../../shared/utils/uuid';
@@ -42,11 +42,20 @@ const MockComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r
         <ul className="cus-complaint-list">
           {[...(r.complaints || [])].reverse().map((c) => (
             <li key={c.id}>
-              <div>
-                <b>{c.id} • {c.title}</b>
-                <small>{COMPLAINT_TYPE_LABEL[c.type]} • {fmtDateTime(c.createdAt)}</small>
-                <p>{c.description}</p>
-                {c.response && <p><b style={{ display: 'inline' }}>Phản hồi:</b> {c.response}</p>}
+              <div className="cus-complaint-item__body">
+                <div className="cus-complaint-item__header">
+                  <span className="cus-complaint-item__id">{c.id}</span>
+                  <span className="cus-complaint-item__subject">{c.title}</span>
+                </div>
+                <div className="cus-complaint-item__meta">
+                  Gửi lúc: {fmtDateTime(c.createdAt)}
+                </div>
+                <div className="cus-complaint-item__desc">{c.description}</div>
+                {c.response && (
+                  <div className="cus-complaint-item__resolution">
+                    <b>Phản hồi:</b> {c.response}
+                  </div>
+                )}
               </div>
               <TripStatusBadge label={STATUS[c.status]?.[0] || c.status} tone={STATUS[c.status]?.[1] || 'muted'} />
             </li>
@@ -73,8 +82,8 @@ const RealComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r
   const isClosed = r.status === 'CLOSED';
   const defaultType: 'COMPLAINT' | 'SUPPORT' = isClosed ? 'SUPPORT' : 'COMPLAINT';
 
-  const loadCases = async () => {
-    setLoading(true);
+  const loadCases = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const settlements = await flow6Api.getCustomerSettlements();
       const tripId = r.trip?.id || (r as any).tripId;
@@ -123,7 +132,7 @@ const RealComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r
       setSubject('');
       setDescription('');
       setShowCreate(false);
-      await loadCases();
+      await loadCases(true);
       notify(`Đã gửi ${defaultType === 'COMPLAINT' ? 'khiếu nại' : 'yêu cầu hỗ trợ'} thành công! Quản lý sẽ sớm phản hồi.`);
     } catch (err: any) {
       notify(`Không thể gửi phiếu: ${err?.message || 'Có lỗi xảy ra'}`);
@@ -142,14 +151,14 @@ const RealComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r
             className="cus-btn cus-btn--solid cus-btn--sm"
             onClick={() => setShowCreate(true)}
           >
-            {isClosed ? 'Tạo phiếu hỗ trợ (SUPPORT)' : 'Gửi khiếu nại (COMPLAINT)'}
+            {isClosed ? 'Tạo phiếu hỗ trợ' : 'Gửi khiếu nại'}
           </button>
         )}
       </h3>
 
       {isClosed && (
         <p className="cus-muted" style={{ marginBottom: 12 }}>
-          Lưu ý: Hợp đồng đã đóng. Phiếu tạo mới sẽ là dạng <b>Yêu cầu hỗ trợ (SUPPORT)</b> và không tự động mở lại hợp đồng.
+          Lưu ý: Hợp đồng đã đóng. Phiếu tạo mới sẽ là dạng <b>Yêu cầu hỗ trợ</b> và không tự động mở lại hợp đồng.
         </p>
       )}
 
@@ -204,17 +213,20 @@ const RealComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r
         <ul className="cus-complaint-list">
           {cases.map((c) => (
             <li key={c.id}>
-              <div>
-                <b>{c.id} • {c.subject}</b>
-                <small>
-                  Loại: <b>{c.type}</b> • Gửi lúc: {fmtDateTime(c.openedAtUtc)}
+              <div className="cus-complaint-item__body">
+                <div className="cus-complaint-item__header">
+                  <span className="cus-complaint-item__id">{c.id}</span>
+                  <span className="cus-complaint-item__subject">{c.subject}</span>
+                </div>
+                <div className="cus-complaint-item__meta">
+                  Gửi lúc: {fmtDateTime(c.openedAtUtc)}
                   {c.resolvedAtUtc && ` • Giải quyết lúc: ${fmtDateTime(c.resolvedAtUtc)}`}
-                </small>
-                <p>{c.description}</p>
+                </div>
+                <div className="cus-complaint-item__desc">{c.description}</div>
                 {c.resolution && (
-                  <p style={{ marginTop: 6, color: '#10b981' }}>
-                    <b style={{ display: 'inline' }}>Kết quả giải quyết:</b> {c.resolution}
-                  </p>
+                  <div className="cus-complaint-item__resolution">
+                    <b>Kết quả giải quyết:</b> {c.resolution}
+                  </div>
                 )}
               </div>
               <TripStatusBadge

@@ -82,6 +82,7 @@ namespace Application.DTOs
         public string Mode { get; set; } = "ROAD"; // ROAD, AIR
         public string Status { get; set; } = "PLANNING";
         public string Deployment { get; set; } = "CONFIRMED";
+        public string? SpecialistId { get; set; }
         public string PlannedDepart { get; set; } = string.Empty;
         public string Eta { get; set; } = string.Empty;
         public List<SpecHorseDto> Horses { get; set; } = new();
@@ -188,6 +189,7 @@ namespace Application.DTOs
         public string Provider { get; set; } = "CUSTOMER"; // CUSTOMER, CBN
         public int? ValidityDays { get; set; }
         public string Status { get; set; } = "ACTIVE"; // ACTIVE, RETIRED
+        public string? Note { get; set; }
     }
 
     public class RequirementLineDto

@@ -9,6 +9,7 @@ import { ManagerRouteMap } from '../../../components/RouteMap/ManagerRouteMap';
 import { refreshTripPlan, useManager } from '../../../hooks/useManager';
 import type { Trip } from '../../../types';
 import { STOP_TYPE_LABEL, fmtDateTime, fmtMoney, isReady, readinessChecks, staffName } from '../../../hooks/managerRules';
+import { onSync } from '../../../../../shared/utils/syncChannel';
 
 type Dialog = '' | 'approve' | 'return' | 'flight-ok' | 'flight-no';
 
@@ -22,7 +23,8 @@ export const PrepareStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
     const tick = () => { if (document.visibilityState === 'visible') { void refreshTripPlan(t.id); void actions.refreshReadiness(); } };
     tick();
     const id = window.setInterval(tick, 15000);
-    return () => window.clearInterval(id);
+    const stopSync = onSync(tick);
+    return () => { window.clearInterval(id); stopSync(); };
   }, [t.id]);
   const close = () => setDialog('');
   if (t.deployment.status === 'NOT_CONFIRMED') return <LockedCard title="Chưa phân công" text="Phân công Specialist và Coordinator ở bước 1 để bắt đầu chuẩn bị." />;

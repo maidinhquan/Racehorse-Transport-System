@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '../../../../shared/components';
 import { useCustomer } from '../../hooks/useCustomer';
 import { fmtDateTime } from '../../hooks/customerRules';
+import { formatNotification } from '../../utils/notificationFormat';
 import './CustomerLayout.css';
 
 // ---------------------------------------------------------------------------
@@ -137,26 +138,69 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children,
               {open && (
                 <div className="cus-notif" role="menu">
                   <div className="cus-notif__head">
-                    <span>Thông báo</span>
+                    <div className="cus-notif__title-wrap">
+                      <span className="cus-notif__title">Thông báo</span>
+                      {stats.unread > 0 && (
+                        <span className="cus-notif__badge-count">{stats.unread} mới</span>
+                      )}
+                    </div>
                     {stats.unread > 0 && (
                       <button type="button" className="cus-link" onClick={actions.markAllNotificationsRead}>
                         Đánh dấu đã đọc
                       </button>
                     )}
                   </div>
-                  {notifications.length === 0 && <p className="cus-muted" style={{ padding: 10 }}>Bạn không có thông báo mới.</p>}
-                  {notifications.slice(0, 8).map((n) => (
+                  <div className="cus-notif__list">
+                    {notifications.length === 0 && (
+                      <div className="cus-notif__empty">
+                        <Icon name="bell" />
+                        <p>Bạn không có thông báo nào.</p>
+                      </div>
+                    )}
+                    {notifications.slice(0, 8).map((raw) => {
+                      const n = formatNotification(raw);
+                      return (
+                        <button
+                          key={n.id}
+                          type="button"
+                          className={`cus-notif__item ${n.read ? 'read' : 'unread'}`}
+                          onClick={() => {
+                            if (!n.read) actions.markNotificationRead(n.id);
+                            setOpen(false);
+                            if (n.link) navigate(n.link);
+                          }}
+                        >
+                          <span className={`cus-notif__icon-box tone-${n.tone}`}>
+                            <Icon name={n.icon} />
+                          </span>
+                          <div className="cus-notif__content">
+                            <div className="cus-notif__item-head">
+                              <b>{n.title}</b>
+                              {!n.read && <span className="cus-notif__unread-dot" />}
+                            </div>
+                            <span className="cus-notif__body">{n.body}</span>
+                            <small className="cus-notif__time">
+                              <Icon name="clock" /> {fmtDateTime(n.at)}
+                            </small>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="cus-notif__foot">
                     <button
-                      key={n.id}
                       type="button"
-                      className={`cus-notif__item ${n.read ? '' : 'unread'}`}
-                      onClick={() => { actions.markNotificationRead(n.id); setOpen(false); navigate(n.link); }}
+                      className="cus-notif__view-all-btn"
+                      onClick={() => {
+                        setOpen(false);
+                        navigate('/customer/notifications');
+                      }}
                     >
-                      <b>{n.title}</b>
-                      <span>{n.body}</span>
-                      <small>{fmtDateTime(n.at)}</small>
+                      <span>Xem tất cả thông báo ({notifications.length})</span>
+                      <Icon name="chevron" className="cus-notif__chevron-right" />
                     </button>
-                  ))}
+                  </div>
                 </div>
               )}
             </div>

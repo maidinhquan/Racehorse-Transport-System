@@ -11,3 +11,97 @@
 .cus-doc-group:first-child { margin-top: 0; }
 .cus-doc-horse + .cus-doc-horse { margin-top: 14px; }
 .cus-doc-horse .cus-eyebrow { margin-bottom: 6px; }
+
+/* Collapsible Horse Card in DocumentList */
+.cus-doc-horse-card {
+  border: 1px solid var(--cus-line, #e2e8f0);
+  border-radius: 12px;
+  background: var(--cus-card, #ffffff);
+  margin-top: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease-in-out;
+}
+.cus-doc-horse-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+.cus-doc-horse-card.is-open {
+  border-color: #fed7aa;
+  box-shadow: 0 2px 8px rgba(245, 124, 0, 0.08);
+}
+.cus-doc-horse-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  background: var(--cus-bg, #f8fafc);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.15s ease;
+}
+.cus-doc-horse-card.is-open .cus-doc-horse-toggle {
+  background: #fff7ed;
+  border-bottom: 1px solid #fed7aa;
+}
+.cus-doc-horse-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.cus-doc-horse-index {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.cus-doc-horse-card.is-open .cus-doc-horse-index {
+  background: #f57c00;
+  color: #ffffff;
+}
+.cus-doc-horse-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+.cus-doc-horse-chip {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  background: #ffffff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  margin-left: 8px;
+}
+.cus-doc-horse-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cus-doc-horse-count {
+  font-size: 12px;
+  color: #64748b;
+}
+.cus-badge-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: #c2410c;
+  background: #ffedd5;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid #fed7aa;
+}
+.cus-doc-horse-body {
+  padding: 18px 20px;
+  background: #ffffff;
+}

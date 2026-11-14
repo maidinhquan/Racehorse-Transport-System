@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { onSync } from '../../../../shared/utils/syncChannel';
 import { Link, useParams } from 'react-router-dom';
 import { ManagerLayout } from '../../components/ManagerLayout';
 import { BackLink, LockedCard } from '../../components/Common/Common';
@@ -20,7 +21,8 @@ export const RequestDetailPage: React.FC = () => {
     if (!requestId) return;
     void actions.loadRequest(requestId);
     const timer = setInterval(() => { void actions.loadRequest(requestId); }, 15000);
-    return () => clearInterval(timer);
+    const stopSync = onSync(() => { void actions.loadRequest(requestId); });
+    return () => { clearInterval(timer); stopSync(); };
   }, [requestId, actions]);
   const r = getRequest(requestId);
 

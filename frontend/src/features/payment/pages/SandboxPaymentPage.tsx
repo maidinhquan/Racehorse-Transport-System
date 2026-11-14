@@ -35,33 +35,47 @@ export default function SandboxPaymentPage() {
         const f6Match = vnpTxnRef.match(/^F6PAYMENT([0-9]+)/)
         const f1Match = vnpTxnRef.match(/^PAYMENT([0-9]+)/)
         const refPaymentId = f6Match ? `PAYMENT_${f6Match[1]}` : f1Match ? `PAYMENT_${f1Match[1]}` : ''
-        const paymentId = sessionStorage.getItem('last_deposit_payment_id') || refPaymentId
+        // Mã trong URL VNPAY trả về là nguồn đúng; mã lưu trong trình duyệt có thể còn sót từ giao dịch/tài khoản trước
+        const paymentId = refPaymentId || sessionStorage.getItem('last_deposit_payment_id') || ''
 
         if (!paymentId) throw new Error('Không tìm thấy phiên thanh toán. Mở lại yêu cầu để kiểm tra trạng thái từ máy chủ.')
 
         // Chuyển tiếp query callback từ trình duyệt tới endpoint IPN để máy chủ xác thực chữ ký số và cập nhật DB khi test ở localhost
+        let ipnConfirmed = false
         if (location.search.includes('vnp_SecureHash')) {
           try {
-            await fetch(`/api/payments/vnpay/ipn${location.search}`)
+            const ipnRes = await fetch(`/api/payments/vnpay/ipn${location.search}`)
+            if (ipnRes.ok) {
+              const ipnBody = await ipnRes.json().catch(() => null)
+              if (ipnBody && ['00', '02'].includes(ipnBody.RspCode)) ipnConfirmed = true
+            }
           } catch {
             // Đã được xử lý hoặc ghi nhận
           }
         }
 
-        let dto: { id: string; amount: number; status: string; responseCode?: string }
-        if (vnpTxnRef.startsWith('F6PAYMENT')) {
+        type PaymentDto = { id: string; amount: number; status: string; responseCode?: string }
+        const readFlow1 = () => contractClient<PaymentDto>('get', `/customer/payments/${paymentId}`)
+        const readFlow6 = async (): Promise<PaymentDto> => {
+          const f6 = await flow6Api.getCustomerPayment(paymentId)
+          return { id: f6.id, amount: f6.amountVnd, status: f6.status }
+        }
+        const [first, second] = vnpTxnRef.startsWith('F6PAYMENT') ? [readFlow6, readFlow1] : [readFlow1, readFlow6]
+        let dto: PaymentDto
+        try {
+          dto = await first()
+        } catch (firstError) {
           try {
-            const f6 = await flow6Api.getCustomerPayment(paymentId)
-            dto = { id: f6.id, amount: f6.amountVnd, status: f6.status }
+            dto = await second()
           } catch {
-            dto = await contractClient<{ id: string; amount: number; status: string; responseCode?: string }>('get', `/customer/payments/${paymentId}`)
-          }
-        } else {
-          try {
-            dto = await contractClient<{ id: string; amount: number; status: string; responseCode?: string }>('get', `/customer/payments/${paymentId}`)
-          } catch {
-            const f6 = await flow6Api.getCustomerPayment(paymentId)
-            dto = { id: f6.id, amount: f6.amountVnd, status: f6.status }
+            if (ipnConfirmed) {
+              const vnpAmount = Number(params.get('vnp_Amount') || 0) / 100
+              const vnpCode = params.get('vnp_ResponseCode') || undefined
+              dto = { id: paymentId, amount: vnpAmount, status: vnpCode === '00' ? 'SUCCESS' : 'FAILED', responseCode: vnpCode }
+            } else {
+              // Hiện lỗi của luồng chính thay vì lỗi của luồng dự phòng (thường chỉ là "không tìm thấy")
+              throw firstError
+            }
           }
         }
 
@@ -120,15 +134,45 @@ export default function SandboxPaymentPage() {
         {checking && <p role="status">Đang chờ xác nhận giao dịch…</p>}
         {payment?.status === 'Pending' && !checking && <p>Chưa nhận được IPN. Kiểm tra URL IPN công khai đã đăng ký với VNPAY, rồi tải lại trang.</p>}
         <div style={{ marginTop: 24, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          {sessionStorage.getItem('last_payment_request_id') ? (
-            <Link to={`/customer/requests/${sessionStorage.getItem('last_payment_request_id')}/handover`} style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
-              Quay về yêu cầu {sessionStorage.getItem('last_payment_request_id')}
-            </Link>
-          ) : (
-            <Link to="/customer/requests" style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
-              Quay về danh sách yêu cầu của tôi
-            </Link>
-          )}
+          {(() => {
+            const role = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userRole') : null)
+              || (typeof localStorage !== 'undefined' ? localStorage.getItem('userRole') : null) || '';
+            const isManager = role.toUpperCase() === 'LOGISTICS_MANAGER';
+            const reqId = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('last_payment_request_id') : null;
+
+            if (isManager) {
+              return (
+                <>
+                  {reqId ? (
+                    <Link to={`/manager/requests/${reqId}/closure`} style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
+                      Quay về yêu cầu {reqId} (Tất toán & đóng đơn)
+                    </Link>
+                  ) : (
+                    <Link to="/manager/reports" style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
+                      Về Báo cáo chi phí
+                    </Link>
+                  )}
+                  <Link to="/manager/requests" style={{ padding: '8px 16px', background: '#e2e8f0', color: '#1e293b', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
+                    Danh sách yêu cầu
+                  </Link>
+                </>
+              );
+            }
+
+            return (
+              <>
+                {reqId ? (
+                  <Link to={`/customer/requests/${reqId}/handover`} style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
+                    Quay về yêu cầu {reqId}
+                  </Link>
+                ) : (
+                  <Link to="/customer/requests" style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
+                    Quay về danh sách yêu cầu của tôi
+                  </Link>
+                )}
+              </>
+            );
+          })()}
           <Link to="/payment/sandbox" style={{ padding: '8px 16px', background: '#f1f5f9', color: '#334155', borderRadius: 6, textDecoration: 'none' }}>
             Thử giao dịch khác
           </Link>
