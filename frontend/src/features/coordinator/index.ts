@@ -12,6 +12,11 @@ export { IncidentsPage } from './pages/incidents/IncidentsPage';
 export { MonitorPage } from './pages/monitor/MonitorPage';
 export { PlacesPage } from './pages/places/PlacesPage';
 export { TripDetailPage } from './pages/trip-detail/TripDetailPage';
+export { PickupAccessCard } from './components/relocation/PickupAccessCard';
+export { PickupAccessResolutionModal } from './components/relocation/PickupAccessResolutionModal';
+export { PickupAccessResolutionMap } from './components/relocation/PickupAccessResolutionMap';
+export { pickupAccessApi } from './api/pickupAccessApi';
+export type { PickupAccessResolutionRequest, PickupAccessStatusResponse } from './api/pickupAccessApi';
 
 // Flow 3 — Planning, Routing & Departure Approval (từ nhánh feature/api-flow2-flow3)
 export * from './api/flow3Api';

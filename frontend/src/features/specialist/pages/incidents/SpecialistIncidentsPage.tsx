@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { SpecialistLayout, Icon } from '../../components/SpecialistLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { useSpecialist } from '../../hooks/useSpecialist';
-import { useSharedIncidents, updateSharedIncidentReview, type SharedIncident } from '../../../../shared/utils/sharedIncidents';
+import { useSharedIncidents, updateSharedIncidentReview, updateSharedIncidentStatus, type SharedIncident } from '../../../../shared/utils/sharedIncidents';
 import { fmtDateTime } from '../../hooks/specialistRules';
 import { apiClient } from '../../../../shared/api/apiClient';
 import { getUserFullName } from '../../../../shared/utils/userNameResolver';
@@ -58,6 +58,7 @@ export const SpecialistIncidentsPage: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [requiresReissue, setRequiresReissue] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [closingId, setClosingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ id: string; msg: string; ok: boolean } | null>(null);
 
   const storedName = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null)
@@ -110,6 +111,22 @@ export const SpecialistIncidentsPage: React.FC = () => {
     setNotes('');
     setRequiresReissue(false);
     setFeedback({ id: incident.id, msg: 'Đã lưu kết quả rà soát pháp lý thành công.', ok: true });
+  };
+
+  const handleClose = async (incident: SharedIncident) => {
+    if (!window.confirm(`Đóng sự cố ${incident.id} sau khi đã rà soát?`)) return;
+    setClosingId(incident.id);
+    try {
+      await apiClient.post(`/specialist/incidents/${incident.id}/close`);
+      updateSharedIncidentStatus(incident.id, 'CLOSED');
+      localStorage.setItem(`rts_incident_status_${incident.id.replace(/-/g, '_')}`, 'CLOSED');
+      window.dispatchEvent(new Event('rts_incident_pins_changed'));
+      setFeedback({ id: incident.id, msg: 'Đã đóng sự cố.', ok: true });
+    } catch {
+      setFeedback({ id: incident.id, msg: 'Không thể đóng sự cố. Vui lòng thử lại.', ok: false });
+    } finally {
+      setClosingId(null);
+    }
   };
 
   return (
@@ -357,6 +374,13 @@ export const SpecialistIncidentsPage: React.FC = () => {
                         Bắt đầu rà soát pháp lý sự cố này
                       </button>
                     </div>
+                  )}
+
+                  {review && inc.status === 'RESOLVED' && (
+                    <button type="button" className="spc-btn spc-btn--solid" disabled={closingId === inc.id}
+                      onClick={() => void handleClose(inc)}>
+                      {closingId === inc.id ? 'Đang đóng…' : 'Đóng sự cố'}
+                    </button>
                   )}
 
                   {feedback && feedback.id === inc.id && (

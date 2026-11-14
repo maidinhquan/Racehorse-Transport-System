@@ -6,22 +6,30 @@ import type { CrewMember, Horse, Incident, Trip } from '../types';
 // ============================================================================
 export const DEMO_TODAY = '2026-10-04';
 
-/** Tài khoản demo có thể chuyển qua lại trong cổng Tài xế / Hộ tống */
-export const DRIVER_USERS = ['EMP-21', 'EMP-31', 'EMP-25', 'EMP-24'];
-export const DEFAULT_DRIVER_USER = 'EMP-21';
+/** Tài khoản demo có thể chuyển qua lại trong cổng Tài xế / Hộ tống (chuẩn theo CSDL thật) */
+export const DRIVER_USERS = ['USER_007', 'USER_008', 'USER_009', 'USER_010', 'USER_012', 'USER_013', 'USER_014', 'USER_015', 'USER_017', 'USER_018', 'USER_019', 'EMP-21', 'EMP-31'];
+export const DEFAULT_DRIVER_USER = 'USER_015';
 
 export const mockCrew: CrewMember[] = [
-  { id: 'EMP-21', name: 'Nguyen Van Hung', role: 'DRIVER', phone: '+84 90 5551 0021' },
-  { id: 'EMP-22', name: 'Le Quoc Tuan', role: 'DRIVER', phone: '+84 90 5551 0022' },
-  { id: 'EMP-23', name: 'Pham Thanh Son', role: 'DRIVER', phone: '+84 90 5551 0023' },
-  { id: 'EMP-25', name: 'Bui Van Long', role: 'DRIVER', phone: '+84 90 5551 0025' },
-  { id: 'EMP-24', name: 'Somsak Wongsa', role: 'DRIVER', phone: '+66 81 555 0024' },
-  { id: 'EMP-33', name: 'Vo Thi Mai', role: 'ESCORT', phone: '+84 90 5551 0033' },
-  { id: 'EMP-31', name: 'Dr. Nguyen Minh Anh', role: 'VETERINARIAN', phone: '+84 28 5550 0142' },
-  { id: 'EMP-32', name: 'Dr. Tran Quoc Bao', role: 'VETERINARIAN', phone: '+84 24 5550 0177' },
-  { id: 'USER_012', name: 'Nguyen Van Hung', role: 'DRIVER', phone: '+84 90 5551 0021' },
-  { id: 'USER_013', name: 'Le Quoc Tuan', role: 'DRIVER', phone: '+84 90 5551 0022' },
-  { id: 'USER_014', name: 'Dr. Le Thu Trang', role: 'VETERINARIAN', phone: '+84 28 5550 0135' },
+  { id: 'USER_007', name: 'Hoàng Hùng', role: 'DRIVER', phone: '0945678901' },
+  { id: 'USER_008', name: 'Vũ Thành', role: 'DRIVER', phone: '0946789012' },
+  { id: 'USER_009', name: 'BS. Đỗ Hoa', role: 'VETERINARIAN', phone: '0956789012' },
+  { id: 'USER_010', name: 'BS. Phan Nam', role: 'ESCORT', phone: '0957890123' },
+  { id: 'USER_012', name: 'Nguyễn Văn Hùng', role: 'DRIVER', phone: '0905551021' },
+  { id: 'USER_013', name: 'Lê Quốc Tuấn', role: 'DRIVER', phone: '0905551022' },
+  { id: 'USER_014', name: 'Dr. Lê Thu Trang', role: 'VETERINARIAN', phone: '0285550135' },
+  { id: 'USER_015', name: 'Phạm Thanh Sơn', role: 'DRIVER', phone: '0905551023' },
+  { id: 'USER_016', name: 'Bùi Văn Long', role: 'DRIVER', phone: '0905551025' },
+  { id: 'USER_017', name: 'Đặng Văn Khoa', role: 'DRIVER', phone: '0905551026' },
+  { id: 'USER_018', name: 'BS. Nguyễn Minh Anh', role: 'VETERINARIAN', phone: '0285550142' },
+  { id: 'USER_019', name: 'BS. Trần Quốc Bảo', role: 'VETERINARIAN', phone: '0245550177' },
+  // Giữ alias tương thích
+  { id: 'EMP-21', name: 'Nguyễn Văn Hùng', role: 'DRIVER', phone: '0905551021' },
+  { id: 'EMP-22', name: 'Lê Quốc Tuấn', role: 'DRIVER', phone: '0905551022' },
+  { id: 'EMP-23', name: 'Phạm Thanh Sơn', role: 'DRIVER', phone: '0905551023' },
+  { id: 'EMP-25', name: 'Bùi Văn Long', role: 'DRIVER', phone: '0905551025' },
+  { id: 'EMP-31', name: 'BS. Nguyễn Minh Anh', role: 'VETERINARIAN', phone: '0285550142' },
+  { id: 'EMP-32', name: 'BS. Trần Quốc Bảo', role: 'VETERINARIAN', phone: '0245550177' },
 ];
 
 export const mockHorses: Horse[] = [
@@ -43,7 +51,7 @@ export const mockTrips: Trip[] = [
     notes: 'Ngựa nhạy tiếng ồn – hạn chế bấm còi, nghỉ 30 phút mỗi 4 giờ.',
     horses: ['H-01'], plannedDepart: '2026-10-04 06:00', eta: '2026-10-06 16:00', status: 'IN_TRANSIT',
     vehicle: { plate: '51H-313.07', model: 'Isuzu FVR Horse Box' },
-    crew: { MAIN_DRIVER: 'EMP-21', CO_DRIVER: 'EMP-22', VETERINARIAN: 'EMP-31' },
+    crew: { MAIN_DRIVER: 'USER_007', CO_DRIVER: 'USER_013', VETERINARIAN: 'USER_009' },
     stops: [
       { id: 's1', name: 'Saigon Riding Club', type: 'ORIGIN', country: 'VN', plannedAt: '2026-10-04 06:00', lat: 10.7769, lng: 106.7009 },
       { id: 's2', name: 'Trang Bang rest area', type: 'REST_STOP', country: 'VN', plannedAt: '2026-10-04 08:00', lat: 11.0333, lng: 106.35 },
@@ -92,7 +100,7 @@ export const mockTrips: Trip[] = [
     receiver: { name: 'Tran Minh Khoa', phone: '+84 90 812 3456' },
     horses: ['H-04', 'H-05', 'H-06'], plannedDepart: '2026-10-09 05:00', eta: '2026-10-10 18:00', status: 'READY_TO_DEPART',
     vehicle: { plate: '43H-246.81', model: 'Hino 500 Horse Transporter' },
-    crew: { MAIN_DRIVER: 'EMP-25', CO_DRIVER: 'EMP-23', VETERINARIAN: 'EMP-32' },
+    crew: { MAIN_DRIVER: 'USER_015', CO_DRIVER: 'USER_017', VETERINARIAN: 'USER_018' },
     stops: [
       { id: 's1', name: 'Da Nang Equestrian Center', type: 'ORIGIN', country: 'VN', plannedAt: '2026-10-09 05:00', lat: 16.0544, lng: 108.2022 },
       { id: 's2', name: 'Quy Nhon rest stable', type: 'REST_STOP', country: 'VN', plannedAt: '2026-10-09 14:00', lat: 13.782, lng: 109.2194 },

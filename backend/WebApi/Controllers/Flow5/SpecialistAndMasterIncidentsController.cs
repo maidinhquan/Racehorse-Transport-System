@@ -41,6 +41,14 @@ public class SpecialistAndMasterIncidentsController : BaseApiController
         return CreatedSuccess(result, "Đã lưu kết quả rà soát pháp lý thành công");
     }
 
+    [HttpPost("specialist/incidents/{incidentId}/close")]
+    [Authorize(Roles = $"{UserRoles.TransportSpecialist},{UserRoles.Admin}")]
+    public async Task<IActionResult> CloseIncident([FromRoute] string incidentId)
+    {
+        var result = await _incidentService.UpdateIncidentStatusAsync(incidentId, "CLOSED", CurrentUserId);
+        return Success(result, "Chuyên viên đã đóng sự cố thành công");
+    }
+
     /// <summary>
     /// F5-J22: Bác sĩ thú y / Nhân viên hộ tống xác nhận sức khỏe và khả năng tiếp tục của ngựa
     /// </summary>

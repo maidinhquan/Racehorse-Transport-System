@@ -6,7 +6,8 @@ import { DriverLayout, Icon } from '../../components/DriverLayout';
 import { TripHero } from '../../components/TripHero/TripHero';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { RouteMap } from '../../components/RouteMap/RouteMap';
-import { MilestoneModal, HorseDetailModal } from '../../components/Modals';
+import { DelayModal, MilestoneModal, HorseDetailModal, PickupAccessBlockedModal } from '../../components/Modals';
+import { PickupAccessOrderBanner } from '../../components/PickupAccessOrderBanner';
 import { useDriver } from '../../hooks/useDriver';
 import {
   CLEARANCE_LABEL,
@@ -69,10 +70,19 @@ const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
   const delayed = delayPending(trip);
   const n = nextMilestone(trip);
   const incidentHold = trip.status === 'IN_TRANSIT' ? openIncidentHold(trip.id, incidents) : [];
+  const [delayOpen, setDelayOpen] = useState(false);
+  const [pickupBlockedOpen, setPickupBlockedOpen] = useState(false);
+  const isBlocked = trip.pickupAccessStatus === 'BLOCKED' || (trip.pickupAccessStatus && trip.pickupAccessStatus !== 'NORMAL' && trip.pickupAccessStatus !== 'RESOLVED');
 
   return (
     <div className="drv-card">
       <h3 className="drv-card__title">Ghi nhận mốc tiếp theo</h3>
+
+      <PickupAccessOrderBanner
+        trip={trip}
+        onAcknowledge={() => actions.acknowledgePickupResolution(trip.id)}
+        onConfirmResolved={() => actions.confirmPickupAccessResolved(trip.id)}
+      />
 
       {!isEscort && trip.status === 'READY_TO_DEPART' && !trip.milestones.length && (
         <>
@@ -80,6 +90,7 @@ const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
             <Icon name="clock" />
             <div><b>Lịch khởi hành: {fmtDateTime(trip.plannedDepart)}</b>Chỉ bấm xuất phát khi thực tế bắt đầu đi trong hoặc sau ngày đã lên lịch.</div>
           </div>
+          <button type="button" className="drv-btn drv-btn--block" style={{ marginTop: 10 }} disabled={delayed || isBlocked} onClick={() => setDelayOpen(true)}>Báo chậm khởi hành</button>
         </>
       )}
 
@@ -90,7 +101,7 @@ const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
       ) : n ? (
         <>
           <button type="button" className="drv-btn drv-btn--solid drv-btn--lg drv-btn--block drv-journey__record"
-            disabled={!!n.blocked || incidentHold.length > 0 || (n.type === 'DEPARTED' && delayed)} onClick={() => setMsOpen(true)}>
+            disabled={!!n.blocked || incidentHold.length > 0 || (n.type === 'DEPARTED' && delayed) || isBlocked} title={isBlocked ? 'Chuyến đi đang tạm dừng an toàn' : n.healthCheckRequired ? 'Cần ghi nhật ký sức khỏe cho ngựa tại trạm dừng này trước khi tiếp tục' : undefined} onClick={() => setMsOpen(true)}>
             {milestoneText(trip, n)}
           </button>
           {incidentHold.length > 0 && (
@@ -144,7 +155,33 @@ const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
         </button>
       )}
 
+      {(!trip.pickupAccessStatus || trip.pickupAccessStatus === 'NORMAL') && !isEscort && (trip.status === 'READY_TO_DEPART' || trip.status === 'IN_TRANSIT') && (
+        <button
+          type="button"
+          className="drv-btn drv-btn--block"
+          style={{ marginTop: 10, borderColor: '#fca5a5', color: '#dc2626' }}
+          onClick={() => setPickupBlockedOpen(true)}
+        >
+          Không vào được điểm đón (Đường hẹp / Cấm tải)
+        </button>
+      )}
+
       {msOpen && n && <MilestoneModal trip={trip} next={n} onClose={() => setMsOpen(false)} onSubmit={(at, note) => actions.recordMilestone(trip.id, at, note)} />}
+      {delayOpen && <DelayModal trip={trip} onClose={() => setDelayOpen(false)} onSubmit={(reason) => actions.reportDepartureDelay(trip.id, reason)} />}
+      {pickupBlockedOpen && (
+        <PickupAccessBlockedModal
+          open={pickupBlockedOpen}
+          onClose={() => setPickupBlockedOpen(false)}
+          tripId={trip.id}
+          pickupLat={trip.stops[0]?.lat}
+          pickupLng={trip.stops[0]?.lng}
+          pickupName={trip.stops[0]?.name || trip.pickup?.name}
+          onSuccess={(_res) => {
+            trip.pickupAccessStatus = 'BLOCKED';
+            void actions.reload();
+          }}
+        />
+      )}
     </div>
   );
 };

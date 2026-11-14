@@ -11,6 +11,7 @@ public interface IFlow5IncidentService
     Task<List<IncidentResponseDto>> GetIncidentsAsync(string? tripId, string? status);
     Task<IncidentResponseDto> GetIncidentByIdAsync(string incidentId);
     Task<IncidentResponseDto> AcceptIncidentAsync(string incidentId, string coordinatorUserId);
+    Task<IncidentResponseDto> UpdateIncidentStatusAsync(string incidentId, string status, string userId);
 
     // ==========================================
     // J01: CAPABILITIES & J07-J09: IMPACT / UPDATES
@@ -81,4 +82,9 @@ public interface IFlow5IncidentService
     Task<TerminationProposalDto> ReferTerminationProposalAsync(string incidentId, string proposalId, TerminationReferInputDto dto, string managerUserId);
     Task<List<TerminationProposalDto>> GetTerminationProposalsAsync(string incidentId);
     Task<List<TerminationProposalDto>> GetCustomerTerminationProposalsAsync(string requestId, string incidentId);
+
+    // ==========================================
+    // VETERINARY FACILITIES CATALOG & SMART SUGGESTION
+    // ==========================================
+    Task<List<VetFacilityDto>> GetVetFacilitiesAsync(string? tripId, string? province, decimal? lat, decimal? lng);
 }

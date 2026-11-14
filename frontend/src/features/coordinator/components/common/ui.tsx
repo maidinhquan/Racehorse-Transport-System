@@ -67,10 +67,18 @@ export function Inp({ name, type = 'text', ...rest }: InputProps) {
   const f = useForm();
   return <input id={name} type={type} value={f.v[name] ?? ''} onChange={(e) => f.set(name, e.target.value)} {...rest} />;
 }
-export function Sel({ name, options, ...rest }: { name: string; options: Array<string | [string, ReactNode]>; disabled?: boolean; style?: CSSProperties }) {
+export function Sel({ name, options, onChange, ...rest }: { name: string; options: Array<string | [string, ReactNode]>; disabled?: boolean; style?: CSSProperties; onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void }) {
   const f = useForm();
   return (
-    <select id={name} value={f.v[name] ?? ''} onChange={(e) => f.set(name, e.target.value)} {...rest}>
+    <select
+      id={name}
+      value={f.v[name] ?? ''}
+      onChange={(e) => {
+        f.set(name, e.target.value);
+        if (onChange) onChange(e);
+      }}
+      {...rest}
+    >
       {options.map((o) => { const [v, l] = Array.isArray(o) ? o : [o, o]; return <option key={String(v)} value={String(v)}>{l}</option>; })}
     </select>
   );
@@ -88,14 +96,23 @@ export function Chk({ name, children, className = 'check-line' }: { name: string
 export interface Col<T> { label: ReactNode; render: (row: T) => ReactNode; sort?: (row: T) => Any; cls?: string }
 export interface TableDef<T> {
   id: string; rows: T[]; cols: Col<T>[];
+  defaultSort?: { col: number; dir: 1 | -1 };
   go?: (row: T) => string; search?: (row: T) => string; placeholder?: string;
   filters?: Array<{ key: string; label: string; options: Array<string | [string, string]>; test: (row: T, v: string) => boolean }>;
   title?: ReactNode; titleRight?: ReactNode; style?: CSSProperties; cls?: string; pageSize?: number;
   emptyTitle?: ReactNode; empty?: ReactNode; tools?: ReactNode; rowCls?: (row: T) => string;
 }
-const tstate = (id: string) => (ui.t[id] = ui.t[id] || { q: '', f: {}, sort: null, dir: 1, page: 1 });
+export const tstate = (id: string) => (ui.t[id] = ui.t[id] || { q: '', f: {}, sort: null, dir: 1, page: 1 });
+export const resetTablePage = (id: string) => {
+  const s = tstate(id);
+  s.page = 1;
+};
 export function DataTable<T>(def: TableDef<T>) {
   const s = tstate(def.id);
+  if (s.sort === null && def.defaultSort) {
+    s.sort = def.defaultSort.col;
+    s.dir = def.defaultSort.dir;
+  }
   let rows = def.rows;
   if (s.q && def.search) { const q = s.q.toLowerCase(); rows = rows.filter((r) => def.search!(r).toLowerCase().includes(q)); }
   (def.filters || []).forEach((f) => { if (s.f[f.key]) rows = rows.filter((r) => f.test(r, s.f[f.key])); });

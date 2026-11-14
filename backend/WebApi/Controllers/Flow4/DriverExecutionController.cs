@@ -3,6 +3,7 @@ using Application.Interfaces.Flow4;
 using Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace WebApi.Controllers.Flow4;
 
@@ -20,6 +21,26 @@ public class DriverExecutionController : BaseApiController
     {
         _driverService = driverService;
         _healthService = healthService;
+    }
+
+    /// <summary>
+    /// Lấy danh bạ tổ xe (tài xế, phụ lái, bác sĩ thú y) từ CSDL
+    /// </summary>
+    [HttpGet("/api/driver/crew")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetDriverCrew([FromServices] Infrastructure.Data.Context.HorseTransportDbContext context)
+    {
+        var crew = await context.Users
+            .Where(u => u.Role == UserRoles.DriverEscort || u.Role == "DRIVER_ESCORT" || u.Role == "DRIVER")
+            .Select(u => new
+            {
+                id = u.UserId,
+                name = u.FullName,
+                role = (u.FullName.Contains("Bác sĩ") || u.FullName.Contains("BS.") || u.FullName.Contains("Dr.") || (u.Email != null && u.Email.Contains("escort"))) ? "VETERINARIAN" : (u.FullName.Contains("Kỹ thuật") ? "ESCORT" : "DRIVER"),
+                phone = u.Phone
+            })
+            .ToListAsync();
+        return Success(crew);
     }
 
     /// <summary>

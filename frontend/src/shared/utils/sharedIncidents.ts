@@ -98,6 +98,13 @@ export function updateSharedIncidentReview(
   }
 }
 
+export function updateSharedIncidentStatus(incidentId: string, status: string): boolean {
+  const incident = readAll().find((i) => cleanId(i.id) === cleanId(incidentId));
+  if (!incident) return false;
+  saveSharedIncident({ ...incident, status });
+  return true;
+}
+
 export function useSharedIncidents(tripId?: string): SharedIncident[] {
   const [incidents, setIncidents] = useState<SharedIncident[]>(() => getSharedIncidents(tripId));
   useEffect(() => {
