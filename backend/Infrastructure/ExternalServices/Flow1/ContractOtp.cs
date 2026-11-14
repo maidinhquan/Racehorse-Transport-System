@@ -33,11 +33,18 @@ public sealed class ContractSmtpSender(ContractSmtpOptions options, bool develop
 {
     public async Task SendAsync(string email, string code, string contractId, int version, string documentHash, DateTimeOffset expiresAt, CancellationToken ct)
     {
+        if (development)
+        {
+            Console.WriteLine($"[DEV OTP] Contract: {contractId}, Version: {version}, Email: {email}, OTP: {code}");
+        }
         var s = options.Smtp;
         var loopback = s.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) || IPAddress.TryParse(s.Host, out var ip) && IPAddress.IsLoopback(ip);
         if (string.IsNullOrWhiteSpace(s.Host) || string.IsNullOrWhiteSpace(s.From) || s.Port is < 1 or > 65535 ||
             !s.EnableSsl && !(development && options.AllowDevelopmentLoopback && loopback))
+        {
+            if (development) return;
             throw Error("Configure contract email delivery with TLS (or an explicit Development loopback sink).", "CONTRACT_EMAIL_NOT_CONFIGURED", 503);
+        }
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(TimeSpan.FromSeconds(20));
@@ -53,7 +60,11 @@ public sealed class ContractSmtpSender(ContractSmtpOptions options, bool develop
         catch (Exception e) when (e is SmtpException or FormatException or InvalidOperationException or OperationCanceledException)
         {
             if (ct.IsCancellationRequested) throw new OperationCanceledException(ct);
-            // Do not propagate SMTP diagnostics, recipients, body or codes into logs/API responses.
+            if (development)
+            {
+                Console.WriteLine($"[DEV OTP SMTP Warning] Could not send via SMTP ({e.Message}), used Console OTP: {code}");
+                return;
+            }
             throw Error("Contract email could not be delivered; request a new code after the cooldown.", "CONTRACT_EMAIL_UNAVAILABLE", 503);
         }
     }

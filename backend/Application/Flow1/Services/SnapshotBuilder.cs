@@ -35,7 +35,7 @@ public sealed class SnapshotBuilder(IDataSession data, Flow1ContractOptions opti
                 name = request.PickupStableName, address = request.Departure, contact = request.PickupContactName, phone = request.PickupContactPhone,
                 postal = request.PickupPostalCode, instructions = request.PickupInstructions, latitude = request.PickupLatitude, longitude = request.PickupLongitude },
             delivery = new { cityId = request.DeliveryCityId, cityName = request.DeliveryCityName,
-                name = request.DeliveryStableName, address = request.Destination, contact = request.DesignatedReceiverName, phone = request.DesignatedReceiverPhone,
+                name = request.DeliveryStableName, address = request.Destination, contact = request.DesignatedReceiverName, phone = request.DesignatedReceiverPhone, email = request.DesignatedReceiverEmail,
                 postal = request.DeliveryPostalCode, instructions = request.DeliveryInstructions, latitude = request.DeliveryLatitude, longitude = request.DeliveryLongitude },
             route = new { originCountry = request.OriginCountry, destinationCountry = request.DestinationCountry, mode = input.Mode,
                 departureAtUtc = Timestamp(input.DepartAt), deliveryAtUtc = Timestamp(input.ArriveAt), preparationDays = preparation },

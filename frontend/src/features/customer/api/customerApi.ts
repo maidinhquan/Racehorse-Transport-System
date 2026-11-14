@@ -12,6 +12,7 @@ export const DEFAULT_FORM_OPTIONS: FormOptions = {
   preparationDays: 3,
   defaultDepositPct: 30,
   contractDeadlineHours: 24,
+  maxHorsesPerRequest: 6,
   supportedRoutes: [
     { id: 'ROUTE_001', originCountry: 'VN', destinationCountry: 'VN', mode: 'ROAD' },
     { id: 'ROUTE_002', originCountry: 'VN', destinationCountry: 'VN', mode: 'AIR' },
@@ -73,6 +74,7 @@ export const requestFromWire = (r: any): TransportRequest => {
       address: r?.delivery?.address || r?.destination || '',
       contact: r?.delivery?.contact || '',
       phone: r?.delivery?.phone || '',
+      email: r?.delivery?.email || '',
       postal: r?.delivery?.postal || '',
       notes: r?.delivery?.notes || '',
       cityId: r?.delivery?.cityId || undefined,
@@ -122,12 +124,12 @@ export const toHorseContractId = (id: string): string => {
   return trimmed;
 };
 
-export type HorseFileType = 'photo' | 'passport' | 'ownership' | 'value-proof';
+export type HorseFileType = 'photo' | 'passport' | 'ownership' | 'value-proof' | 'flu' | 'health';
 const DOCUMENT_TYPES: Record<string, string> = { passport: 'PASSPORT', ownership: 'OWNERSHIP', valueProof: 'VALUATION', flu: 'VACCINATION', health: 'HEALTH_CERTIFICATE' };
 
-const contactBody = (p?: Partial<Place>, fallbackCity?: string) => {
+const contactBody = (p?: Partial<Place>, fallbackCity?: string, isDelivery = false) => {
   void fallbackCity;
-  return {
+  const body: Record<string, any> = {
     name: p?.name?.trim() || '',
     address: p?.address?.trim() || '',
     postal: p?.postal?.trim() || '',
@@ -138,6 +140,10 @@ const contactBody = (p?: Partial<Place>, fallbackCity?: string) => {
     latitude: p?.latitude,
     longitude: p?.longitude,
   };
+  if (isDelivery && p?.email?.trim()) {
+    body.email = p.email.trim();
+  }
+  return body;
 };
 
 const routeBody = (r: TripInfoInput | TransportRequest) => ({
@@ -149,8 +155,8 @@ const routeBody = (r: TripInfoInput | TransportRequest) => ({
 export const requestBody = (r: TransportRequest) => ({
   ...routeBody(r),
   ...(r.purpose != null ? { purpose: r.purpose } : {}),
-  pickup: contactBody(r.pickup, r.origin),
-  delivery: contactBody(r.delivery, r.destination),
+  pickup: contactBody(r.pickup, r.origin, false),
+  delivery: contactBody(r.delivery, r.destination, true),
   horses: (r.horses || []).filter(Boolean).map(toHorseContractId),
   horseNotes: Object.fromEntries(
     Object.entries(r.horseNotes || {})
@@ -159,7 +165,14 @@ export const requestBody = (r: TransportRequest) => ({
   ),
 });
 async function uploadHorseFiles(id: string, h: HorseInput) {
-  const files: Array<[HorseFileType, FileRef | undefined]> = [['photo', h.photo], ['passport', h.passport.scan], ['ownership', h.ownership], ['value-proof', h.valueProof]];
+  const files: Array<[HorseFileType, FileRef | undefined]> = [
+    ['photo', h.photo],
+    ['passport', h.passport.scan],
+    ['ownership', h.ownership],
+    ['value-proof', h.valueProof],
+    ['flu', h.flu],
+    ['health', h.health],
+  ];
   for (const [fileType, ref] of files) {
     if (!ref?.file) continue;
     const form = new FormData(); form.append('file', ref.file);
@@ -171,10 +184,12 @@ const mapHorse = (h: WireHorse): Horse => {
     ...h,
     breed: h.breed ?? '', sex: (h.sex ?? '') as Horse['sex'], dob: h.dob ?? '',
     color: '', fluDate: '', vetName: '', vetPhone: '', conditions: h.healthNotes ?? '',
-    unsupportedFields: ['color', 'fluDate', 'vetName', 'vetPhone', 'flu', 'health'],
+    unsupportedFields: ['color', 'fluDate', 'vetName', 'vetPhone'],
     value: h.value != null ? String(h.value) : '',
     photo: fileFromWire(h.photo, 'Ảnh ngựa'), ownership: fileFromWire(h.ownership, 'Giấy sở hữu'),
     valueProof: fileFromWire(h.valueProof, 'Chứng từ định giá'),
+    flu: fileFromWire((h as any).flu, 'Sổ tiêm ngừa'),
+    health: fileFromWire((h as any).health, 'Giấy chứng nhận sức khỏe'),
     reproductiveStatus: h.reproductiveStatus as Horse['reproductiveStatus'],
     passport: {
       number: h.passport?.number ?? '',

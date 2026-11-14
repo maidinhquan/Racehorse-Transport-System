@@ -56,7 +56,9 @@ export const CreateRequestPage: React.FC = () => {
   const routeEnabled = options?.supportedRoutes?.some(route => route.originCountry === city(form.origin).country && route.destinationCountry === city(form.destination).country && route.mode === (city(form.destination).country === 'JP' ? 'AIR' : 'ROAD')) ?? false;
   const tripValid = !!routeEnabled && isSupportedRoute(form.origin, form.destination) && !!pickupDate
     && pickupDate >= minDate && !!form.date && form.date >= pickupDate && form.date >= minDeliveryDate;
-  const placeValid = Object.values(places).every(p => p.name.trim() && p.address.trim() && p.contact.trim() && /^[+0-9 ()-]{8,}$/.test(p.phone.trim()) && p.cityId && p.latitude != null && p.longitude != null);
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const deliveryEmailValid = !!places.delivery.email?.trim() && emailRegex.test(places.delivery.email.trim());
+  const placeValid = Object.values(places).every(p => p.name.trim() && p.address.trim() && p.contact.trim() && /^[+0-9 ()-]{8,}$/.test(p.phone.trim()) && p.cityId && p.latitude != null && p.longitude != null) && deliveryEmailValid;
   const hint = !form.origin || !form.destination ? 'Chọn thành phố trong địa chỉ nhận và giao ngựa.'
     : form.origin === form.destination ? 'Thành phố nhận và giao phải khác nhau.'
     : !isSupportedRoute(form.origin, form.destination) ? 'Chỉ nhận vận chuyển trong Việt Nam và từ Việt Nam đến Nhật Bản.'
@@ -66,7 +68,9 @@ export const CreateRequestPage: React.FC = () => {
     : pickupDate < minDate ? `Ngày nhận ngựa sớm nhất là ${fmtDate(minDate)} (còn ${minLeadDays} ngày để xét duyệt, hoàn tất hợp đồng và chuẩn bị).`
     : !form.date ? 'Chọn ngày giao ngựa.'
     : form.date < pickupDate ? 'Ngày giao ngựa phải từ ngày nhận trở đi.'
-    : form.date < minDeliveryDate ? `Tuyến này cần ít nhất ${minTransitDays} ngày vận chuyển, ngày giao sớm nhất là ${fmtDate(minDeliveryDate)}.` : '');
+    : form.date < minDeliveryDate ? `Tuyến này cần ít nhất ${minTransitDays} ngày vận chuyển, ngày giao sớm nhất là ${fmtDate(minDeliveryDate)}.`
+    : !places.delivery.email?.trim() ? 'Điền email người nhận để nhận mã OTP khi bàn giao ngựa.'
+    : !deliveryEmailValid ? 'Email người nhận không đúng định dạng (VD: receiver@example.com).' : '');
   const loadingOptions = !options && !optionsError && isSupportedRoute(form.origin, form.destination);
   const back = r ? `/customer/requests/${r.id}` : '/customer/requests';
   const save = async () => {

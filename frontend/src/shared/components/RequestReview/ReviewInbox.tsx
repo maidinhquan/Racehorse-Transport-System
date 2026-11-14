@@ -977,6 +977,11 @@ function SpecialistForm({
                           </button>
                         </div>
                       </div>
+                      {source.healthNotes && (
+                        <p style={{ margin: '6px 0 10px', fontSize: 13, color: 'var(--text-secondary, #475569)' }}>
+                          <b>Ghi chú sức khỏe:</b> {source.healthNotes}
+                        </p>
+                      )}
 
                       <div className="rr-grid-2">
                         <div className="rr-field">

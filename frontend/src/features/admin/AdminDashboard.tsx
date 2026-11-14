@@ -43,6 +43,93 @@ type RoleFilterKey =
 
 type StatusFilterKey = "ALL" | "ACTIVE" | "INACTIVE";
 
+export interface AdminBusinessPolicy {
+  policyId: string;
+  code: string;
+  valueType: string;
+  numberValue: number | null;
+  textValue: string | null;
+  boolValue: boolean | null;
+  unit: string | null;
+  scopeType: string;
+  scopeId: string | null;
+  description: string;
+  updatedBy: string | null;
+  updatedAt: string;
+  category: "PREPARATION_TRANSIT" | "CONTRACT_DEPOSIT" | "SECURITY_OTP" | "FEEDBACK" | "GENERAL";
+}
+
+type AdminTab = "USERS" | "POLICIES";
+
+type PolicyCategoryFilter =
+  | "ALL"
+  | "PREPARATION_TRANSIT"
+  | "CONTRACT_DEPOSIT"
+  | "SECURITY_OTP"
+  | "FEEDBACK";
+
+const POLICY_CATEGORY_OPTIONS: { key: PolicyCategoryFilter; label: string }[] = [
+  { key: "ALL", label: "Tất cả thông số" },
+  { key: "PREPARATION_TRANSIT", label: "Chuẩn bị & Di chuyển" },
+  { key: "CONTRACT_DEPOSIT", label: "Hợp đồng & Đặt cọc" },
+  { key: "SECURITY_OTP", label: "Bảo mật OTP ký kết" },
+  { key: "FEEDBACK", label: "Đánh giá & Khiếu nại" },
+];
+
+const POLICY_FRIENDLY_NAMES: Record<string, string> = {
+  MIN_PREPARATION_DAYS: "Số ngày chuẩn bị tối thiểu mặc định",
+  FLOW1_PREPARATION_DAYS: "Số ngày chuẩn bị theo phương thức vận chuyển",
+  MIN_TRANSIT_DAYS: "Thời gian di chuyển tối thiểu của hành trình",
+  MAX_HORSES_PER_REQUEST: "Số lượng ngựa tối đa trong một yêu cầu",
+  DEFAULT_DEPOSIT_PERCENT: "Tỷ lệ tiền cọc hợp đồng mặc định",
+  CONTRACT_DEADLINE_HOURS: "Thời hạn hiệu lực cọc & ký hợp đồng",
+  FLOW1_REVIEW_BUFFER_DAYS: "Thời gian dự trù xét duyệt yêu cầu",
+  FLOW1_SIGNING_BUFFER_DAYS: "Thời gian dự trù hoàn tất ký hợp đồng",
+  FLOW1_CUSTOMER_RESPONSE_HOURS: "Hạn khách hàng phản hồi lịch trình",
+  SIGN_OTP_TTL_MINUTES: "Thời gian hiệu lực của mã OTP ký hợp đồng",
+  SIGN_OTP_RESEND_SECONDS: "Khoảng chờ tối thiểu trước khi gửi lại OTP",
+  SIGN_OTP_MAX_ATTEMPTS: "Số lần nhập sai mã OTP tối đa",
+  FEEDBACK_WINDOW_HOURS: "Thời hạn gửi đánh giá phản hồi sau chuyến",
+};
+
+const formatPolicyUnit = (unit: string | null): string => {
+  if (!unit) return "";
+  switch (unit.toUpperCase()) {
+    case "DAY":
+      return "ngày";
+    case "HOUR":
+      return "giờ";
+    case "MINUTE":
+      return "phút";
+    case "SECOND":
+      return "giây";
+    case "PERCENT":
+      return "%";
+    case "ATTEMPT":
+      return "lần";
+    case "HORSE":
+      return "ngựa / con";
+    default:
+      return unit.toLowerCase();
+  }
+};
+
+const formatScopeLabel = (scopeType: string, scopeId: string | null): { label: string; className: string } => {
+  switch (scopeType?.toUpperCase()) {
+    case "GLOBAL":
+      return { label: "Toàn hệ thống", className: "global" };
+    case "COUNTRY":
+      return { label: `Quốc gia: ${scopeId || "Tất cả"}`, className: "country" };
+    case "TRANSPORT_MODE":
+      return {
+        label: scopeId === "AIR" ? "Đường hàng không" : scopeId === "ROAD" ? "Đường bộ" : `Phương thức: ${scopeId}`,
+        className: "mode",
+      };
+    default:
+      return { label: scopeId ? `${scopeType}: ${scopeId}` : scopeType, className: "default" };
+  }
+};
+
 const ROLE_OPTIONS: { key: RoleFilterKey; label: string }[] = [
   { key: "ALL", label: "Tất cả vai trò" },
   { key: "CUSTOMER", label: "Khách hàng" },
@@ -108,6 +195,140 @@ const AdminDashboard: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<RoleFilterKey>("ALL");
   const [selectedStatus, setSelectedStatus] = useState<StatusFilterKey>("ALL");
   const [lastUpdated, setLastUpdated] = useState<string>("");
+
+  const [activeTab, setActiveTab] = useState<AdminTab>("USERS");
+  const [policies, setPolicies] = useState<AdminBusinessPolicy[]>([]);
+  const [isLoadingPolicies, setIsLoadingPolicies] = useState<boolean>(false);
+  const [selectedPolicyCategory, setSelectedPolicyCategory] = useState<PolicyCategoryFilter>("ALL");
+  const [policySearchTerm, setPolicySearchTerm] = useState<string>("");
+  const [editingPolicy, setEditingPolicy] = useState<AdminBusinessPolicy | null>(null);
+  const [editNumberValue, setEditNumberValue] = useState<number>(0);
+  const [editTextValue, setEditTextValue] = useState<string>("");
+  const [editBoolValue, setEditBoolValue] = useState<boolean>(false);
+  const [editDescription, setEditDescription] = useState<string>("");
+  const [isSavingPolicy, setIsSavingPolicy] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    setToastMessage({ message, type });
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+  };
+
+  const fetchPolicies = async () => {
+    setIsLoadingPolicies(true);
+    try {
+      const res = await apiClient.get<{ success: boolean; data: AdminBusinessPolicy[]; message?: string }>("/admin/business-policies");
+      if (res.data.success && res.data.data) {
+        setPolicies(res.data.data);
+      }
+    } catch (err) {
+      console.error("Lỗi khi tải thông số hệ thống:", err);
+      showToast("Không thể tải danh sách thông số hệ thống.", "error");
+    } finally {
+      setIsLoadingPolicies(false);
+    }
+  };
+
+  const openEditModal = (p: AdminBusinessPolicy) => {
+    setEditingPolicy(p);
+    setEditNumberValue(p.numberValue ?? 0);
+    setEditTextValue(p.textValue ?? "");
+    setEditBoolValue(p.boolValue ?? false);
+    setEditDescription(p.description || "");
+  };
+
+  const closeEditModal = () => {
+    setEditingPolicy(null);
+  };
+
+  const handleSavePolicy = async () => {
+    if (!editingPolicy) return;
+    setIsSavingPolicy(true);
+    try {
+      const payload: {
+        numberValue?: number;
+        textValue?: string;
+        boolValue?: boolean;
+        description?: string;
+      } = {
+        description: editDescription.trim(),
+      };
+
+      if (editingPolicy.valueType === "NUMBER") {
+        if (editingPolicy.unit === "PERCENT" && (editNumberValue < 1 || editNumberValue > 100)) {
+          showToast("Tỷ lệ cọc phải nằm trong khoảng 1% đến 100%.", "error");
+          setIsSavingPolicy(false);
+          return;
+        }
+        if (editNumberValue < 0) {
+          showToast("Giá trị không được nhỏ hơn 0.", "error");
+          setIsSavingPolicy(false);
+          return;
+        }
+        payload.numberValue = Number(editNumberValue);
+      } else if (editingPolicy.valueType === "TEXT") {
+        payload.textValue = editTextValue;
+      } else if (editingPolicy.valueType === "BOOLEAN") {
+        payload.boolValue = editBoolValue;
+      }
+
+      const res = await apiClient.put<{ success: boolean; data: AdminBusinessPolicy; message?: string }>(
+        `/admin/business-policies/${editingPolicy.policyId}`,
+        payload
+      );
+
+      if (res.data.success && res.data.data) {
+        setPolicies((prev) =>
+          prev.map((item) => (item.policyId === editingPolicy.policyId ? res.data.data : item))
+        );
+        showToast(`Cập nhật thông số ${editingPolicy.code} thành công.`);
+        closeEditModal();
+      } else {
+        showToast(res.data.message || "Cập nhật thất bại.", "error");
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || "Lỗi khi cập nhật thông số hệ thống.";
+      showToast(msg, "error");
+    } finally {
+      setIsSavingPolicy(false);
+    }
+  };
+
+  // Tính số lượng theo từng nhóm thông số
+  const policyCategoryCounts = useMemo(() => {
+    const counts: Record<PolicyCategoryFilter, number> = {
+      ALL: policies.length,
+      PREPARATION_TRANSIT: 0,
+      CONTRACT_DEPOSIT: 0,
+      SECURITY_OTP: 0,
+      FEEDBACK: 0,
+    };
+    for (const p of policies) {
+      if (p.category in counts) {
+        counts[p.category as keyof typeof counts]++;
+      }
+    }
+    return counts;
+  }, [policies]);
+
+  // Lọc thông số theo danh mục và từ khóa tìm kiếm
+  const filteredPolicies = useMemo(() => {
+    const term = policySearchTerm.trim().toLowerCase();
+    return policies.filter((p) => {
+      const matchesCategory =
+        selectedPolicyCategory === "ALL" || p.category === selectedPolicyCategory;
+      const friendlyName = POLICY_FRIENDLY_NAMES[p.code] || "";
+      const matchesSearch =
+        !term ||
+        p.code.toLowerCase().includes(term) ||
+        p.policyId.toLowerCase().includes(term) ||
+        p.description.toLowerCase().includes(term) ||
+        friendlyName.toLowerCase().includes(term);
+      return matchesCategory && matchesSearch;
+    });
+  }, [policies, selectedPolicyCategory, policySearchTerm]);
 
   const currentAdminName = localStorage.getItem("userFullName") || "Quản trị viên";
 
@@ -337,157 +558,491 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Khu vực quản lý danh sách tài khoản */}
-          <section className="admin-section">
-            <div className="admin-section-header">
-              <div>
-                <h2>Danh Sách Tài Khoản Trong Cơ Sở Dữ Liệu</h2>
-                <p className="admin-section-subtitle">
-                  Hiển thị {filteredUsers.length} trên tổng số {users.length} tài khoản
-                </p>
+          {/* Thanh chuyển đổi Tab Quản lý */}
+          <div className="admin-nav-tabs">
+            <button
+              type="button"
+              className={`admin-nav-tab ${activeTab === "USERS" ? "active" : ""}`}
+              onClick={() => setActiveTab("USERS")}
+            >
+              Quản lý tài khoản ({users.length})
+            </button>
+            <button
+              type="button"
+              className={`admin-nav-tab ${activeTab === "POLICIES" ? "active" : ""}`}
+              onClick={() => {
+                setActiveTab("POLICIES");
+                if (policies.length === 0) fetchPolicies();
+              }}
+            >
+              Thông số hệ thống (Business Rules) {policies.length > 0 ? `(${policies.length})` : ""}
+            </button>
+          </div>
+
+          {/* TAB 1: Quản lý danh sách tài khoản */}
+          {activeTab === "USERS" && (
+            <section className="admin-section">
+              <div className="admin-section-header">
+                <div>
+                  <h2>Danh Sách Tài Khoản Trong Cơ Sở Dữ Liệu</h2>
+                  <p className="admin-section-subtitle">
+                    Hiển thị {filteredUsers.length} trên tổng số {users.length} tài khoản
+                  </p>
+                </div>
+
+                {/* Ô tìm kiếm và nút đặt lại bộ lọc */}
+                <div className="admin-search-wrapper">
+                  <input
+                    type="text"
+                    placeholder="Tìm theo mã, tên, email, SĐT..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="admin-search-input"
+                  />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      className="admin-search-clear"
+                      onClick={() => setSearchTerm("")}
+                      title="Xóa tìm kiếm"
+                    >
+                      ✕
+                    </button>
+                  )}
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      className="admin-reset-filter-btn"
+                      onClick={handleResetFilters}
+                      title="Xóa tất cả bộ lọc hiện tại"
+                    >
+                      Đặt lại bộ lọc
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {/* Ô tìm kiếm và nút đặt lại bộ lọc */}
-              <div className="admin-search-wrapper">
-                <input
-                  type="text"
-                  placeholder="Tìm theo mã, tên, email, SĐT..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="admin-search-input"
-                />
-                {searchTerm && (
+              {/* BỘ LỌC TÀI KHOẢN: Nút lọc theo vai trò (Role Filter Pills) */}
+              <div className="admin-filter-group">
+                <span className="admin-filter-label">Lọc theo vai trò:</span>
+                <div className="admin-pills-row">
+                  {ROLE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      className={`admin-filter-pill ${
+                        selectedRole === opt.key ? "active" : ""
+                      }`}
+                      onClick={() => setSelectedRole(opt.key)}
+                    >
+                      <span>{opt.label}</span>
+                      <span className="admin-pill-badge">{roleCounts[opt.key]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* BỘ LỌC TÀI KHOẢN: Nút lọc theo trạng thái hoạt động (Status Filter Pills) */}
+              <div className="admin-filter-group">
+                <span className="admin-filter-label">Trạng thái:</span>
+                <div className="admin-pills-row">
                   <button
                     type="button"
-                    className="admin-search-clear"
-                    onClick={() => setSearchTerm("")}
-                    title="Xóa tìm kiếm"
+                    className={`admin-filter-pill ${
+                      selectedStatus === "ALL" ? "active" : ""
+                    }`}
+                    onClick={() => setSelectedStatus("ALL")}
+                  >
+                    <span>Tất cả</span>
+                    <span className="admin-pill-badge">{statusCounts.ALL}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`admin-filter-pill ${
+                      selectedStatus === "ACTIVE" ? "active" : ""
+                    }`}
+                    onClick={() => setSelectedStatus("ACTIVE")}
+                  >
+                    <span>Đang hoạt động</span>
+                    <span className="admin-pill-badge status-active-count">
+                      {statusCounts.ACTIVE}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`admin-filter-pill ${
+                      selectedStatus === "INACTIVE" ? "active" : ""
+                    }`}
+                    onClick={() => setSelectedStatus("INACTIVE")}
+                  >
+                    <span>Bị khóa</span>
+                    <span className="admin-pill-badge status-inactive-count">
+                      {statusCounts.INACTIVE}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Bảng danh sách tài khoản */}
+              <div className="admin-table-wrapper">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Mã tài khoản</th>
+                      <th>Họ và tên</th>
+                      <th>Email</th>
+                      <th>Số điện thoại</th>
+                      <th>Vai trò</th>
+                      <th>Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="admin-empty-cell">
+                          Không tìm thấy tài khoản nào phù hợp với điều kiện lọc hiện tại.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredUsers.map((u) => (
+                        <tr key={u.id}>
+                          <td className="user-id">{u.id}</td>
+                          <td className="user-name">{u.fullName}</td>
+                          <td className="user-email">{u.email || "Chưa có"}</td>
+                          <td className="user-phone">{u.phone || "Chưa có"}</td>
+                          <td>
+                            <span className={`role-badge ${getRoleBadgeClass(u.role)}`}>
+                              {formatRoleName(u.role)}
+                            </span>
+                          </td>
+                          <td>
+                            <span
+                              className={`status-badge ${
+                                u.isActive ? "active" : "inactive"
+                              }`}
+                            >
+                              {u.isActive ? "Đang hoạt động" : "Bị khóa"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* TAB 2: Quản lý thông số hệ thống (Business Rules) */}
+          {activeTab === "POLICIES" && (
+            <section className="admin-section">
+              <div className="admin-section-header">
+                <div>
+                  <h2>Cấu Hình Quy Tắc & Thông Số Vận Hành (Business Rules)</h2>
+                  <p className="admin-section-subtitle">
+                    Điều chỉnh các ngưỡng thời gian, tỷ lệ cọc và chính sách toàn hệ thống
+                  </p>
+                </div>
+
+                <div className="admin-search-wrapper">
+                  <input
+                    type="text"
+                    placeholder="Tìm theo mã, tên quy tắc, mô tả..."
+                    value={policySearchTerm}
+                    onChange={(e) => setPolicySearchTerm(e.target.value)}
+                    className="admin-search-input"
+                  />
+                  {policySearchTerm && (
+                    <button
+                      type="button"
+                      className="admin-search-clear"
+                      onClick={() => setPolicySearchTerm("")}
+                      title="Xóa tìm kiếm"
+                    >
+                      ✕
+                    </button>
+                  )}
+                  {policySearchTerm && (
+                    <button
+                      type="button"
+                      className="admin-reset-filter-btn"
+                      onClick={() => setPolicySearchTerm("")}
+                    >
+                      Đặt lại
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Bộ lọc nhóm thông số */}
+              <div className="admin-filter-group">
+                <span className="admin-filter-label">Nhóm quy tắc:</span>
+                <div className="admin-pills-row">
+                  {POLICY_CATEGORY_OPTIONS.map((cat) => (
+                    <button
+                      key={cat.key}
+                      type="button"
+                      className={`admin-filter-pill ${
+                        selectedPolicyCategory === cat.key ? "active" : ""
+                      }`}
+                      onClick={() => setSelectedPolicyCategory(cat.key)}
+                    >
+                      <span>{cat.label}</span>
+                      <span className="admin-pill-badge">
+                        {policyCategoryCounts[cat.key]}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bảng danh sách quy tắc */}
+              <div className="admin-table-wrapper">
+                {isLoadingPolicies ? (
+                  <div className="admin-loading-card" style={{ padding: "40px" }}>
+                    <div className="admin-spinner"></div>
+                    <p>Đang tải thông số hệ thống...</p>
+                  </div>
+                ) : (
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Mã & Tên quy tắc</th>
+                        <th>Phạm vi áp dụng</th>
+                        <th>Giá trị cấu hình</th>
+                        <th>Mô tả nghiệp vụ</th>
+                        <th>Cập nhật gần nhất</th>
+                        <th style={{ textAlign: "right" }}>Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredPolicies.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="admin-empty-cell">
+                            Không tìm thấy quy tắc hệ thống nào phù hợp.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredPolicies.map((p) => {
+                          const scope = formatScopeLabel(p.scopeType, p.scopeId);
+                          const friendlyName = POLICY_FRIENDLY_NAMES[p.code] || p.code;
+                          const displayValue =
+                            p.valueType === "NUMBER"
+                              ? p.numberValue ?? 0
+                              : p.valueType === "BOOLEAN"
+                              ? p.boolValue
+                                ? "Bật"
+                                : "Tắt"
+                              : p.textValue || "—";
+                          const unitLabel = formatPolicyUnit(p.unit);
+
+                          return (
+                            <tr key={p.policyId}>
+                              <td>
+                                <div className="admin-policy-name">{friendlyName}</div>
+                                <div className="admin-policy-code">{p.code}</div>
+                              </td>
+                              <td>
+                                <span className={`admin-scope-badge ${scope.className}`}>
+                                  {scope.label}
+                                </span>
+                              </td>
+                              <td>
+                                <span className="admin-policy-value-tag">
+                                  {displayValue}
+                                  {unitLabel && (
+                                    <span className="admin-policy-unit">{unitLabel}</span>
+                                  )}
+                                </span>
+                              </td>
+                              <td>
+                                <div className="admin-policy-desc">{p.description}</div>
+                              </td>
+                              <td>
+                                <div className="admin-policy-meta">
+                                  {p.updatedBy ? `Bởi: ${p.updatedBy}` : "Mặc định"}
+                                </div>
+                                <div className="admin-policy-meta">
+                                  {p.updatedAt
+                                    ? new Date(p.updatedAt).toLocaleDateString("vi-VN", {
+                                        day: "2-digit",
+                                        month: "2-digit",
+                                        year: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })
+                                    : "—"}
+                                </div>
+                              </td>
+                              <td style={{ textAlign: "right" }}>
+                                <button
+                                  type="button"
+                                  className="admin-policy-edit-btn"
+                                  onClick={() => openEditModal(p)}
+                                >
+                                  Chỉnh sửa
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Modal chỉnh sửa thông số */}
+          {editingPolicy && (
+            <div className="admin-modal-overlay" onClick={closeEditModal}>
+              <div
+                className="admin-modal-container"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="admin-modal-header">
+                  <div>
+                    <h3>Chỉnh Sửa Thông Số Hệ Thống</h3>
+                  </div>
+                  <button
+                    type="button"
+                    className="admin-modal-close"
+                    onClick={closeEditModal}
                   >
                     ✕
                   </button>
-                )}
-                {hasActiveFilters && (
-                  <button
-                    type="button"
-                    className="admin-reset-filter-btn"
-                    onClick={handleResetFilters}
-                    title="Xóa tất cả bộ lọc hiện tại"
-                  >
-                    Đặt lại bộ lọc
-                  </button>
-                )}
-              </div>
-            </div>
+                </div>
 
-            {/* BỘ LỌC TÀI KHOẢN: Nút lọc theo vai trò (Role Filter Pills) */}
-            <div className="admin-filter-group">
-              <span className="admin-filter-label">Lọc theo vai trò:</span>
-              <div className="admin-pills-row">
-                {ROLE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    className={`admin-filter-pill ${
-                      selectedRole === opt.key ? "active" : ""
-                    }`}
-                    onClick={() => setSelectedRole(opt.key)}
-                  >
-                    <span>{opt.label}</span>
-                    <span className="admin-pill-badge">{roleCounts[opt.key]}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+                <div className="admin-modal-body">
+                  <div className="admin-form-group">
+                    <span className="admin-form-label">Tên quy tắc:</span>
+                    <div>
+                      <strong>{POLICY_FRIENDLY_NAMES[editingPolicy.code] || editingPolicy.code}</strong>
+                    </div>
+                    <div className="admin-policy-code">{editingPolicy.code} ({editingPolicy.policyId})</div>
+                  </div>
 
-            {/* BỘ LỌC TÀI KHOẢN: Nút lọc theo trạng thái hoạt động (Status Filter Pills) */}
-            <div className="admin-filter-group">
-              <span className="admin-filter-label">Trạng thái:</span>
-              <div className="admin-pills-row">
-                <button
-                  type="button"
-                  className={`admin-filter-pill ${
-                    selectedStatus === "ALL" ? "active" : ""
-                  }`}
-                  onClick={() => setSelectedStatus("ALL")}
-                >
-                  <span>Tất cả</span>
-                  <span className="admin-pill-badge">{statusCounts.ALL}</span>
-                </button>
-                <button
-                  type="button"
-                  className={`admin-filter-pill ${
-                    selectedStatus === "ACTIVE" ? "active" : ""
-                  }`}
-                  onClick={() => setSelectedStatus("ACTIVE")}
-                >
-                  <span>Đang hoạt động</span>
-                  <span className="admin-pill-badge status-active-count">
-                    {statusCounts.ACTIVE}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className={`admin-filter-pill ${
-                    selectedStatus === "INACTIVE" ? "active" : ""
-                  }`}
-                  onClick={() => setSelectedStatus("INACTIVE")}
-                >
-                  <span>Bị khóa</span>
-                  <span className="admin-pill-badge status-inactive-count">
-                    {statusCounts.INACTIVE}
-                  </span>
-                </button>
-              </div>
-            </div>
+                  <div className="admin-form-group">
+                    <span className="admin-form-label">Phạm vi áp dụng:</span>
+                    <div>
+                      <span className={`admin-scope-badge ${formatScopeLabel(editingPolicy.scopeType, editingPolicy.scopeId).className}`}>
+                        {formatScopeLabel(editingPolicy.scopeType, editingPolicy.scopeId).label}
+                      </span>
+                    </div>
+                  </div>
 
-            {/* Bảng danh sách tài khoản */}
-            <div className="admin-table-wrapper">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Mã tài khoản</th>
-                    <th>Họ và tên</th>
-                    <th>Email</th>
-                    <th>Số điện thoại</th>
-                    <th>Vai trò</th>
-                    <th>Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="admin-empty-cell">
-                        Không tìm thấy tài khoản nào phù hợp với điều kiện lọc hiện tại.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredUsers.map((u) => (
-                      <tr key={u.id}>
-                        <td className="user-id">{u.id}</td>
-                        <td className="user-name">{u.fullName}</td>
-                        <td className="user-email">{u.email || "Chưa có"}</td>
-                        <td className="user-phone">{u.phone || "Chưa có"}</td>
-                        <td>
-                          <span className={`role-badge ${getRoleBadgeClass(u.role)}`}>
-                            {formatRoleName(u.role)}
+                  {editingPolicy.valueType === "NUMBER" && (
+                    <div className="admin-form-group">
+                      <label htmlFor="edit-policy-number" className="admin-form-label">
+                        Giá trị cấu hình mới *
+                      </label>
+                      <div className="admin-input-group">
+                        <input
+                          id="edit-policy-number"
+                          type="number"
+                          step={editingPolicy.unit === "PERCENT" ? "1" : "1"}
+                          min={editingPolicy.unit === "PERCENT" ? 1 : 0}
+                          max={editingPolicy.unit === "PERCENT" ? 100 : undefined}
+                          value={editNumberValue}
+                          onChange={(e) => setEditNumberValue(Number(e.target.value))}
+                          className="admin-form-input"
+                          style={{ paddingRight: "60px" }}
+                        />
+                        {editingPolicy.unit && (
+                          <span className="admin-input-unit-badge">
+                            {formatPolicyUnit(editingPolicy.unit)}
                           </span>
-                        </td>
-                        <td>
-                          <span
-                            className={`status-badge ${
-                              u.isActive ? "active" : "inactive"
-                            }`}
-                          >
-                            {u.isActive ? "Đang hoạt động" : "Bị khóa"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                        )}
+                      </div>
+                      <span className="admin-form-hint">
+                        {editingPolicy.unit === "PERCENT"
+                          ? "Nhập giá trị tỷ lệ phần trăm từ 1 đến 100."
+                          : "Nhập số nguyên không âm biểu thị thời lượng hoặc số lần."}
+                      </span>
+                    </div>
                   )}
-                </tbody>
-              </table>
+
+                  {editingPolicy.valueType === "TEXT" && (
+                    <div className="admin-form-group">
+                      <label htmlFor="edit-policy-text" className="admin-form-label">
+                        Giá trị dạng văn bản *
+                      </label>
+                      <input
+                        id="edit-policy-text"
+                        type="text"
+                        value={editTextValue}
+                        onChange={(e) => setEditTextValue(e.target.value)}
+                        className="admin-form-input"
+                      />
+                    </div>
+                  )}
+
+                  {editingPolicy.valueType === "BOOLEAN" && (
+                    <div className="admin-form-group">
+                      <span className="admin-form-label">Trạng thái kích hoạt *</span>
+                      <div className="admin-pills-row" style={{ marginTop: "4px" }}>
+                        <button
+                          type="button"
+                          className={`admin-filter-pill ${editBoolValue ? "active" : ""}`}
+                          onClick={() => setEditBoolValue(true)}
+                        >
+                          Bật (Kích hoạt)
+                        </button>
+                        <button
+                          type="button"
+                          className={`admin-filter-pill ${!editBoolValue ? "active" : ""}`}
+                          onClick={() => setEditBoolValue(false)}
+                        >
+                          Tắt (Vô hiệu hóa)
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="admin-form-group">
+                    <label htmlFor="edit-policy-desc" className="admin-form-label">
+                      Mô tả nghiệp vụ
+                    </label>
+                    <textarea
+                      id="edit-policy-desc"
+                      rows={3}
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      className="admin-form-textarea"
+                      placeholder="Nhập mô tả giải thích mục đích của quy tắc này..."
+                    />
+                  </div>
+                </div>
+
+                <div className="admin-modal-footer">
+                  <button
+                    type="button"
+                    className="admin-btn-secondary"
+                    onClick={closeEditModal}
+                    disabled={isSavingPolicy}
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-btn-primary"
+                    onClick={handleSavePolicy}
+                    disabled={isSavingPolicy}
+                  >
+                    {isSavingPolicy ? "Đang lưu..." : "Lưu thay đổi"}
+                  </button>
+                </div>
+              </div>
             </div>
-          </section>
+          )}
+
+          {/* Toast thông báo */}
+          {toastMessage && (
+            <div className={`admin-toast ${toastMessage.type}`}>
+              {toastMessage.message}
+            </div>
+          )}
         </>
       )}
     </div>

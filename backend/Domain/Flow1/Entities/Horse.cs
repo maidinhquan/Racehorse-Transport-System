@@ -7,6 +7,8 @@ public sealed class Horse
     public DateTime? PassportExpiryDate { get; set; }
     public string? OwnershipCertificateFileUrl { get; set; }
     public string? ValuationDocumentFileUrl { get; set; }
+    public string? VaccinationFileUrl { get; set; }
+    public string? HealthCertificateFileUrl { get; set; }
     public decimal? DeclaredValueVnd { get; set; }
     public string? SpecialHealthNotes { get; set; }
     public string HorseID { get; set; } = null!;

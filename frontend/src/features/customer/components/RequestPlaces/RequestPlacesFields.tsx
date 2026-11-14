@@ -137,10 +137,10 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
     const itemCityId = place.cityId || (demo ? getCityId(selectedCity) : '');
     const set = (field: keyof Place, value: string) => onPlaceChange(key, { ...place, [field]: value });
     const missing = (field: keyof Place) => tried && !String(place[field] ?? '').trim();
-    const input = (field: 'name' | 'postal' | 'contact' | 'phone', label: string, required = false, full = false, placeholder = '') => <div className={`cus-field ${full ? 'cus-create__full' : ''}`}>
+    const input = (field: 'name' | 'postal' | 'contact' | 'phone' | 'email', label: string, required = false, full = false, placeholder = '') => <div className={`cus-field ${full ? 'cus-create__full' : ''}`}>
       <label htmlFor={`request-${key}-${field}`}>{label}{required && ' *'}</label>
-      <input id={`request-${key}-${field}`} className={`cus-input ${required && missing(field) ? 'invalid' : ''}`} type={field === 'phone' ? 'tel' : 'text'}
-        placeholder={placeholder} required={required} aria-invalid={required && missing(field)} disabled={locked('places')} value={place[field]} onChange={event => set(field, event.target.value)} />
+      <input id={`request-${key}-${field}`} className={`cus-input ${required && missing(field) ? 'invalid' : ''}`} type={field === 'phone' ? 'tel' : field === 'email' ? 'email' : 'text'}
+        placeholder={placeholder} required={required} aria-invalid={required && missing(field)} disabled={locked('places')} value={place[field] || ''} onChange={event => set(field, event.target.value)} />
     </div>;
     return <section key={key} className="cus-card cus-create__place">
       <div className="cus-create__place-heading"><span className={`cus-create__place-number ${key}`}>0{index + 1}</span><div>
@@ -272,6 +272,7 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
       </div>
       <div className="cus-create__contact"><h4>{key === 'pickup' ? 'Người bàn giao ngựa' : 'Người nhận ngựa'}</h4><div className="cus-create__grid">
         {input('contact', 'Họ và tên', true)}{input('phone', 'Số điện thoại', true, false, '+84...')}
+        {key === 'delivery' && input('email', 'Email nhận mã OTP bàn giao', true, true, 'receiver@example.com')}
         <div className="cus-field cus-create__full"><label htmlFor={`request-${key}-notes`}>Ghi chú về địa điểm (không bắt buộc)</label>
           <textarea id={`request-${key}-notes`} className="cus-textarea" rows={2} disabled={locked('places')} value={place.notes}
             placeholder="Giờ mở cửa, lối vào cho xe vận chuyển…" onChange={event => set('notes', event.target.value)} />

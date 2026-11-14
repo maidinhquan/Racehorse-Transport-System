@@ -29,11 +29,32 @@ public sealed class UserDAO(HorseTransportDbContext context) : BaseDAO<User>(con
     public Task<User?> GetByResetTokenAsync(string resetToken, CancellationToken cancellationToken = default) =>
         DbSet.FirstOrDefaultAsync(u => u.ForgotPasswordRequest == resetToken, cancellationToken);
 
+    private static bool IsPrimaryKeyViolation(SqlException sql) =>
+        sql.Number == 2627 && sql.Message.Contains("PK_User", StringComparison.OrdinalIgnoreCase);
+
+    private Task SyncUserSequenceAsync(CancellationToken cancellationToken) =>
+        Context.Database.ExecuteSqlRawAsync("""
+            IF OBJECT_ID('dbo.SEQ_USER_ID', 'SO') IS NOT NULL
+            BEGIN
+                DECLARE @nextId bigint = ISNULL((
+                    SELECT MAX(TRY_CAST(SUBSTRING(UserID, 6, 20) AS bigint))
+                    FROM dbo.[USER]
+                    WHERE UserID LIKE 'USER_[0-9]%'
+                      AND TRY_CAST(SUBSTRING(UserID, 6, 20) AS bigint) IS NOT NULL
+                ), 0) + 1;
+                DECLARE @ddl nvarchar(200) = N'ALTER SEQUENCE dbo.[SEQ_USER_ID] RESTART WITH ' + CAST(@nextId AS nvarchar(30)) + N';';
+                EXEC sp_executesql @ddl;
+            END
+            """, cancellationToken);
+
     public override async Task<User> AddAsync(User entity, CancellationToken cancellationToken = default)
     {
+        var initialUserId = entity.UserId;
+        var generatedBySequence = string.IsNullOrWhiteSpace(initialUserId);
         var strategy = Context.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
         {
+        entity.UserId = initialUserId;
         await using var transaction = await Context.Database.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -48,11 +69,21 @@ public sealed class UserDAO(HorseTransportDbContext context) : BaseDAO<User>(con
             if (entity.Email is not null && await ExistsByEmailAsync(entity.Email, cancellationToken) ||
                 entity.Phone is not null && await ExistsByPhoneAsync(entity.Phone, cancellationToken))
                 throw new DuplicateUserException();
-            await base.AddAsync(entity, cancellationToken);
+            try
+            {
+                await base.AddAsync(entity, cancellationToken);
+            }
+            catch (DbUpdateException exception) when (generatedBySequence && exception.InnerException is SqlException sql && IsPrimaryKeyViolation(sql))
+            {
+                Context.Entry(entity).State = EntityState.Detached;
+                entity.UserId = initialUserId;
+                await SyncUserSequenceAsync(cancellationToken);
+                await base.AddAsync(entity, cancellationToken);
+            }
             await transaction.CommitAsync(cancellationToken);
             return entity;
         }
-        catch (DbUpdateException exception) when (exception.InnerException is SqlException { Number: 2601 or 2627 })
+        catch (DbUpdateException exception) when (exception.InnerException is SqlException sql && (sql.Number == 2601 || (sql.Number == 2627 && !IsPrimaryKeyViolation(sql))))
         {
             Context.Entry(entity).State = EntityState.Detached;
             throw new DuplicateUserException(exception);

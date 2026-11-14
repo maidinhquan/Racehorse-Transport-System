@@ -24,6 +24,7 @@ public sealed class TransportRequest
     public DateTime? CommittedDeadline { get; set; }
     public string? DesignatedReceiverName { get; set; }
     public string? DesignatedReceiverPhone { get; set; }
+    public string? DesignatedReceiverEmail { get; set; }
     public decimal? BaseCost { get; set; }
     public string Status { get; set; } = null!;
     public decimal? PickupLatitude { get; set; }

@@ -16,6 +16,7 @@ namespace Infrastructure.Data.Context
         public DbSet<StaffDocument> StaffDocuments { get; set; } = null!;
         public DbSet<Notification> Notifications { get; set; } = null!;
         public DbSet<PolicyAndTerm> PoliciesAndTerms { get; set; } = null!;
+        public DbSet<BusinessPolicy> BusinessPolicies { get; set; } = null!;
 
         // 2. Phân vùng Đối tác & Trạm dừng / Y tế
         public DbSet<PartnerFacility> PartnerFacilities { get; set; } = null!;
@@ -81,6 +82,15 @@ namespace Infrastructure.Data.Context
             // Cấu hình composite primary key cho REQUEST_HORSE_MAPPING theo RULE/ID_NAME_RULE.md
             modelBuilder.Entity<RequestHorseMapping>()
                 .HasKey(r => new { r.RequestId, r.HorseId });
+
+            modelBuilder.Entity<BusinessPolicy>(b =>
+            {
+                b.ToTable("BUSINESS_POLICY");
+                b.HasKey(x => x.PolicyId);
+                b.Property(x => x.PolicyId).HasColumnName("PolicyID");
+                b.Property(x => x.ScopeId).HasColumnName("ScopeID");
+                b.Property(x => x.NumberValue).HasColumnType("decimal(18,2)");
+            });
 
             // Tự động load các cấu hình IEntityTypeConfiguration nếu có
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(HorseTransportDbContext).Assembly,

@@ -244,15 +244,17 @@ namespace Infrastructure.Services
 
                     // 5. Equine Flu vaccination (Sổ tiêm cúm)
                     var fluReq = openRequests.FirstOrDefault(r => r.TripId == t.TripId && r.Scope == h.HorseId && r.KeyName == "flu");
-                    var fluRecord = legalRecords.FirstOrDefault(r => r.RequestId == req.RequestId && r.HorseId == h.HorseId && (r.DocumentType == "EQUINE_FLU_VAX" || r.DocumentType == "flu" || r.DocumentType == "DT-3"));
+                    var fluRecord = legalRecords.FirstOrDefault(r => r.RequestId == req.RequestId && r.HorseId == h.HorseId && (r.DocumentType == "EQUINE_FLU_VAX" || r.DocumentType == "flu" || r.DocumentType == "DT-3"))
+                        ?? legalRecords.FirstOrDefault(r => r.HorseId == h.HorseId && (r.DocumentType == "EQUINE_FLU_VAX" || r.DocumentType == "flu" || r.DocumentType == "DT-3"));
+                    var fluUrl = fluRecord?.UploadedFileUrl ?? h.VaccinationFileUrl;
                     result.Add(new CustomerDocDto
                     {
                         TripId = t.TripId,
                         Key = "flu",
                         Scope = h.HorseId,
-                        Status = fluReq != null ? "ACTION_REQUIRED" : (fluRecord?.DocumentStatus ?? "SUBMITTED"),
+                        Status = fluReq != null ? "ACTION_REQUIRED" : (fluRecord?.DocumentStatus ?? (!string.IsNullOrEmpty(fluUrl) ? "SUBMITTED" : "NOT_SUBMITTED")),
                         Optional = false,
-                        File = FileUrl("flu", fluRecord?.UploadedFileUrl),
+                        File = FileUrl("flu", fluUrl),
                         Note = "Tiêm vắc xin cúm định kỳ",
                         Issue = fluReq?.Reason,
                         Expiry = fluRecord?.ExpiryDate?.ToString("yyyy-MM-dd"),
@@ -262,15 +264,17 @@ namespace Infrastructure.Services
 
                     // 6. Health certificate (Giấy chứng nhận sức khỏe)
                     var healthReq = openRequests.FirstOrDefault(r => r.TripId == t.TripId && r.Scope == h.HorseId && r.KeyName == "health");
-                    var healthRecord = legalRecords.FirstOrDefault(r => r.RequestId == req.RequestId && r.HorseId == h.HorseId && (r.DocumentType == "HEALTH_CERTIFICATE" || r.DocumentType == "health" || r.DocumentType == "DT-2"));
+                    var healthRecord = legalRecords.FirstOrDefault(r => r.RequestId == req.RequestId && r.HorseId == h.HorseId && (r.DocumentType == "HEALTH_CERTIFICATE" || r.DocumentType == "health" || r.DocumentType == "DT-2"))
+                        ?? legalRecords.FirstOrDefault(r => r.HorseId == h.HorseId && (r.DocumentType == "HEALTH_CERTIFICATE" || r.DocumentType == "health" || r.DocumentType == "DT-2"));
+                    var healthUrl = healthRecord?.UploadedFileUrl ?? h.HealthCertificateFileUrl;
                     result.Add(new CustomerDocDto
                     {
                         TripId = t.TripId,
                         Key = "health",
                         Scope = h.HorseId,
-                        Status = healthReq != null ? "ACTION_REQUIRED" : (healthRecord?.DocumentStatus ?? "SUBMITTED"),
+                        Status = healthReq != null ? "ACTION_REQUIRED" : (healthRecord?.DocumentStatus ?? (!string.IsNullOrEmpty(healthUrl) ? "SUBMITTED" : "NOT_SUBMITTED")),
                         Optional = false,
-                        File = FileUrl("health", healthRecord?.UploadedFileUrl),
+                        File = FileUrl("health", healthUrl),
                         Note = "Chứng nhận kiểm dịch thú y đủ điều kiện di chuyển",
                         Issue = healthReq?.Reason,
                         Expiry = healthRecord?.ExpiryDate?.ToString("yyyy-MM-dd"),
@@ -300,8 +304,8 @@ namespace Infrastructure.Services
                 "ownership" => horse.OwnershipCertificateFileUrl,
                 "bio" => horse.PhotoUrl,
                 "valueProof" => horse.ValuationDocumentFileUrl,
-                "flu" => RecordFile("DT-3", "EQUINE_FLU_VAX", "flu"),
-                "health" => RecordFile("DT-2", "HEALTH_CERTIFICATE", "health"),
+                "flu" => RecordFile("DT-3", "EQUINE_FLU_VAX", "flu") ?? horse.VaccinationFileUrl,
+                "health" => RecordFile("DT-2", "HEALTH_CERTIFICATE", "health") ?? horse.HealthCertificateFileUrl,
                 _ => null,
             };
             return string.IsNullOrEmpty(stored) ? null : await _files.ReadAsync(stored, ct);
@@ -319,6 +323,7 @@ namespace Infrastructure.Services
 
             if (record == null)
             {
+                var horse = await _context.Horses.FirstOrDefaultAsync(h => h.HorseId == input.Scope);
                 record = new LegalMedicalRecord
                 {
                     RecordId = "LMR_" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant(),
@@ -326,6 +331,9 @@ namespace Infrastructure.Services
                     HorseId = input.Scope,
                     TripId = tripId,
                     DocumentType = docType,
+                    UploadedFileUrl = input.Key == "passport" ? horse?.PassportScanUrl
+                        : input.Key == "health" ? horse?.HealthCertificateFileUrl
+                        : input.Key == "flu" ? horse?.VaccinationFileUrl : null,
                     RequirementStatus = "MANDATORY"
                 };
                 _context.LegalMedicalRecords.Add(record);

@@ -77,7 +77,6 @@ export const HorseDetailPage: React.FC = () => {
               <div><span>Giống</span><b>{h.breed || '—'}</b></div>
               <div><span>Giới tính</span><b>{SEX_LABEL[h.sex] ?? '—'}</b></div>
               <div><span>Ngày sinh</span><b>{fmtDate(h.dob)}</b></div>
-              <div><span>Màu lông</span><b>{h.color || '—'}</b></div>
               <div><span>Microchip</span><b>{h.microchip || '—'}</b></div>
             </div>
           </div>
@@ -102,11 +101,9 @@ export const HorseDetailPage: React.FC = () => {
           <div className="cus-card">
             <h3 className="cus-card__title">Tiêm ngừa & sức khỏe</h3>
             <div className="cus-kv">
-              <div><span>Tiêm cúm gần nhất</span><b>{fmtDate(h.fluDate)}</b></div>
               <div><span>Ghi chú sức khỏe</span><b>{h.conditions || 'Không khai báo'}</b></div>
             </div>
             {fileRow('Sổ tiêm ngừa', h.flu)}
-            {fileRow('Giấy chứng nhận sức khỏe', h.health)}
           </div>
         </div>
       ) : (

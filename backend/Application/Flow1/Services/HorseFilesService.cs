@@ -43,6 +43,12 @@ public sealed class HorseFilesService(
                     case "value-proof":
                         horse.ValuationDocumentFileUrl = key;
                         break;
+                    case "flu":
+                        horse.VaccinationFileUrl = key;
+                        break;
+                    case "health":
+                        horse.HealthCertificateFileUrl = key;
+                        break;
                 }
                 await MarkSupplementSubmittedAsync(id, kind, key, token);
                 return new
@@ -58,17 +64,31 @@ public sealed class HorseFilesService(
     /// <summary>Nộp lại hộ chiếu / giấy sở hữu / chứng nhận giá trị: đóng yêu cầu bổ sung đang mở và báo chuyên viên có bản mới.</summary>
     private async Task MarkSupplementSubmittedAsync(string horseId, string kind, string fileKey, CancellationToken ct)
     {
-        var supplementKey = kind switch { "passport" => "passport", "ownership" => "ownership", "value-proof" => "valueProof", _ => null };
+        var supplementKey = kind switch
+        {
+            "passport" => "passport",
+            "ownership" => "ownership",
+            "value-proof" => "valueProof",
+            "flu" => "flu",
+            "health" => "health",
+            _ => null
+        };
         if (supplementKey is null) return;
         var opened = await data.ListAsync<DocumentSupplement>(
             x => x.Scope == horseId && x.KeyName == supplementKey && x.Status == "OPEN", ct);
         foreach (var open in opened) open.Status = "SUBMITTED";
-        if (kind != "passport") return;
-        // Hộ chiếu nộp lại phải quay về trạng thái chờ chuyên viên duyệt, kể cả khi trước đó chưa có bản ghi hồ sơ.
+        if (kind is not ("passport" or "flu" or "health")) return;
+        var (dtCode, legacyCode) = kind switch
+        {
+            "passport" => ("DT-1", "PASSPORT"),
+            "health" => ("DT-2", "HEALTH_CERTIFICATE"),
+            "flu" => ("DT-3", "VACCINATION"),
+            _ => ("", "")
+        };
         foreach (var requestId in opened.Select(x => x.RequestID).Distinct())
         {
             var records = await data.ListAsync<MedicalRecord>(
-                x => x.RequestID == requestId && x.HorseID == horseId && (x.DocumentType == "DT-1" || x.DocumentType == "PASSPORT"), ct);
+                x => x.RequestID == requestId && x.HorseID == horseId && (x.DocumentType == dtCode || x.DocumentType == legacyCode), ct);
             if (records.Count == 0)
             {
                 var created = new MedicalRecord
@@ -76,7 +96,7 @@ public sealed class HorseFilesService(
                     RecordID = "LMR_" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant(),
                     RequestID = requestId,
                     HorseID = horseId,
-                    DocumentType = "DT-1",
+                    DocumentType = dtCode,
                     RequirementStatus = "MANDATORY",
                 };
                 data.Add(created);
@@ -146,6 +166,12 @@ public sealed class HorseFilesService(
                     item.ExpiryDate = expiry;
                 }
                 var record = records[0];
+                var horse = (await data.ListAsync<Horse>(h => h.HorseID == horseId, token)).FirstOrDefault();
+                if (horse is not null)
+                {
+                    if (key == "flu") horse.VaccinationFileUrl = fileKey;
+                    else if (key == "health") horse.HealthCertificateFileUrl = fileKey;
+                }
                 foreach (var open in await data.ListAsync<DocumentSupplement>(
                     x => x.RequestID == requestId && x.Scope == horseId && x.KeyName == key && x.Status == "OPEN", token))
                     open.Status = "SUBMITTED";
@@ -217,25 +243,27 @@ public sealed class HorseFilesService(
             "PASSPORT" => "passport",
             "OWNERSHIP_CERTIFICATE" => "ownership",
             "VALUATION_EVIDENCE" => "value-proof",
+            "EQUINE_FLU_VAX" => "flu",
+            "HEALTH_CERTIFICATE" => "health",
             _ => kind,
         };
-        if (fileKind is not ("photo" or "passport" or "ownership" or "value-proof"))
+        if (fileKind is ("photo" or "passport" or "ownership" or "value-proof" or "flu" or "health"))
         {
-            var records = await data.ListAsync<MedicalRecord>(
-                x => x.RequestID == request && x.HorseID == id && x.DocumentType == kind,
-                ct
-            );
-            Require(records.Count != 0, "NOT_FOUND", "Document not found.", 404);
-            Require(
-                records.Count == 1,
-                "DOCUMENT_SELECTION_REQUIRED",
-                "Select a unique medical document by its record ID.",
-                409
-            );
-            Require(records[0].UploadedFileUrl is not null, "NOT_FOUND", "File not found.", 404);
-            return await files.ReadAsync(records[0].UploadedFileUrl!, ct);
+            return await ReadHorseAsync(horse, fileKind, ct);
         }
-        return await ReadHorseAsync(horse, fileKind, ct);
+        var records = await data.ListAsync<MedicalRecord>(
+            x => x.RequestID == request && x.HorseID == id && x.DocumentType == kind,
+            ct
+        );
+        Require(records.Count != 0, "NOT_FOUND", "Document not found.", 404);
+        Require(
+            records.Count == 1,
+            "DOCUMENT_SELECTION_REQUIRED",
+            "Select a unique medical document by its record ID.",
+            409
+        );
+        Require(records[0].UploadedFileUrl is not null, "NOT_FOUND", "File not found.", 404);
+        return await files.ReadAsync(records[0].UploadedFileUrl!, ct);
     }
 
     private async Task<(byte[] Bytes, string ContentType)> ReadHorseAsync(
@@ -250,7 +278,10 @@ public sealed class HorseFilesService(
             "photo" => horse.PhotoUrl,
             "passport" => horse.PassportScanUrl,
             "ownership" => horse.OwnershipCertificateFileUrl,
-            _ => horse.ValuationDocumentFileUrl,
+            "value-proof" => horse.ValuationDocumentFileUrl,
+            "flu" => horse.VaccinationFileUrl,
+            "health" => horse.HealthCertificateFileUrl,
+            _ => null,
         };
         Require(key is not null, "NOT_FOUND", "File not found.", 404);
         return await files.ReadAsync(key!, ct);
@@ -258,7 +289,7 @@ public sealed class HorseFilesService(
 
     private static void ValidateKind(string kind) =>
         Require(
-            kind is "photo" or "passport" or "ownership" or "value-proof",
+            kind is "photo" or "passport" or "ownership" or "value-proof" or "flu" or "health",
             "VALIDATION_ERROR",
             "Unknown fileType.",
             400

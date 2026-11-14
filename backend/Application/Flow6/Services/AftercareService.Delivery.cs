@@ -26,6 +26,11 @@ public sealed partial class AftercareService
         var ids=content["items"]!.AsArray().Select(x=>x!["horseId"]!.GetValue<string>()).ToArray();
         Require(ids.Length==ids.Distinct().Count() && ids.Order().SequenceEqual(horses.Select(x=>S(x,"HorseID")!).Order()),"HORSE_SET_MISMATCH","All request horses must be present exactly once.",400);
         var frozen=content.DeepClone().AsObject();
+        var designatedEmail=S(scope,"DesignatedReceiverEmail")??S(scope,"CustomerEmail");
+        if(!string.IsNullOrWhiteSpace(designatedEmail)&&frozen["receiver"] is JsonObject rcv)
+        {
+            rcv["otpEmail"]=designatedEmail;
+        }
         foreach(var item in frozen["items"]!.AsArray())
         {
             var h=horses.Single(x=>S(x,"HorseID")==item!["horseId"]!.GetValue<string>());
@@ -60,7 +65,7 @@ public sealed partial class AftercareService
                 var s=await Scope(id!,ct);var pickups=await Q("SELECT HandoverID FROM HANDOVER WHERE TripID=@t AND Type='PICKUP' AND Status='CONFIRMED'",ct,("@t",id));
                 var horses=await Q("SELECT HorseID FROM REQUEST_HORSE_MAPPING WHERE RequestID=@r",ct,("@r",S(s,"RequestID")));
                 var delivery=(await Q("SELECT HandoverID FROM HANDOVER WHERE TripID=@t AND Type='DELIVERY'",ct,("@t",id))).SingleOrDefault();
-                return J(new{tripId=id,requestId=S(s,"RequestID"),contractId=S(s,"ContractID"),contractVersionNo=N(s,"CurrentVersionNo"),lifecycle=Lifecycle(s),pickupHandoverIds=pickups.Select(x=>S(x,"HandoverID")),horseIds=horses.Select(x=>S(x,"HorseID")),designatedReceiverName=S(s,"DesignatedReceiverName"),designatedReceiverPhone=S(s,"DesignatedReceiverPhone"),deliveryHandoverId=delivery is null?null:S(delivery,"HandoverID"),warnings=pickups.Count==0?new[]{"PICKUP_BASELINE_MISSING"}:Array.Empty<string>()});
+                return J(new{tripId=id,requestId=S(s,"RequestID"),contractId=S(s,"ContractID"),contractVersionNo=N(s,"CurrentVersionNo"),lifecycle=Lifecycle(s),pickupHandoverIds=pickups.Select(x=>S(x,"HandoverID")),horseIds=horses.Select(x=>S(x,"HorseID")),designatedReceiverName=S(s,"DesignatedReceiverName"),designatedReceiverPhone=S(s,"DesignatedReceiverPhone"),designatedReceiverEmail=S(s,"DesignatedReceiverEmail")??S(s,"CustomerEmail"),deliveryHandoverId=delivery is null?null:S(delivery,"HandoverID"),warnings=pickups.Count==0?new[]{"PICKUP_BASELINE_MISSING"}:Array.Empty<string>()});
             }
             case "F6-J03":
             {

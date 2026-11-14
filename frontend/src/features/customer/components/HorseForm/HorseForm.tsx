@@ -20,7 +20,7 @@ interface HorseFormProps {
   onClearError?: (fieldKey: string) => void;
 }
 
-type FileField = 'photo' | 'ownership' | 'valueProof' | 'flu' | 'health';
+type FileField = 'photo' | 'ownership' | 'valueProof' | 'flu';
 
 /** Biểu mẫu hồ sơ ngựa dùng chung: Thêm ngựa, Sửa hồ sơ và "Thêm ngựa mới" trong wizard yêu cầu */
 export const HorseForm: React.FC<HorseFormProps> = ({
@@ -45,7 +45,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
     if (onClearError) onClearError(k);
   };
 
-  const text = (label: string, k: 'name' | 'breed' | 'color' | 'microchip' | 'value', lock = false, type = 'text') => {
+  const text = (label: string, k: 'name' | 'breed' | 'microchip' | 'value', lock = false, type = 'text') => {
     const errorMsg = getErr(k);
     const badClass = bad(k);
     return (
@@ -59,7 +59,6 @@ export const HorseForm: React.FC<HorseFormProps> = ({
           type={type}
           value={h[k] ?? ''}
           readOnly={lock && locked}
-          disabled={!demo && k === 'color'}
           onChange={(e) => {
             clearErr(k);
             set(k, e.target.value);
@@ -81,7 +80,6 @@ export const HorseForm: React.FC<HorseFormProps> = ({
       case 'ownership': return 'Giấy tờ xác nhận sở hữu ngựa';
       case 'valueProof': return 'Chứng từ định giá ngựa';
       case 'flu': return 'Sổ tiêm ngừa';
-      case 'health': return 'Giấy chứng nhận sức khỏe';
       default: return 'Tài liệu ngựa';
     }
   };
@@ -191,7 +189,6 @@ export const HorseForm: React.FC<HorseFormProps> = ({
               </span>
             )}
           </div>
-          {text('Màu lông', 'color')}
           {text('Số microchip (15 số) *', 'microchip', true)}
         </div>
       </section>
@@ -295,18 +292,10 @@ export const HorseForm: React.FC<HorseFormProps> = ({
 
       <section>
         <h4>05 · Hồ sơ tiêm ngừa & sức khỏe</h4>
-
-        <div className="cus-horse-form__grid">
-          <div className="cus-field">
-            <label htmlFor="hf-flu">Ngày tiêm cúm gần nhất</label>
-            <DateField id="hf-flu" value={h.fluDate ?? ''} max={today()} disabled={!demo} onChange={(v) => set('fluDate', v)} />
-          </div>
-        </div>
-        <div className="cus-horse-form__minor"><span className="cus-eyebrow">Sổ tiêm ngừa</span>{fileCard('flu', 'Chưa tải tệp')}</div>
-        <div className="cus-horse-form__minor"><span className="cus-eyebrow">Giấy chứng nhận sức khỏe</span>{fileCard('health', 'Chưa tải tệp')}</div>
+        <div className="cus-horse-form__minor"><span className="cus-eyebrow">Sổ tiêm ngừa (Equine Influenza) *</span>{fileCard('flu', 'Chưa tải tệp sổ tiêm')}</div>
         <div className="cus-field" style={{ marginTop: 12 }}>
           <label htmlFor="hf-cond">Ghi chú sức khỏe đặc biệt</label>
-          <textarea id="hf-cond" className="cus-textarea" rows={2} maxLength={2000} value={h.conditions} placeholder="Dị ứng, bệnh nền, thuốc đang dùng hoặc để trống"
+          <textarea id="hf-cond" className="cus-textarea" rows={3} maxLength={2000} value={h.conditions} placeholder="Dị ứng, bệnh nền, thuốc đang dùng hoặc để trống"
             onChange={(e) => set('conditions', e.target.value)} />
         </div>
       </section>

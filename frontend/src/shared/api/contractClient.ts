@@ -14,6 +14,7 @@ export interface FormOptions {
   earliestPickupDate?: string | null;
   defaultDepositPct: number;
   contractDeadlineHours: number;
+  maxHorsesPerRequest?: number;
   supportedRoutes: Array<{ id: string; originCountry: string; destinationCountry: string; mode: 'ROAD' | 'AIR' }>;
   /** Returned instead of `supportedRoutes` when origin, destination and mode are all given. */
   selectedRoute?: FormOptions['supportedRoutes'][number];

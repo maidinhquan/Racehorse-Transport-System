@@ -48,26 +48,6 @@
               }
             }
           },
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J01Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -94,6 +74,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J01Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -203,6 +203,16 @@
               }
             }
           },
+          "400": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Business error",
             "content": {
@@ -219,16 +229,6 @@
                       "data": null
                     }
                   }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Shared error; 501 means capability not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -503,6 +503,16 @@
               }
             }
           },
+          "400": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Business error",
             "content": {
@@ -519,16 +529,6 @@
                       "data": null
                     }
                   }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Shared error; 501 means capability not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -631,26 +631,6 @@
               }
             }
           },
-          "403": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J04Response403"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không đúng vai trò",
-                      "errorCode": "FORBIDDEN_ROLE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -667,6 +647,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J04Response403"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không đúng vai trò",
+                      "errorCode": "FORBIDDEN_ROLE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -786,26 +786,6 @@
               }
             }
           },
-          "403": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J05Response403"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không đúng vai trò",
-                      "errorCode": "FORBIDDEN_ROLE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -822,6 +802,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J05Response403"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không đúng vai trò",
+                      "errorCode": "FORBIDDEN_ROLE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -918,26 +918,6 @@
               }
             }
           },
-          "403": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J06Response403"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không đúng vai trò",
-                      "errorCode": "FORBIDDEN_ROLE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -954,6 +934,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J06Response403"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không đúng vai trò",
+                      "errorCode": "FORBIDDEN_ROLE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -1046,26 +1046,6 @@
               }
             }
           },
-          "403": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J07Response403"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không đúng vai trò",
-                      "errorCode": "FORBIDDEN_ROLE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -1082,6 +1062,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J07Response403"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không đúng vai trò",
+                      "errorCode": "FORBIDDEN_ROLE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -1184,6 +1184,16 @@
               }
             }
           },
+          "400": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Business error",
             "content": {
@@ -1200,16 +1210,6 @@
                       "data": null
                     }
                   }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Shared error; 501 means capability not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -1346,26 +1346,6 @@
               }
             }
           },
-          "500": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J09Response500"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Cấu hình policy bị thiếu hoặc không hợp lệ",
-                      "errorCode": "BUSINESS_POLICY_CONFIGURATION_ERROR",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -1422,6 +1402,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J09Response500"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Cấu hình policy bị thiếu hoặc không hợp lệ",
+                      "errorCode": "BUSINESS_POLICY_CONFIGURATION_ERROR",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -1848,26 +1848,6 @@
               }
             }
           },
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J11Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -1894,6 +1874,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J11Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -2010,26 +2010,6 @@
               }
             }
           },
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J13Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -2056,6 +2036,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J13Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -2483,7 +2483,9 @@
                 "photo",
                 "passport",
                 "ownership",
-                "value-proof"
+                "value-proof",
+                "flu",
+                "health"
               ]
             }
           }
@@ -2515,26 +2517,6 @@
         "summary": "Đọc file private. Role: **CUSTOMER**.",
         "x-implementation-status": "aligned-with-backend",
         "responses": {
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J16Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "200": {
             "description": "Authorized binary; errors remain JSON",
             "content": {
@@ -2584,6 +2566,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J16Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -2650,7 +2652,9 @@
                 "photo",
                 "passport",
                 "ownership",
-                "value-proof"
+                "value-proof",
+                "flu",
+                "health"
               ]
             }
           }
@@ -2972,6 +2976,16 @@
               }
             }
           },
+          "400": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Business error",
             "content": {
@@ -2988,16 +3002,6 @@
                       "data": null
                     }
                   }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Shared error; 501 means capability not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -3149,26 +3153,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J19Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Trạng thái hiện tại không cho phép thao tác",
-                      "errorCode": "INVALID_STATE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -3205,6 +3189,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J19Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Trạng thái hiện tại không cho phép thao tác",
+                      "errorCode": "INVALID_STATE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -3384,26 +3388,6 @@
               }
             }
           },
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J22Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -3430,6 +3414,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J22Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -3533,26 +3537,6 @@
               }
             }
           },
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J23Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -3579,6 +3563,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J23Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -3723,26 +3727,6 @@
               }
             }
           },
-          "403": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J24Response403"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không đúng vai trò",
-                      "errorCode": "FORBIDDEN_ROLE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -3759,6 +3743,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J24Response403"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không đúng vai trò",
+                      "errorCode": "FORBIDDEN_ROLE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -3900,26 +3904,6 @@
               }
             }
           },
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J25Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -3946,6 +3930,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J25Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -4120,26 +4124,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J26Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Trạng thái hiện tại không cho phép thao tác",
-                      "errorCode": "INVALID_STATE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -4176,6 +4160,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J26Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Trạng thái hiện tại không cho phép thao tác",
+                      "errorCode": "INVALID_STATE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -4426,9 +4430,9 @@
               },
               "example": {
                 "feedback": "Vui lòng bổ sung hồ sơ theo góp ý.",
-            "reviewId": "REQUEST_REVIEW_001",
-            "requestRevision": 1,
-            "action": "SUPPLEMENT_DOCUMENTS"
+                "reviewId": "REQUEST_REVIEW_001",
+                "requestRevision": 1,
+                "action": "SUPPLEMENT_DOCUMENTS"
               }
             }
           }
@@ -4518,26 +4522,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J28Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Trạng thái hiện tại không cho phép thao tác",
-                      "errorCode": "INVALID_STATE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -4574,6 +4558,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J28Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Trạng thái hiện tại không cho phép thao tác",
+                      "errorCode": "INVALID_STATE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -4786,26 +4790,6 @@
               }
             }
           },
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J29Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -4832,6 +4816,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J29Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -5115,26 +5119,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J31Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Trạng thái hiện tại không cho phép thao tác",
-                      "errorCode": "INVALID_STATE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -5171,6 +5155,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J31Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Trạng thái hiện tại không cho phép thao tác",
+                      "errorCode": "INVALID_STATE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -5274,26 +5278,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J32Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Cần đối soát tiền trước khi thực hiện",
-                      "errorCode": "PAYMENT_RECONCILIATION_REQUIRED",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -5330,6 +5314,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J32Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Cần đối soát tiền trước khi thực hiện",
+                      "errorCode": "PAYMENT_RECONCILIATION_REQUIRED",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -5494,26 +5498,6 @@
               }
             }
           },
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J33Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -5540,6 +5524,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J33Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -5713,26 +5717,6 @@
               }
             }
           },
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J34Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -5759,6 +5743,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J34Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -5920,26 +5924,6 @@
               }
             }
           },
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J35Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -5966,6 +5950,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J35Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -6040,26 +6044,6 @@
         "summary": "PDF hợp đồng. Role: **CUSTOMER**.",
         "x-implementation-status": "aligned-with-backend",
         "responses": {
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J36Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "200": {
             "description": "Authorized binary; errors remain JSON",
             "content": {
@@ -6097,6 +6081,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J36Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -6196,26 +6200,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J37Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Hợp đồng đã hết hạn hoàn tất",
-                      "errorCode": "CONTRACT_EXPIRED",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -6252,6 +6236,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J37Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Hợp đồng đã hết hạn hoàn tất",
+                      "errorCode": "CONTRACT_EXPIRED",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -6346,26 +6350,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J38Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Cần đối soát tiền trước khi thực hiện",
-                      "errorCode": "PAYMENT_RECONCILIATION_REQUIRED",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -6402,6 +6386,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J38Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Cần đối soát tiền trước khi thực hiện",
+                      "errorCode": "PAYMENT_RECONCILIATION_REQUIRED",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -6513,26 +6517,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J39Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Trạng thái hiện tại không cho phép thao tác",
-                      "errorCode": "INVALID_STATE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -6569,6 +6553,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J39Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Trạng thái hiện tại không cho phép thao tác",
+                      "errorCode": "INVALID_STATE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -6665,26 +6669,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J40Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Trạng thái hiện tại không cho phép thao tác",
-                      "errorCode": "INVALID_STATE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -6721,6 +6705,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J40Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Trạng thái hiện tại không cho phép thao tác",
+                      "errorCode": "INVALID_STATE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -6814,26 +6818,6 @@
               }
             }
           },
-          "429": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J41Response429"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Vui lòng chờ trước khi gửi nhắc nhở tiếp theo",
-                      "errorCode": "RATE_LIMITED",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -6880,6 +6864,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J41Response429"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Vui lòng chờ trước khi gửi nhắc nhở tiếp theo",
+                      "errorCode": "RATE_LIMITED",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -6956,26 +6960,6 @@
               }
             }
           },
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J42Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -7002,6 +6986,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J42Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -7095,26 +7099,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J43Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Hợp đồng đã hết hạn hoàn tất",
-                      "errorCode": "CONTRACT_EXPIRED",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -7151,6 +7135,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J43Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Hợp đồng đã hết hạn hoàn tất",
+                      "errorCode": "CONTRACT_EXPIRED",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -7252,26 +7256,6 @@
               }
             }
           },
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J44Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -7298,6 +7282,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J44Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -7344,7 +7348,15 @@
           }
         },
         "parameters": [
-          {"name": "refresh", "in": "query", "required": false, "schema": {"type": "boolean"}, "description": "Yêu cầu đối soát thủ công, giới hạn mỗi 10 giây."},
+          {
+            "name": "refresh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Yêu cầu đối soát thủ công, giới hạn mỗi 10 giây."
+          },
           {
             "name": "paymentId",
             "in": "path",
@@ -7399,26 +7411,6 @@
               }
             }
           },
-          "403": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J45Response403"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không đúng vai trò",
-                      "errorCode": "FORBIDDEN_ROLE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -7435,6 +7427,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J45Response403"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không đúng vai trò",
+                      "errorCode": "FORBIDDEN_ROLE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -7532,26 +7544,6 @@
               }
             }
           },
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J46Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -7578,6 +7570,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J46Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -7801,26 +7813,6 @@
         "summary": "Biên nhận đã xác minh. Role: **CUSTOMER**.",
         "x-implementation-status": "aligned-with-backend",
         "responses": {
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J49Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "200": {
             "description": "Authorized binary; errors remain JSON",
             "content": {
@@ -7858,6 +7850,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J49Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -8253,26 +8265,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J52Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Trạng thái hiện tại không cho phép thao tác",
-                      "errorCode": "INVALID_STATE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -8309,6 +8301,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J52Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Trạng thái hiện tại không cho phép thao tác",
+                      "errorCode": "INVALID_STATE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -8403,26 +8415,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J53Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Cần đối soát tiền trước khi thực hiện",
-                      "errorCode": "PAYMENT_RECONCILIATION_REQUIRED",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -8459,6 +8451,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J53Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Cần đối soát tiền trước khi thực hiện",
+                      "errorCode": "PAYMENT_RECONCILIATION_REQUIRED",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -8566,26 +8578,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J54Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Trạng thái hiện tại không cho phép thao tác",
-                      "errorCode": "INVALID_STATE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -8622,6 +8614,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J54Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Trạng thái hiện tại không cho phép thao tác",
+                      "errorCode": "INVALID_STATE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -9043,26 +9055,6 @@
               }
             }
           },
-          "403": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J56Response403"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không đúng vai trò",
-                      "errorCode": "FORBIDDEN_ROLE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -9079,6 +9071,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J56Response403"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không đúng vai trò",
+                      "errorCode": "FORBIDDEN_ROLE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -9179,26 +9191,6 @@
               }
             }
           },
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J57Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -9225,6 +9217,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J57Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -9326,26 +9338,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J58Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Trạng thái hiện tại không cho phép thao tác",
-                      "errorCode": "INVALID_STATE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -9382,6 +9374,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J58Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Trạng thái hiện tại không cho phép thao tác",
+                      "errorCode": "INVALID_STATE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -9487,26 +9499,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J59Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Trạng thái hiện tại không cho phép thao tác",
-                      "errorCode": "INVALID_STATE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -9543,6 +9535,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J59Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Trạng thái hiện tại không cho phép thao tác",
+                      "errorCode": "INVALID_STATE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -9647,26 +9659,6 @@
               }
             }
           },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J60Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Trạng thái hiện tại không cho phép thao tác",
-                      "errorCode": "INVALID_STATE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -9703,6 +9695,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J60Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Trạng thái hiện tại không cho phép thao tác",
+                      "errorCode": "INVALID_STATE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -9795,26 +9807,6 @@
               }
             }
           },
-          "501": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J61Response501"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Chức năng chưa được máy chủ hỗ trợ",
-                      "errorCode": "FEATURE_NOT_SUPPORTED",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -9881,6 +9873,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J61Response501"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Chức năng chưa được máy chủ hỗ trợ",
+                      "errorCode": "FEATURE_NOT_SUPPORTED",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -9943,26 +9955,6 @@
               }
             }
           },
-          "501": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J62Response501"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Chức năng chưa được máy chủ hỗ trợ",
-                      "errorCode": "FEATURE_NOT_SUPPORTED",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -10032,6 +10024,26 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J62Response501"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Chức năng chưa được máy chủ hỗ trợ",
+                      "errorCode": "FEATURE_NOT_SUPPORTED",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -10075,6 +10087,16 @@
               }
             }
           },
+          "400": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Business error",
             "content": {
@@ -10091,16 +10113,6 @@
                       "data": null
                     }
                   }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Shared error; 501 means capability not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -10197,26 +10209,6 @@
               }
             }
           },
-          "501": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J64Response501"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Chức năng chưa được máy chủ hỗ trợ",
-                      "errorCode": "FEATURE_NOT_SUPPORTED",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -10286,6 +10278,26 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J64Response501"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Chức năng chưa được máy chủ hỗ trợ",
+                      "errorCode": "FEATURE_NOT_SUPPORTED",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -10329,26 +10341,6 @@
               }
             }
           },
-          "403": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J65Response403"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không đúng vai trò",
-                      "errorCode": "FORBIDDEN_ROLE",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "400": {
             "description": "Shared error; 501 means capability not available",
             "content": {
@@ -10365,6 +10357,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J65Response403"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không đúng vai trò",
+                      "errorCode": "FORBIDDEN_ROLE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -10429,26 +10441,6 @@
         "summary": "Đọc hồ sơ ngựa trong đơn để xét duyệt. Role: **LOGISTICS_MANAGER**.",
         "x-implementation-status": "aligned-with-backend",
         "responses": {
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J66Response404"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hồ sơ trong đơn hoặc không có quyền xem",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
           "200": {
             "description": "Authorized binary; errors remain JSON",
             "content": {
@@ -10498,6 +10490,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J66Response404"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Không tìm thấy hồ sơ trong đơn hoặc không có quyền xem",
+                      "errorCode": "NOT_FOUND",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -10907,7 +10919,7 @@
         "description": "Chỉ áp dụng khoản đã xác minh vào phiên bản hiện hành đã gia hạn đủ thời gian."
       }
     },
-  "/manager/requests/{requestId}/reviews": {
+    "/manager/requests/{requestId}/reviews": {
       "get": {
         "operationId": "F1-J72-READ",
         "summary": "Đọc phiên xét duyệt và danh sách nhân sự",
@@ -12640,6 +12652,16 @@
                           },
                           "usable": {
                             "type": "boolean"
+                          },
+                          "healthNotes": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -12821,8 +12843,20 @@
                         "arrivalTime": {
                           "type": "string"
                         },
-                        "departureDate": { "type": ["string", "null"], "format": "date" },
-                        "arrivalDate": { "type": ["string", "null"], "format": "date" },
+                        "departureDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date"
+                        },
+                        "arrivalDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date"
+                        },
                         "departureTimeZone": {
                           "type": "string"
                         },
@@ -14124,7 +14158,17 @@
                 "maximum": 30,
                 "description": "Số ngày tối thiểu từ ngày lấy đến ngày giao của tuyến; ngày giao sớm hơn bị từ chối ngay khi tạo yêu cầu."
               },
-              "earliestPickupDate": { "anyOf": [{ "type": "string", "format": "date" }, { "type": "null" }] },
+              "earliestPickupDate": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "minimumPickupLeadDays": {
                 "anyOf": [
                   {
@@ -16069,6 +16113,10 @@
                 "type": "number",
                 "minimum": -180,
                 "maximum": 180
+              },
+              "email": {
+                "type": "string",
+                "maxLength": 254
               }
             },
             "required": [
@@ -16984,6 +17032,10 @@
                 "type": "number",
                 "minimum": -180,
                 "maximum": 180
+              },
+              "email": {
+                "type": "string",
+                "maxLength": 254
               }
             },
             "required": [
