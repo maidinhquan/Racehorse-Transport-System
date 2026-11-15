@@ -21,7 +21,6 @@ import {
 } from '../../../hooks/customerRules';
 import { Note, PlaceBlock, Timeline } from '../../../components/Common/Common';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
-import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
 import { NextAction } from './NextAction';
 
 /** Tab Tổng quan: xét duyệt, thông tin yêu cầu, khách hàng, điểm nhận/giao, ngựa, việc cần làm */
@@ -147,7 +146,6 @@ export const OverviewTab: React.FC<{ request: TransportRequest }> = ({ request: 
             </>
           )}
         </div>
-        <DemoPanel request={r} />
       </div>
     </div>
   );

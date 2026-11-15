@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ManagerLayout } from '../../components/ManagerLayout';
 import { useManager } from '../../hooks/useManager';
-import { MANAGER_NAME } from '../../data/mockData';
+import { MANAGER_NAME } from '../../types';
 
 export const ManagerProfilePage: React.FC = () => {
   const { stats } = useManager();

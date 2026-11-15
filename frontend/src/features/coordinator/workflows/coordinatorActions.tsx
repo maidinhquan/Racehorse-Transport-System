@@ -1,20 +1,18 @@
 // ============================================================================
 // Thao tác của Điều phối trên chuyến: xe & nhân sự, xác nhận nguồn lực, ETA, cảnh báo lịch trình,
-// ghi mốc thay tổ xe, trạng thái xe/nhân sự, thông báo và các nút demo (mô phỏng quyết định Manager)
+// ghi mốc thay tổ xe, trạng thái xe/nhân sự và thông báo
 // ============================================================================
 import { Chk, Field, Icon, Inp, Sel, Txt } from '../components/common/ui';
 import { DateInput, DateTimeInput } from '../components/forms/DateTime';
-import { ACTIVE_TRIP, approvedRoute, canPlan, changeEta, crewConflict, crewOf, crewGaps, curRoute, resourceLockMsg, routeApproved, emp, fleetCountry, GROUND_ROLE_KEYS, groundCanEdit, groundCountry, groundLegEndDate, groundLegs, groundServiceArea, handoverState, holdText, horseCountError, isDriver, isSameStaff, isStaffAssignedToTrip, isTripHoldingCrew, isVet, lastMilestone, nextMilestone, opsBlock, placeById, recordGroundChange, reqOfTrip, resourceGaps, routeState, staffError, trip, tripHorses, tripLabel, tripStops, tripVehicleIds, tripWindow, vehicle, vehicleAccessIssue, vehicleConflict } from '../domain/coordinatorRules';
+import { ACTIVE_TRIP, approvedRoute, canPlan, changeEta, crewConflict, crewOf, crewGaps, curRoute, resourceLockMsg, routeApproved, emp, fleetCountry, GROUND_ROLE_KEYS, groundCanEdit, groundCountry, groundLegEndDate, groundLegs, groundServiceArea, handoverState, holdText, horseCountError, isDriver, isSameStaff, isStaffAssignedToTrip, isTripHoldingCrew, isVet, lastMilestone, nextMilestone, opsBlock, recordGroundChange, reqOfTrip, resourceGaps, staffError, trip, tripHorses, tripLabel, tripStops, tripVehicleIds, tripWindow, vehicle, vehicleAccessIssue, vehicleConflict } from '../domain/coordinatorRules';
 import type { Any } from '../store/coordinatorStore';
-import { audit, autoConfirmIfApproved, commit, confirmAction, db, demoOn, flushTripStateToStorage, go, me, nextId, notify, nowStamp, openModal, saveVehiclesToStorage, toast, ui } from '../store/coordinatorStore';
+import { audit, commit, confirmAction, db, flushTripStateToStorage, go, me, nextId, notify, nowStamp, openModal, saveVehiclesToStorage, toast, ui } from '../store/coordinatorStore';
 import { addHours, city, cityLabel, date, dt, human, MILESTONE_LABEL, MS_VI } from '../utils/format';
-import { approveAirPlan, submitAirPlan } from './airOperations';
-import { resourceSignature, ROUTE_POLICY, RP, rpCalc, rpEnsure, rpRoute, rpRouteKey, rpState, rpWriteTimes, stop, submitRoadRoute } from './routePlanner';
+import { submitAirPlan } from './airOperations';
+import { submitRoadRoute } from './routePlanner';
 import { apiClient } from '../../../shared/api/apiClient';
 import { saveSharedTrip } from '../../../shared/utils/sharedTrips';
 
-const DEMO_MGR = ['Linh Pham', 'LOGISTICS_MANAGER'];
-const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
 // ---------- xe & nhân sự (đường bộ) ----------
 export function vehicleAssign(id: string, vid: string) {
@@ -104,11 +102,6 @@ export function routeSubmit(id: string) {
   const ce = horseCountError(reqOfTrip(t)); if (ce) return toast(ce);
   const cg = crewGaps(t); if (cg.length) return toast('Phân công đủ xe và nhân sự trước khi gửi: ' + cg.join(', ') + '.');
   if (t.mode === 'AIR') return submitAirPlan(id);
-  if (t.demoFlow3) {
-    const rt = curRoute(t);
-    if (!rt || rt.status !== 'DRAFT') return toast('Chỉ Điều phối gửi bản nháp.');
-    return submitRoadRoute(id);
-  }
   return submitRoadRoute(id);
 }
 
@@ -122,7 +115,7 @@ export function routeWithdraw(id: string) {
     if (t.flight && t.flight.status === 'BUDGET_PENDING') t.flight.status = 'DRAFT';
     saveSharedTrip(t);
     void apiClient.post(`/coordinator/trips/${encodeURIComponent(t.id)}/plan/withdraw`, { expectedVersion: 0, reason: 'Điều phối hủy gửi để chỉnh sửa' }, { headers: { 'Idempotency-Key': `wd-${t.id}-${Date.now()}` } })
-      .catch((e) => { if (!demoOn()) toast('Chưa hủy được trên máy chủ: ' + (e?.response?.data?.message || e?.message || 'lỗi kết nối')); });
+      .catch((e) => { toast('Chưa hủy được trên máy chủ: ' + (e?.response?.data?.message || e?.message || 'lỗi kết nối')); });
     notify('LOGISTICS_MANAGER', `Điều phối đã hủy gửi tuyến ${t.id}`, `v${rt.v} quay về bản nháp`, `m/trip/${t.id}/route`);
     audit('Withdrew route submission', t.id, `Version ${rt.v}`);
     toast(`Đã hủy gửi. Tuyến v${rt.v} quay về bản nháp.`);
@@ -391,110 +384,4 @@ export function staffStatus(id: string) {
 export function notifOpen(id: string) {
   const n = db.notifications.find((x: Any) => x.id === id); if (!n) return;
   n.read = true; if (n.go) go(n.go); commit();
-}
-
-// ============================================================================
-// Nút demo: mô phỏng quyết định của Logistics Manager để trình diễn luồng lập kế hoạch
-// ============================================================================
-function demoPickTrip(test: (t: Any) => boolean, current?: string) { const c = current ? trip(current) : null; return c && test(c) ? c : db.trips.find(test); }
-function demoDeploy(t: Any) {
-  t.deployment = { ...t.deployment, status: 'CONFIRMED', at: nowStamp(), by: DEMO_MGR[0], note: 'Xác nhận demo', assignees: t.deployment.assignees || { coordinator: db.users.coordinator.id, specialist: db.users.specialist.id } };
-  notify('FLEET_COORDINATOR', `Lập tuyến và nguồn lực cho ${t.id}`, `${tripLabel(t)} • khởi hành ${dt(t.plannedDepart)}`, `f/trip/${t.id}`);
-  notify('TRANSPORT_SPECIALIST', `Chuẩn bị hồ sơ cho ${t.id}`, `${tripLabel(t)} • khởi hành ${dt(t.plannedDepart)}`, `s/trip/${t.id}`);
-  db.audit.unshift({ at: nowStamp(), actor: DEMO_MGR[0], role: DEMO_MGR[1], action: 'Confirmed deployment', entity: t.id, detail: 'Demo' });
-}
-function demoApprove(t: Any) {
-  const rt = curRoute(t);
-  if (t.mode === 'AIR') approveAirPlan(t, DEMO_MGR[0]);
-  else rt.resourceSnapshot = { at: nowStamp(), signature: resourceSignature(t) };
-  rt.status = 'APPROVED'; rt.decidedAt = nowStamp(); rt.decidedBy = DEMO_MGR[0]; rt.note = 'Quản lý đã duyệt.'; autoConfirmIfApproved(t);
-  notify('FLEET_COORDINATOR', `Tuyến ${t.id} v${rt.v} đã được duyệt`, '', `f/trip/${t.id}`);
-  db.audit.unshift({ at: nowStamp(), actor: DEMO_MGR[0], role: DEMO_MGR[1], action: 'Approved route', entity: t.id, detail: `Version ${rt.v} (demo)` });
-}
-function demoReturn(t: Any, note: string) {
-  const rt = curRoute(t);
-  rt.status = 'RETURNED'; rt.decidedAt = nowStamp(); rt.decidedBy = DEMO_MGR[0]; rt.note = note;
-  notify('FLEET_COORDINATOR', `Tuyến ${t.id} v${rt.v} bị trả lại`, rt.note, `f/trip/${t.id}`);
-  db.audit.unshift({ at: nowStamp(), actor: DEMO_MGR[0], role: DEMO_MGR[1], action: 'Returned route', entity: t.id, detail: rt.note });
-}
-export function coordDemo(what: string, current?: string) {
-  if (what === 'deploy') {
-    const t = demoPickTrip((x) => x.status === 'PLANNING' && x.deployment.status === 'NOT_CONFIRMED', current);
-    if (!t) return toast('Không có chuyến nào đang chờ xác nhận triển khai.');
-    demoDeploy(t); toast(`Demo: Quản lý đã xác nhận triển khai ${t.id}. Có thể bắt đầu lập tuyến.`); return;
-  }
-  if (what === 'ready') return toast('Không có yêu cầu nào đã xác minh tiền cọc đang chờ ký (hoặc hợp đồng đã ký đang chờ tiền cọc), nên không thể kích hoạt chuyến mới. Dùng “Quản lý xác nhận triển khai chuyến” cho chuyến hiện có.');
-  const t = demoPickTrip((x) => canPlan(x) && routeState(x) === 'PENDING_APPROVAL', current);
-  if (!t) return toast('Không có tuyến nào đang chờ Quản lý duyệt. Hãy gửi một phiên bản tuyến trước.');
-  if (what === 'approve') {
-    const missing = horseCountError(reqOfTrip(t));
-    if (missing || (t.mode !== 'AIR' && (!t.resourcesConfirmed || resourceGaps(t).length))) return toast(missing || 'Cần xác nhận đủ xe và nhân sự trước khi duyệt.');
-    demoApprove(t); toast(`Demo: Quản lý đã duyệt tuyến ${t.id} v${curRoute(t).v}.`); return;
-  }
-  if (what === 'return') { demoReturn(t, 'Vui lòng thêm điểm nghỉ trước chặng dài nhất và xác nhận giờ đến dự kiến tại điểm giao.'); toast(`Demo: Quản lý đã trả lại tuyến ${t.id} v${curRoute(t).v} kèm góp ý.`); }
-}
-
-// ---------- kịch bản demo "Kế hoạch trống → Manager duyệt" (TRP-DEMO-F3) ----------
-export const EMPTY_PLAN_ID = 'TRP-DEMO-F3';
-function demoPlace(id: string, name: string, lat: number, lng: number) {
-  if (!placeById(id)) db.places.push({ id, name, type: 'SERVICE', country: 'VN', province: name, address: 'Cơ sở giả lập để trình bày luồng', lat, lng, functions: ['REST'], hours: '24/7', status: 'ACTIVE', contact: 'Nhân sự Demo', phone: '—', sample: true, demoFlow3: true, updatedAt: nowStamp(), notes: 'Chỉ dữ liệu demo', rest: { truckParking: true, onboardCare: true, waterFeed: true, loadingArea: true, stabling: true, capacity: 4 } });
-  return placeById(id);
-}
-function demoFill(): string {
-  const t = trip(EMPTY_PLAN_ID), prev = curRoute(t), r = reqOfTrip(t);
-  if (!canPlan(t) || (prev && !['DRAFT', 'RETURNED'].includes(prev.status))) return 'Phương án đã gửi/duyệt đang khóa.';
-  if (prev?.status === 'DRAFT' && prev.stops.length > 2) return 'Bản nháp đã có dữ liệu. Tự chỉnh hoặc đặt lại kịch bản trước khi điền lại.';
-  const qn = demoPlace('PL-DEMO-F3-QN', 'Quy Nhơn · Trại nghỉ Demo 24/7', 13.783, 109.219), nt = demoPlace('PL-DEMO-F3-NT', 'Nha Trang · Trại nghỉ Demo 24/7', 12.2388, 109.1967);
-  const cn = demoPlace('PL-DEMO-F3-CN', 'Cà Ná · Điểm nghỉ Demo 24/7', 11.34, 108.88), sh = demoPlace('PL-DEMO-F3-SH', 'Sa Huỳnh · Điểm nghỉ Demo 24/7', 14.63, 109.05);
-  const POL = ROUTE_POLICY;
-  const rest = (p: Any, long = false) => ({ name: p.name, type: 'REST_STOP', plannedAt: '', placeId: p.id, lat: p.lat, lng: p.lng, required: false, purposes: ['REST'], dwellMin: long ? POL.recoveryRestH * 60 : Math.max(45, POL.shortRestMin), unload: long, careNote: long ? 'Xuống xe, nghỉ hồi phục, kiểm tra sức khỏe và bổ sung nước/thức ăn (mẫu).' : 'Nghỉ chăm sóc, kiểm tra ngựa và bổ sung nước/thức ăn (mẫu).' });
-  const rt = prev?.status === 'DRAFT' ? prev : { v: (prev?.v || 0) + 1, status: 'DRAFT', submittedAt: null, decidedAt: null, note: 'Phương án mẫu cho demo Flow 3', stops: [] as Any[] };
-  if (rt !== prev) t.routes.push(rt);
-  rt.stops = [stop(r.pickup.name, 'ORIGIN', t.plannedDepart), rest(placeById('PL-114')), rest(sh), rest(qn, true), rest(placeById('PL-115')), rest(nt, true), rest(cn), rest(placeById('PL-111')), rest(placeById('PL-110')), stop(r.delivery.name, 'DESTINATION', t.eta)];
-  // nguồn lực mẫu
-  if (!vehicle('VH-DEMO-F3')) db.vehicles.push({ ...clone(db.vehicles.find((v: Any) => fleetCountry(v) === 'VN' && v.status === 'READY')), id: 'VH-DEMO-F3', plate: 'DEMO-F3', model: 'Xe chở ngựa mẫu', country: 'VN', base: 'Da Nang', status: 'READY', stalls: 4, demoFlow3: true });
-  t.vehicleId = 'VH-DEMO-F3'; t.crew = {};
-  for (const [role, suffix, name] of [['MAIN_DRIVER', 'MAIN', 'Tài xế chính'], ['CO_DRIVER', 'CO', 'Phụ lái'], ['VETERINARIAN', 'VET', 'Bác sĩ thú y']]) {
-    const id = 'EMP-DEMO-F3-' + suffix;
-    if (!emp(id)) db.employees.push({ ...clone(db.employees.find((e: Any) => e.country === 'VN' && (role === 'VETERINARIAN' ? isVet(e) : isDriver(e)))), id, name: name + ' (Demo)', country: 'VN', serviceAreas: ['VN', 'Da Nang', 'Ho Chi Minh City'], role: role === 'VETERINARIAN' ? 'ESCORT' : 'DRIVER', position: role === 'VETERINARIAN' ? 'VETERINARIAN' : 'DRIVER', certExpiry: '2035-12-31', status: 'ACTIVE', avail: { status: 'AVAILABLE', from: '', to: '', note: '' }, demoFlow3: true });
-    t.crew[role] = id;
-  }
-  t.resourcesConfirmed = null;
-  rpEnsure(t, rt); RP(t.id).routing = { status: 'idle' }; rpRoute(t, true);
-  const calc = rpCalc(t);
-  if (!calc || calc.issues.length) return 'Phương án mẫu cần rà soát theo cấu hình hiện tại: ' + JSON.stringify(calc?.issues || []);
-  rpWriteTimes(t, rt, calc); RP(t.id).routing.key = rpRouteKey(t, rt);
-  audit('Demo filled route and resources', t.id, 'v' + rt.v + '; not confirmed or submitted');
-  return '';
-}
-function demoBlank() {
-  return { id: EMPTY_PLAN_ID, requestId: 'TRN-DEMO-F3', demoFlow3: true, mode: 'ROAD', status: 'PLANNING', createdAt: '2026-10-27', transit: [],
-    deployment: { status: 'CONFIRMED', at: '2026-10-27 09:00', by: DEMO_MGR[0], note: 'Triển khai sẵn cho demo lập kế hoạch', assignees: { coordinator: db.users.coordinator.id, specialist: db.users.specialist.id } },
-    plannedDepart: '2026-11-05 05:00', eta: '2026-11-07 17:00', deliveryDeadline: '2026-11-08 23:59', vehicleId: null, crew: {}, insurance: null, routes: [], milestones: [], health: [], handover: null, flight: null, resourcesConfirmed: null };
-}
-export function emptyPlanDemo(action: string) {
-  const t = trip(EMPTY_PLAN_ID); if (!t) return toast('Không tìm thấy kế hoạch demo.');
-  if (action === 'open') return go(`f/trip/${EMPTY_PLAN_ID}/route`);
-  if (action === 'fill') { const err = demoFill(); if (err) return toast(err); go(`f/trip/${EMPTY_PLAN_ID}/route`); commit(); return; }
-  if (action === 'confirm') return resourceConfirm(EMPTY_PLAN_ID);
-  if (action === 'submit') return routeSubmit(EMPTY_PLAN_ID);
-  if (action === 'approve' || action === 'return') {
-    if (curRoute(t)?.status !== 'PENDING_APPROVAL') return toast('Gửi phương án trước khi mô phỏng quyết định Manager.');
-    const rt = curRoute(t);
-    if (action === 'approve') return confirmAction(`Duyệt tuyến phiên bản ${rt.v}?`, 'Mô phỏng quyết định của Quản lý vận hành. Chuyến vẫn đang chuẩn bị, chưa được phép khởi hành.', 'Duyệt tuyến', () => { demoApprove(t); toast(`Demo: Quản lý đã duyệt tuyến ${t.id} v${rt.v}.`); });
-    return openModal({
-      title: `Trả lại tuyến phiên bản ${rt.v}`, ok: 'Trả lại điều phối viên', init: { reason: '' },
-      body: () => <Field label="Góp ý *"><Txt name="reason" placeholder="Cần thay đổi gì?" /></Field>,
-      onOk: (v) => { if (String(v.reason).trim().length < 5) return 'Nhập góp ý (ít nhất 5 ký tự).'; demoReturn(t, String(v.reason).trim()); },
-    });
-  }
-  if (action === 'reset') return openModal({
-    title: 'Đặt lại riêng kế hoạch Demo?', ok: 'Đặt lại kế hoạch trống',
-    body: () => <p>Xóa kế hoạch của TRP-DEMO-F3 để trình bày lại từ đầu. Các chuyến khác được giữ nguyên.</p>,
-    onOk: () => {
-      Object.keys(t).forEach((k) => delete t[k]); Object.assign(t, demoBlank()); delete rpState[EMPTY_PLAN_ID];
-      db.notifications.filter((n: Any) => String(n.go || '').includes(EMPTY_PLAN_ID)).forEach((n: Any) => { n.read = true; });
-      audit('Reset isolated Flow 3 demo', EMPTY_PLAN_ID, 'Empty planning fixture'); go(`f/trip/${EMPTY_PLAN_ID}/route`);
-    },
-  });
 }

@@ -254,66 +254,6 @@ export const PickupAccessCard: React.FC<PickupAccessCardProps> = ({ t, onUpdated
     }
   };
 
-  // Quick Demo Simulator actions
-  const simulateManagerApproveAndSend = () => {
-    if (!t.pickupRelocation) return;
-    t.pickupRelocation.status = 'AWAITING_CUSTOMER';
-    t.pickupRelocation.sentAt = nowStamp();
-    const sharedList = getSharedRequests();
-    const sReq = sharedList.find((r: Any) => r.id === t.requestId || r.id === t.id);
-    if (sReq) {
-      sReq.pickupRelocation = t.pickupRelocation;
-      saveSharedRequest(sReq);
-    }
-    commit();
-    toast('Đã mô phỏng: Quản lý đã duyệt và gửi đề xuất cho Khách hàng qua Cổng thông tin (F3-J56)!');
-    onUpdated?.();
-  };
-
-  const simulateCustomerDecision = (decision: 'ACCEPT' | 'REJECT') => {
-    if (!t.pickupRelocation) return;
-    if (decision === 'ACCEPT') {
-      t.pickupRelocation.status = 'CUSTOMER_CONFIRMED';
-      t.pickupRelocation.customerReply = {
-        decision: 'ACCEPT',
-        note: 'Khách hàng đồng ý chuyển điểm đón ngựa ra bãi tập kết mới',
-        at: nowStamp(),
-      };
-      // Update effective origin in route
-      t.effectiveOriginPlaceId = t.pickupRelocation.candidatePlaceId;
-      if (t.routes && t.routes.length > 0) {
-        const cur = t.routes[t.routes.length - 1];
-        if (cur?.stops && cur.stops.length > 0) {
-          const originStop = cur.stops.find((s: Any) => s.type === 'ORIGIN') || cur.stops[0];
-          originStop.name = t.pickupRelocation.placeName || originStop.name;
-          originStop.address = t.pickupRelocation.placeAddress || originStop.address;
-          if (t.pickupRelocation.placeSnapshot?.geo) {
-            originStop.lat = t.pickupRelocation.placeSnapshot.geo.lat;
-            originStop.lng = t.pickupRelocation.placeSnapshot.geo.lng;
-          }
-        }
-      }
-      toast('Đã mô phỏng: Khách hàng ĐỒNG Ý đổi điểm đón! Lộ trình đã được cập nhật sang điểm mới.');
-    } else {
-      t.pickupRelocation.status = 'CUSTOMER_REJECTED';
-      t.pickupRelocation.customerReply = {
-        decision: 'REJECT',
-        note: 'Điểm đề xuất quá xa trang trại (12km), không tiện di chuyển ngựa.',
-        at: nowStamp(),
-      };
-      toast('Đã mô phỏng: Khách hàng TỪ CHỐI đổi điểm đón. Giữ nguyên điểm cũ và báo Điều phối viên đề xuất lại.');
-    }
-
-    const sharedList = getSharedRequests();
-    const sReq = sharedList.find((r: Any) => r.id === t.requestId || r.id === t.id);
-    if (sReq) {
-      sReq.pickupRelocation = t.pickupRelocation;
-      saveSharedRequest(sReq);
-    }
-    commit();
-    onUpdated?.();
-  };
-
   const pa = t.pickupAccess;
   const pr = t.pickupRelocation;
   const isInaccessible = pa?.result === 'INACCESSIBLE';
@@ -503,37 +443,6 @@ export const PickupAccessCard: React.FC<PickupAccessCardProps> = ({ t, onUpdated
                 </div>
               )}
 
-              {/* Quick simulation bar for testing & demo */}
-              <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed #cbd5e1', display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ fontSize: 10, color: '#64748b', fontWeight: 600 }}>Demo test:</span>
-                {pr.status === 'PROPOSED' && (
-                  <button
-                    type="button"
-                    onClick={simulateManagerApproveAndSend}
-                    style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#e0e7ff', color: '#4338ca', border: '1px solid #c7d2fe', cursor: 'pointer' }}
-                  >
-                    Mô phỏng Quản lý duyệt &amp; gửi khách
-                  </button>
-                )}
-                {pr.status === 'AWAITING_CUSTOMER' && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => simulateCustomerDecision('ACCEPT')}
-                      style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', cursor: 'pointer' }}
-                    >
-                      Mô phỏng Khách Đồng ý (ACCEPT)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => simulateCustomerDecision('REJECT')}
-                      style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', cursor: 'pointer' }}
-                    >
-                      Mô phỏng Khách Từ chối (REJECT)
-                    </button>
-                  </>
-                )}
-              </div>
             </div>
           )}
         </div>

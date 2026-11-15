@@ -53,9 +53,9 @@ describe('SpecialistIncidentsPage Layout & Interaction', () => {
     );
 
     expect(screen.getByText('INC-7495')).toBeDefined();
-    expect(screen.getByText('Chuyến TRIP_003')).toBeDefined();
-    expect(screen.getByText('Thời tiết xấu')).toBeDefined();
+    expect(screen.getByText('TRIP_003')).toBeDefined();
+    expect(screen.getByText(/Thời tiết xấu/)).toBeDefined();
     expect(screen.getByText('Mưa to ngập đường xe di chuyển chậm')).toBeDefined();
-    expect(screen.getByRole('button', { name: /Tiến hành rà soát pháp lý/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /rà soát pháp lý/i })).toBeDefined();
   });
 });

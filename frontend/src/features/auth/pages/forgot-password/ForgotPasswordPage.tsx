@@ -26,34 +26,6 @@ function ForgotPasswordPage() {
     const normalizedEmail = email.trim().toLowerCase();
 
     /*
-      DEMO MODE
-
-      Chỉ hoạt động khi:
-      VITE_ENABLE_AUTH_DEMO=true
-
-      Không gọi Backend.
-    */
-    const isDemoEnabled =
-      import.meta.env.VITE_ENABLE_AUTH_DEMO === "true";
-
-    const demoEmail =
-      import.meta.env.VITE_DEMO_EMAIL?.toLowerCase();
-
-    if (
-      isDemoEnabled &&
-      demoEmail &&
-      normalizedEmail === demoEmail
-    ) {
-      navigate("/reset-password?demo=true", {
-        state: {
-          email: normalizedEmail,
-        },
-      });
-
-      return;
-    }
-
-    /*
       REAL API
     */
     setIsLoading(true);

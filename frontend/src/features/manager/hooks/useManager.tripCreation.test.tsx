@@ -9,7 +9,6 @@ const api = vi.hoisted(() => ({
   getRequest: vi.fn(),
 }));
 vi.mock('../api/managerApi', () => ({ managerApi: api }));
-vi.mock('../../../shared/context/DemoModeContext', () => ({ getDemoMode: () => false }));
 vi.mock('../../../shared/utils/syncChannel', () => ({
   createSyncController: () => ({ subscribe: () => () => {} }), notifySync: vi.fn(),
 }));

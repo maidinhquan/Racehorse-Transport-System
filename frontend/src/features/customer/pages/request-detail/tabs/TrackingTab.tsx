@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import type { TransportRequest, Trip, TripStatus } from '../../../types';
 import { cityLabel, fmtDateTime, tripSummary } from '../../../hooks/customerRules';
 import { Icon } from '../../../components/CustomerLayout';
-import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
 import { LockedCard, Note } from '../../../components/Common/Common';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
 import { CustomerRelocationCard } from '../../../components/RelocationProposal/CustomerRelocationCard';
@@ -179,7 +178,6 @@ export const TrackingTab: React.FC<{ request: TransportRequest }> = ({ request: 
           <p className="cus-muted" style={{ marginTop: 12 }}>Theo dõi hiển thị mốc cuối cùng do tổ xe xác nhận. Không có vị trí GPS trực tiếp giữa các mốc.</p>
         </div>
       </div>
-      <DemoPanel request={r} />
     </div>
   );
 };

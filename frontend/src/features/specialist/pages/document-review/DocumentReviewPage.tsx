@@ -4,7 +4,6 @@ import { SpecialistLayout, Icon } from '../../components/SpecialistLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { Note, openSampleFile } from '../../components/Common/Common';
 import { Modal } from '../../components/Modals';
-import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { GROUP_VI, PROVIDER_VI, SCOPE_VI, docEffective, docType, fmtDate, fmtDateTime, horseName, latestVersion, opsBlock } from '../../hooks/specialistRules';
 import { getUserFullName } from '../../../../shared/utils/userNameResolver';
@@ -53,7 +52,7 @@ export const DocumentReviewPage: React.FC = () => {
         <div className="spc-stack">
           <div className="spc-card">
             <h3 className="spc-card__title">Phiên bản {v ? `v${v.v} • ${v.file}` : '—'} {v && <button type="button" className="spc-btn spc-btn--sm" onClick={() => openSampleFile(v.file)}>Mở tệp</button>}</h3>
-            <div className="spc-docrev__preview"><div><b>{dt?.name}</b>Bản xem trước mẫu • bản demo không có bản scan thật</div></div>
+            <div className="spc-docrev__preview"><div><b>{dt?.name}</b>Chưa có bản xem trước cho tài liệu này</div></div>
           </div>
           <div className="spc-card">
             <h3 className="spc-card__title">Thông tin chứng từ</h3>
@@ -97,7 +96,6 @@ export const DocumentReviewPage: React.FC = () => {
             ) : <p className="spc-muted" style={{ marginTop: 8 }}>Chưa có quyết định.</p>}
           </div>
           <p className="spc-muted">Chứng từ CBN ghi nhận là bản ghi những gì cơ quan chức năng đã cấp; bản ghi tự nó không chứng minh lô hàng đã được chấp thuận.</p>
-          <DemoPanel trip={t} />
         </div>
       </div>
 

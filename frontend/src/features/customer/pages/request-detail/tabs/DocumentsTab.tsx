@@ -5,7 +5,6 @@ import { useCustomer } from '../../../hooks/useCustomer';
 import { isActive } from '../../../hooks/customerRules';
 import { RequestDocuments } from '../../../components/DocumentList/DocumentList';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
-import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
 import { Note } from '../../../components/Common/Common';
 
 const COMPANY_DOC_LABEL = { NOT_STARTED: 'Chưa bắt đầu', PROCESSING: 'Đang xử lý', COMPLETED: 'Hoàn tất' } as const;
@@ -56,7 +55,6 @@ export const DocumentsTab: React.FC<{ request: TransportRequest }> = ({ request:
         )}
       </div>
       <div className="cus-stack">
-        <DemoPanel request={r} />
       </div>
     </div>
   );

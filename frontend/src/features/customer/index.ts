@@ -2,7 +2,6 @@
 export * from './types';
 export * from './api/customerApi';
 export * from './api/customerEndpoints';
-export * from './data/mockData';
 export * from './hooks/useCustomer';
 export * from './hooks/useCustomerFilter';
 export * from './hooks/customerRules';

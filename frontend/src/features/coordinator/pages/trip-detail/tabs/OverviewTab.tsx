@@ -1,6 +1,5 @@
 // Chi tiết chuyến của Điều phối: Tổng quan • Tuyến đường (lập lộ trình) • Xe & nhân sự • Chuyến bay • Theo dõi hành trình
 import { Cell } from '../../../components/common/ui';
-import { DemoCard } from '../../../components/demo/Demo';
 import { custOf, reqOfTrip, tripHorses } from '../../../domain/coordinatorRules';
 import type { Any } from '../../../store/coordinatorStore';
 import { city, date, dt, human } from '../../../utils/format';
@@ -117,7 +116,6 @@ export function OverviewTab({ t }: { t: Any }) {
             {cust.address ? <div style={{ fontSize: 12, color: '#64748b', marginTop: 4, lineHeight: 1.4 }}>Địa chỉ: {cust.address}</div> : null}
           </div>
         </div>
-        {t.demoFlow3 ? null : <DemoCard current={t.id} />}
       </div>
     </div>
   );

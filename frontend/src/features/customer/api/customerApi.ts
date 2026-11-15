@@ -2,23 +2,9 @@ import { apiRequest } from '../../../shared/api/apiRequest';
 import { contractClient, withRouteList, type FormOptions } from '../../../shared/api/contractClient';
 import { apiMessage } from '../../../shared/api/apiError';
 import type { ComplaintInput, ContractChangeInput, CustomerNotification, CustomerProfile, FileRef, Horse, HorseInput, Place, TransportRequest, TripInfoInput, ContractVersion, DocRecord, Payment } from '../types';
-import { city, getCityId, registerBackendCity } from '../hooks/customerRules';
+import { city, registerBackendCity } from '../hooks/customerRules';
 import { CUSTOMER_ENDPOINTS } from './customerEndpoints';
-import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import { attachContractFeedback, contractFromWire, documentKey, fileFromWire, paymentFromWire, refundFromWire, utcMs, type WirePayment, type WireHorse, type WireContract } from '../../../shared/api/flow1Wire';
-
-export const DEFAULT_FORM_OPTIONS: FormOptions = {
-  currency: 'VND',
-  preparationDays: 3,
-  defaultDepositPct: 30,
-  contractDeadlineHours: 24,
-  maxHorsesPerRequest: 6,
-  supportedRoutes: [
-    { id: 'ROUTE_001', originCountry: 'VN', destinationCountry: 'VN', mode: 'ROAD' },
-    { id: 'ROUTE_002', originCountry: 'VN', destinationCountry: 'VN', mode: 'AIR' },
-    { id: 'ROUTE_003', originCountry: 'VN', destinationCountry: 'JP', mode: 'AIR' },
-  ],
-};
 
 const horseBody = (h: HorseInput) => ({
   name: h.name.trim(), breed: h.breed.trim(), sex: h.sex, dob: h.dob,
@@ -125,7 +111,7 @@ export const toHorseContractId = (id: string): string => {
 };
 
 export type HorseFileType = 'photo' | 'passport' | 'ownership' | 'value-proof' | 'flu' | 'health';
-const DOCUMENT_TYPES: Record<string, string> = { passport: 'PASSPORT', ownership: 'OWNERSHIP', valueProof: 'VALUATION', flu: 'VACCINATION', health: 'HEALTH_CERTIFICATE' };
+const DOCUMENT_FILE_TYPES: Record<string, HorseFileType> = { passport: 'passport', ownership: 'ownership', valueProof: 'value-proof', flu: 'flu', health: 'health' };
 
 const contactBody = (p?: Partial<Place>, fallbackCity?: string, isDelivery = false) => {
   void fallbackCity;
@@ -250,105 +236,19 @@ export const customerApi = {
   markNotificationRead: (id: string) => contractClient('post', `/customer/notifications/${id}/read`),
   markAllNotificationsRead: () => contractClient('post', '/customer/notifications/read-all'),
   getFormOptions: async (origin?: string, destination?: string, mode?: string): Promise<FormOptions> => {
-    try {
-      return withRouteList(await contractClient<FormOptions>('get', '/customer/request-form-options', undefined, {
-        ...(origin ? { originCountry: city(origin).country } : {}), ...(destination ? { destinationCountry: city(destination).country } : {}),
-        ...(mode || destination ? { mode: mode || (city(destination!).country === 'JP' ? 'AIR' : 'ROAD') } : {}),
-      }));
-    } catch (error) {
-      if (!getDemoMode('customer')) throw error;
-      return {
-        ...DEFAULT_FORM_OPTIONS,
-        preparationDays: destination && city(destination).country === 'JP' ? 7 : 3,
-        minTransitDays: destination && city(destination).country === 'JP' ? 2 : 0,
-      };
-    }
+    return withRouteList(await contractClient<FormOptions>('get', '/customer/request-form-options', undefined, {
+      ...(origin ? { originCountry: city(origin).country } : {}), ...(destination ? { destinationCountry: city(destination).country } : {}),
+      ...(mode || destination ? { mode: mode || (city(destination!).country === 'JP' ? 'AIR' : 'ROAD') } : {}),
+    }));
   },
   getCities: async (country = 'VN', q = '') => {
-    try {
-      const res = await contractClient<Array<{ cityId: string; label: string; countryCode: string }>>('get', '/locations/cities', undefined, { country, q });
-      if (res && res.length > 0) return res;
-    } catch (error) { if (!getDemoMode('customer')) throw error; }
-    return [];
+    const res = await contractClient<Array<{ cityId: string; label: string; countryCode: string }>>('get', '/locations/cities', undefined, { country, q });
+    return res && res.length > 0 ? res : [];
   },
-  searchLocations: async (address: string, country = 'VN', cityName?: string, cityId?: string) => {
-    try {
-      const targetCityId = cityId || (getDemoMode('customer') && cityName ? getCityId(cityName) : undefined);
-      const queryParams: Record<string, string> = { q: address, country };
-      if (targetCityId) queryParams.cityId = targetCityId;
-      const res = await contractClient<Array<{ label: string; point: { latitude: number; longitude: number; countryCode: string } }>>('get', '/locations/search', undefined, queryParams);
-      if (!getDemoMode('customer') || res?.length) return res;
-    } catch (error) { if (!getDemoMode('customer')) throw error; }
-
-    const q = address.trim();
-    const cityUpper = (cityName || '').toLowerCase();
-
-    if (country === 'JP' || cityUpper.includes('tokyo') || cityUpper.includes('chiba') || cityUpper.includes('osaka')) {
-      const jpList = [
-        { label: 'Tokyo Racecourse, 1-1 Hiyoshicho, Fuchu, Tokyo', point: { latitude: 35.6631, longitude: 139.4831, countryCode: 'JP' } },
-        { label: 'Oi Racecourse, 2-1-2 Katsushima, Shinagawa-ku, Tokyo', point: { latitude: 35.5947, longitude: 139.7431, countryCode: 'JP' } },
-        { label: 'Nakayama Racecourse, 1-1-1 Kosaku, Funabashi, Chiba', point: { latitude: 35.7272, longitude: 139.9619, countryCode: 'JP' } },
-        { label: 'JRA Equestrian Park, Kamiyoga, Setagaya-ku, Tokyo', point: { latitude: 35.6358, longitude: 139.6309, countryCode: 'JP' } },
-      ];
-      if (!q) return jpList;
-      const matched = jpList.filter(item => item.label.toLowerCase().includes(q.toLowerCase()));
-      return matched.length > 0 ? matched : [
-        { label: `${q}, Fuchu, Tokyo`, point: { latitude: 35.6631, longitude: 139.4831, countryCode: 'JP' } },
-        { label: `${q}, Shinagawa-ku, Tokyo`, point: { latitude: 35.5947, longitude: 139.7431, countryCode: 'JP' } },
-        { label: `${q}, Funabashi, Chiba`, point: { latitude: 35.7272, longitude: 139.9619, countryCode: 'JP' } },
-      ];
-    }
-
-    const vnDirectory: Record<string, Array<{ label: string; point: { latitude: number; longitude: number; countryCode: string } }>> = {
-      hcmc: [
-        { label: 'CLB Cưỡi ngựa Saigon, Phường An Phú, TP. Thủ Đức, TP.HCM', point: { latitude: 10.8015, longitude: 106.7465, countryCode: 'VN' } },
-        { label: 'Trường đua Phú Thọ, Phường 15, Quận 11, TP. Hồ Chí Minh', point: { latitude: 10.7686, longitude: 106.6534, countryCode: 'VN' } },
-        { label: 'Trang trại ngựa Củ Chi, Xã An Nhơn Tây, Huyện Củ Chi, TP. Hồ Chí Minh', point: { latitude: 11.0825, longitude: 106.4952, countryCode: 'VN' } },
-        { label: 'Trung tâm huấn luyện Thủ Thiêm, Phường An Khánh, TP. Thủ Đức, TP.HCM', point: { latitude: 10.7716, longitude: 106.7212, countryCode: 'VN' } },
-        { label: 'Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh', point: { latitude: 10.7769, longitude: 106.7009, countryCode: 'VN' } },
-      ],
-      hanoi: [
-        { label: 'Trường đua ngựa Sóc Sơn, Xã Tân Minh, Huyện Sóc Sơn, TP. Hà Nội', point: { latitude: 21.2721, longitude: 105.8475, countryCode: 'VN' } },
-        { label: 'CLB Cưỡi ngựa Hà Nội, Phường Quảng An, Quận Tây Hồ, TP. Hà Nội', point: { latitude: 21.0664, longitude: 105.8282, countryCode: 'VN' } },
-        { label: 'Trang trại ngựa Gia Lâm, Thị trấn Trâu Quỳ, Huyện Gia Lâm, TP. Hà Nội', point: { latitude: 21.0069, longitude: 105.9318, countryCode: 'VN' } },
-        { label: 'Khu liên hợp thể thao Mỹ Đình, Quận Nam Từ Liêm, TP. Hà Nội', point: { latitude: 21.0205, longitude: 105.7642, countryCode: 'VN' } },
-      ],
-      bd: [
-        { label: 'Trường đua Đại Nam, Phường Hiệp An, TP. Thủ Dầu Một, Bình Dương', point: { latitude: 11.0268, longitude: 106.6269, countryCode: 'VN' } },
-        { label: 'Trang trại ngựa Dĩ An, Phường Tân Bình, TP. Dĩ An, Bình Dương', point: { latitude: 10.9258, longitude: 106.7685, countryCode: 'VN' } },
-        { label: 'CLB Ngựa Bến Cát, Xã An Điền, Thị xã Bến Cát, Bình Dương', point: { latitude: 11.1345, longitude: 106.5824, countryCode: 'VN' } },
-      ],
-      danang: [
-        { label: 'Trung tâm thể thao cưỡi ngựa Hòa Vang, Xã Hòa Khương, Huyện Hòa Vang, TP. Đà Nẵng', point: { latitude: 16.0125, longitude: 108.1458, countryCode: 'VN' } },
-        { label: 'Khu liên hợp thể thao Hòa Xuân, Quận Cẩm Lệ, TP. Đà Nẵng', point: { latitude: 15.9984, longitude: 108.2198, countryCode: 'VN' } },
-        { label: 'Bạch Đằng, Phường Hải Châu 1, Quận Hải Châu, TP. Đà Nẵng', point: { latitude: 16.0544, longitude: 108.2022, countryCode: 'VN' } },
-      ],
-    };
-
-    let targetList: Array<{ label: string; point: { latitude: number; longitude: number; countryCode: string } }> = [];
-    if (cityUpper.includes('ho chi minh') || cityUpper.includes('hcmc') || cityUpper.includes('sài gòn')) {
-      targetList = vnDirectory.hcmc;
-    } else if (cityUpper.includes('hanoi') || cityUpper.includes('hà nội')) {
-      targetList = vnDirectory.hanoi;
-    } else if (cityUpper.includes('binh duong') || cityUpper.includes('bình dương')) {
-      targetList = vnDirectory.bd;
-    } else if (cityUpper.includes('da nang') || cityUpper.includes('đà nẵng')) {
-      targetList = vnDirectory.danang;
-    } else {
-      targetList = [...vnDirectory.hcmc, ...vnDirectory.hanoi, ...vnDirectory.bd, ...vnDirectory.danang];
-    }
-
-    if (!q) return targetList;
-
-    const matched = targetList.filter(item => item.label.toLowerCase().includes(q.toLowerCase()));
-    if (matched.length > 0) return matched;
-
-    const basePoint = targetList[0]?.point ?? { latitude: 10.7769, longitude: 106.7009, countryCode: 'VN' };
-    const citySuffix = cityName ? `, ${cityName}` : ', TP. Hồ Chí Minh';
-    return [
-      { label: `${q}${q.includes(cityName || '') ? '' : citySuffix}`, point: basePoint },
-      ...targetList.slice(0, 3),
-    ];
+  searchLocations: async (address: string, country = 'VN', _cityName?: string, cityId?: string) => {
+    const queryParams: Record<string, string> = { q: address, country };
+    if (cityId) queryParams.cityId = cityId;
+    return contractClient<Array<{ label: string; point: { latitude: number; longitude: number; countryCode: string } }>>('get', '/locations/search', undefined, queryParams);
   },
   createHorse: async (body: HorseInput) => {
     const horse = await contractClient<Horse>('post', '/customer/horses', horseBody(body));
@@ -381,15 +281,12 @@ export const customerApi = {
     } catch (error) { return { ok: false, message: apiMessage(error) }; }
   },
   cancelRequest: (id: string, reason: string) => contractClient<{ requestStatus: TransportRequest['status'] }>('post', `/customer/requests/${id}/cancel`, { reason }),
-  uploadDocument: async (requestId: string, key: string, scope: string, file: FileRef, expiryDate?: string) => {
+  uploadDocument: async (_requestId: string, key: string, scope: string, file: FileRef) => {
     if (!file.file) throw new Error('Chọn tệp thật từ máy trước khi tải lên.');
-    const documentType = DOCUMENT_TYPES[key];
-    if (!documentType) throw new Error('Loại giấy tờ không có trong contract Flow 1.');
-    const data = new FormData(); data.append('file', file.file); data.append('documentType', documentType);
-    if (expiryDate) data.append('expiryDate', expiryDate);
-    const reqId = toContractId(requestId);
-    const horseId = toContractId(scope);
-    return contractClient<DocRecord>('post', `/customer/requests/${reqId}/horses/${horseId}/documents`, data);
+    const fileType = DOCUMENT_FILE_TYPES[key];
+    if (!fileType) throw new Error('Loại giấy tờ không có trong contract Flow 1.');
+    const saved = await customerApi.uploadHorseFile(toContractId(scope), fileType, file.file);
+    return { file: saved };
   },
   getContractVersion: async (contractId: string, versionNo: number) => contractFromWire(await contractClient<WireContract>('get', `/customer/contracts/${contractId}/versions/${versionNo}`)) as ContractVersion,
   getDeposit: (requestId: string) => contractClient<{ invoiceId: string; canPay: boolean; transactions: Array<Payment & { receivedAmount?: number; paidAt?: string }> }>('get', `/customer/requests/${requestId}/deposit`),
@@ -419,7 +316,6 @@ export const customerApi = {
   payBalance: (id: string) => apiRequest('post', CUSTOMER_ENDPOINTS.BALANCE_PAYMENT(id)),
   confirmAcceptance: (id: string) => apiRequest('post', CUSTOMER_ENDPOINTS.ACCEPTANCE(id)),
   raiseComplaint: (_id: string, body: ComplaintInput) => apiRequest('post', CUSTOMER_ENDPOINTS.COMPLAINTS, body),
-  mockDeposit: async (_id: string) => false,
   // Flow 3: Customer relocation consent
   getPickupRelocation: (tripId: string) =>
     contractClient<any>('get', CUSTOMER_ENDPOINTS.PICKUP_RELOCATION(tripId)),

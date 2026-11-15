@@ -3,7 +3,7 @@
 Dự án SWP391: hệ thống quản lý vận chuyển ngựa đua xuyên quốc gia.
 - `frontend/`: React 19 + Vite + TypeScript, chia theo vai trò trong `frontend/src/features/<vai trò>` (coordinator, manager, customer, specialist, driver, admin…), phần dùng chung ở `frontend/src/shared`.
 - `backend/`: ASP.NET Core 8, Clean Architecture (Domain / Application / Infrastructure / WebApi).
-- Tài liệu cần đọc khi liên quan: `README.md`, `backend_coding_rules.md`, `RULE/ID_NAME_RULE.md`, `RULE/DATABASE_STATUS_CONVENTION.md`, `contracts/` (API contract theo từng flow).
+- Tài liệu cần đọc khi liên quan: `README.md`, `frontend/CODING_RULES.md`, `backend/CODING_RULES.md`, `RULE/ID_NAME_RULE.md`, `RULE/DATABASE_STATUS_CONVENTION.md`, `contracts/` (API contract theo từng flow).
 
 ## 1. Cách làm việc
 

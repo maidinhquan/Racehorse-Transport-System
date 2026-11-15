@@ -19,7 +19,7 @@ import { saveSharedIncident } from '../../../shared/utils/sharedIncidents';
 import { saveSharedNotification } from '../../../shared/utils/sharedNotifications';
 import { tripFromTracking } from '../api/flow4Mapper';
 import { flow4Api } from '../../tracking/api/flow4Api';
-import { DEFAULT_DRIVER_USER, mockCrew, mockHorses, mockIncidents, mockTrips, mockDriverNotifications, type DriverNotification } from '../data/mockData';
+import type { DriverNotification } from '../types';
 import {
   INCIDENT_TYPE_LABEL,
   delayPending,
@@ -31,7 +31,6 @@ import {
   minutesBetween,
   nextMilestone,
   nowStamp,
-  tripsOf,
   incidentSegment,
   incidentWhere,
   pointOnSegment,
@@ -39,7 +38,6 @@ import {
   lastMilestone,
   openIncidentHold,
 } from './driverRules';
-import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import { flow6Api } from '../../aftercare/api/flow6Api';
 
 // ============================================================================
@@ -64,7 +62,6 @@ interface DriverState {
 }
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
-const USER_KEY = 'rts_driver_user';
 
 /** Mã người dùng của tài khoản đang đăng nhập (claim `sub` trong access token) */
 const tokenUser = () => {
@@ -75,10 +72,7 @@ const tokenUser = () => {
     return typeof payload.sub === 'string' ? payload.sub : '';
   } catch { return ''; }
 };
-const savedUser = () => {
-  if (!getDemoMode('driver')) { const u = tokenUser(); if (u) return u; }
-  try { return sessionStorage.getItem(USER_KEY) || DEFAULT_DRIVER_USER; } catch { return DEFAULT_DRIVER_USER; }
-};
+const savedUser = () => tokenUser();
 
 const cleanId = (s: string) => String(s || '').replace(/[-_]/g, '').toUpperCase();
 const DRIVER_READ_NOTIFS_KEY = 'driver_read_notifications';
@@ -107,28 +101,18 @@ function persistDriverReadNotifIds(ids: string[]): void {
   }
 }
 
-const resolveDriverNotifs = (list: DriverNotification[]): DriverNotification[] => {
-  const readIds = getDriverReadNotifIds();
-  return list.map((n) => ({
-    ...n,
-    read: Boolean(n.read || readIds.has(n.id) || readIds.has(cleanId(n.id))),
-  }));
-};
-
-const initialDemo = getDemoMode('driver');
-const emptyData = { trips: [] as Trip[], crew: [] as CrewMember[], horses: [] as Horse[], incidents: [] as Incident[], notifications: resolveDriverNotifs(clone(mockDriverNotifications)) };
-const demoData = () => ({ trips: clone(mockTrips), crew: clone(mockCrew), horses: clone(mockHorses), incidents: clone(mockIncidents), notifications: resolveDriverNotifs(clone(mockDriverNotifications)) });
+const emptyData = { trips: [] as Trip[], crew: [] as CrewMember[], horses: [] as Horse[], incidents: [] as Incident[], notifications: [] as DriverNotification[] };
 
 let state: DriverState = {
   userId: savedUser(),
-  ...(initialDemo ? demoData() : emptyData),
+  ...emptyData,
   loading: false,
   loaded: false,
   loadedFor: '',
   toast: null,
   drafts: {},
   incidentPhotos: [],
-  notifications: resolveDriverNotifs(clone(mockDriverNotifications)),
+  notifications: [],
 };
 const listeners = new Set<() => void>();
 const setState = (patch: Partial<DriverState> | ((s: DriverState) => Partial<DriverState>)) => {
@@ -151,19 +135,6 @@ const ok = (message: string): ActionResult => { toast(message); return { ok: tru
 const fail = (message: string): ActionResult => ({ ok: false, message });
 
 if (typeof window !== 'undefined') {
-  window.addEventListener('rts_demo_mode_change', (event: Event) => {
-    const detail = (event as CustomEvent<{ role: string; enabled: boolean }>).detail;
-    if (!detail || detail.role !== 'driver') return;
-    if (detail.enabled) {
-      setState({ ...demoData(), loading: false, loaded: true, drafts: {} });
-      toast('Đã bật dữ liệu mẫu & hiển thị nút demo.');
-    } else {
-      setState({ ...emptyData, loading: false, loaded: false, drafts: {} });
-      toast('Đã tắt dữ liệu mẫu & chuyển sang dữ liệu thật từ máy chủ.');
-      void loadAll();
-    }
-  });
-
   const reloadIncidents = async () => {
     try {
       const serverIncidents = await driverApi.getIncidents();
@@ -228,8 +199,6 @@ const updateTrip = (tripId: string, fn: (t: Trip) => Trip) =>
   setState((s) => ({ trips: s.trips.map((t) => (t.id === tripId ? fn(clone(t)) : t)) }));
 const crewName = (id: string) => state.crew.find((c) => c.id === id)?.name ?? id;
 const horseName = (id: string) => state.horses.find((h) => h.id === id)?.name ?? id;
-// Chế độ thật: backend đã lọc chuyến theo tài khoản đăng nhập
-const isMine = (t: Trip) => !getDemoMode('driver') || Object.values(t.crew).includes(state.userId);
 const draftOf = (t: Trip) => state.drafts[t.id] ?? emptyHandoverDraft(t);
 
 /** Dựng một chuyến từ dữ liệu thật: Flow 4 (hành trình) kết hợp Flow 6 (người nhận, trạng thái bàn giao) */
@@ -265,7 +234,7 @@ async function buildLiveTrip(id: string, f6?: { tripId: string; requestId: strin
 /** Làm mới nền dữ liệu chuyến thật (nhật ký sức khỏe, mốc, trạng thái) khi người khác trong tổ xe vừa ghi, không bật trạng thái "đang tải" */
 let refreshingLive = false;
 async function refreshLiveTrips() {
-  if (getDemoMode('driver') || !state.loaded || state.loading || refreshingLive) return;
+  if (!state.loaded || state.loading || refreshingLive) return;
   refreshingLive = true;
   try {
     const [f4Res, f6Res] = await Promise.allSettled([flow4Api.getDriverTrips(), flow6Api.getTrips()]);
@@ -305,48 +274,42 @@ async function loadAll() {
   if (state.loading) return;
   setState({ loading: true });
   try {
-    if (!getDemoMode('driver')) {
-      try {
-        const [f4Res, f6Res, incRes] = await Promise.allSettled([
-          flow4Api.getDriverTrips(),
-          flow6Api.getTrips(),
-          driverApi.getIncidents(),
-        ]);
-        if (f4Res.status === 'rejected' && f6Res.status === 'rejected') throw f6Res.reason;
-        const f4 = f4Res.status === 'fulfilled' ? f4Res.value : [];
-        const f6 = f6Res.status === 'fulfilled' ? f6Res.value : [];
-        const incidents = incRes.status === 'fulfilled' ? incRes.value : [];
-        const ids = [...new Set([...f4.map((x) => x.tripId), ...f6.map((x) => x.tripId)])];
-        const built = await Promise.all(ids.map((id) => buildLiveTrip(id, f6.find((x) => x.tripId === id))));
-        const crewMap = new Map<string, CrewMember>();
-        const horseMap = new Map<string, Horse>();
-        built.forEach((b) => { b.crew.forEach((c) => crewMap.set(c.id, c)); b.horses.forEach((h) => horseMap.set(h.id, h)); });
-        const currentLocals = state.incidents.filter((li) => !incidents.some((srv) => srv.id === li.id));
-        const finalIncidents = [...currentLocals, ...incidents];
-        setState({
-          trips: built.map((b) => b.trip),
-          crew: [...crewMap.values()],
-          horses: [...horseMap.values()],
-          incidents: finalIncidents,
-          userId: tokenUser() || state.userId,
-          loading: false,
-          loaded: true,
-          loadedFor: tokenUser(),
-        });
-        return;
-      } catch (err) {
-        console.warn('[useDriver] Failed to fetch real trips:', err);
-        setState({ ...emptyData, loading: false, loaded: true });
-        return;
-      }
+    try {
+      const [f4Res, f6Res, incRes] = await Promise.allSettled([
+        flow4Api.getDriverTrips(),
+        flow6Api.getTrips(),
+        driverApi.getIncidents(),
+      ]);
+      if (f4Res.status === 'rejected' && f6Res.status === 'rejected') throw f6Res.reason;
+      const f4 = f4Res.status === 'fulfilled' ? f4Res.value : [];
+      const f6 = f6Res.status === 'fulfilled' ? f6Res.value : [];
+      const incidents = incRes.status === 'fulfilled' ? incRes.value : [];
+      const ids = [...new Set([...f4.map((x) => x.tripId), ...f6.map((x) => x.tripId)])];
+      const built = await Promise.all(ids.map((id) => buildLiveTrip(id, f6.find((x) => x.tripId === id))));
+      const crewMap = new Map<string, CrewMember>();
+      const horseMap = new Map<string, Horse>();
+      built.forEach((b) => { b.crew.forEach((c) => crewMap.set(c.id, c)); b.horses.forEach((h) => horseMap.set(h.id, h)); });
+      const currentLocals = state.incidents.filter((li) => !incidents.some((srv) => srv.id === li.id));
+      const finalIncidents = [...currentLocals, ...incidents];
+      setState({
+        trips: built.map((b) => b.trip),
+        crew: [...crewMap.values()],
+        horses: [...horseMap.values()],
+        incidents: finalIncidents,
+        userId: tokenUser() || state.userId,
+        loading: false,
+        loaded: true,
+        loadedFor: tokenUser(),
+      });
+      return;
+    } catch (err) {
+      console.warn('[useDriver] Failed to fetch real trips:', err);
+      setState({ ...emptyData, loading: false, loaded: true });
+      return;
     }
-
-    const [trips, crew, horses, incidents] = await Promise.all([
-      driverApi.getMyTrips(), driverApi.getCrew(), driverApi.getHorses(), driverApi.getIncidents(),
-    ]);
-    setState({ trips, crew, horses, incidents, loading: false, loaded: true });
+  
   } catch {
-    setState({ ...(getDemoMode('driver') ? demoData() : emptyData), loading: false, loaded: true });
+    setState({ ...emptyData, loading: false, loaded: true });
   }
 }
 
@@ -358,16 +321,9 @@ const actions = {
   clearToast: () => setState({ toast: null }),
   showToast: (message: string) => toast(message),
 
-  /** Đổi tài khoản demo (tài xế / bác sĩ thú y) */
-  switchUser(userId: string) {
-    try { sessionStorage.setItem(USER_KEY, userId); } catch { /* ignore */ }
-    setState({ userId });
-    toast(`Đang dùng tài khoản ${crewName(userId)} (demo).`);
-  },
-
   // ---------- Hành trình ----------
   async recordMilestone(tripId: string, atInput: string, note: string): Promise<ActionResult> {
-    const t = findTrip(tripId); if (!t || !isMine(t)) return fail('Không tìm thấy chuyến được giao.');
+    const t = findTrip(tripId); if (!t) return fail('Không tìm thấy chuyến được giao.');
     // Bác sĩ thú y / hộ tống chỉ ghi nhật ký sức khỏe; mốc hành trình do tài xế cập nhật
     const me = state.crew.find((c) => c.id === state.userId);
     if (me && me.role !== 'DRIVER') return fail('Bác sĩ thú y không được cập nhật mốc hành trình. Hãy ghi nhật ký sức khỏe ngựa; mốc do tài xế ghi.');
@@ -384,16 +340,12 @@ const actions = {
     } catch (error) {
       return fail(error instanceof Error && error.message ? error.message : 'Không ghi nhận được mốc.');
     }
-    if (!getDemoMode('driver')) {
-      // Backend đã ghi mốc: lỗi khi tải lại dữ liệu không được làm hỏng kết quả ghi nhận.
-      try {
-        const fresh = await buildLiveTrip(tripId);
-        setState((s) => ({ trips: s.trips.map((x) => (x.id === tripId ? { ...fresh.trip, handover: x.handover, handoverAttempts: x.handoverAttempts, handoverStatus: x.handoverStatus } : x)) }));
-      } catch (error) {
-        console.warn('[useDriver] Đã ghi mốc nhưng chưa làm mới được chuyến:', error);
-      }
-    } else {
-      updateTrip(tripId, (x) => ({ ...x, milestones: [...x.milestones, m], status: n.type === 'DEPARTED' ? 'IN_TRANSIT' : x.status }));
+    // Backend đã ghi mốc: lỗi khi tải lại dữ liệu không được làm hỏng kết quả ghi nhận.
+    try {
+      const fresh = await buildLiveTrip(tripId);
+      setState((s) => ({ trips: s.trips.map((x) => (x.id === tripId ? { ...fresh.trip, handover: x.handover, handoverAttempts: x.handoverAttempts, handoverStatus: x.handoverStatus } : x)) }));
+    } catch (error) {
+      console.warn('[useDriver] Đã ghi mốc nhưng chưa làm mới được chuyến:', error);
     }
     const extra = n.type === 'ARRIVED_CHECKPOINT' ? ' Specialist đã được báo để ghi kết quả thông quan.'
       : n.type === 'ARRIVED_DESTINATION' ? ' Hãy tiến hành bàn giao.' : '';
@@ -567,23 +519,6 @@ const actions = {
     return ok('Đã ghi nhận từ chối bàn giao. Manager đã được thông báo.');
   },
 
-  // ---------- Nút demo (giả lập Specialist / Coordinator / Manager) ----------
-  demoClearance(tripId: string): ActionResult {
-    const t = findTrip(tripId); const n = t && nextMilestone(t);
-    if (!t || !n || n.type !== 'PASSED_CHECKPOINT') return fail('Chuyến không đang chờ thông quan.');
-    updateTrip(tripId, (x) => ({ ...x, clearances: [...x.clearances, { stopIndex: n.stopIndex, result: 'PASSED', notes: 'Hồ sơ hợp lệ, cho qua.', at: nowStamp(), by: 'Hoang Thu Ha' }] }));
-    return ok(`Demo: Specialist ghi thông quan đạt tại ${t.stops[n.stopIndex]?.name ?? 'trạm'}.`);
-  },
-  demoApproveDelay(tripId: string): ActionResult {
-    const t = findTrip(tripId); if (!t?.departureDelay || !delayPending(t)) return fail('Không có báo chậm khởi hành chờ xử lý.');
-    const depart = new Date(t.plannedDepart.replace(' ', 'T'));
-    depart.setDate(depart.getDate() + 1);
-    const p = (n: number) => String(n).padStart(2, '0');
-    const newDepart = `${depart.getFullYear()}-${p(depart.getMonth() + 1)}-${p(depart.getDate())} ${t.plannedDepart.slice(11)}`;
-    updateTrip(tripId, (x) => ({ ...x, plannedDepart: newDepart, departureDelay: x.departureDelay && { ...x.departureDelay, status: 'APPROVED', proposedDepart: newDepart } }));
-    return ok(`Demo: Manager duyệt lịch khởi hành mới ${newDepart}.`);
-  },
-
   markNotificationRead(id: string): void {
     persistDriverReadNotifIds([id]);
     setState((s) => ({
@@ -599,11 +534,6 @@ const actions = {
       };
     });
   },
-  demoResolveRefusal(tripId: string): ActionResult {
-    const t = findTrip(tripId); if (t?.handoverStatus !== 'REFUSED') return fail('Không có lần từ chối cần xử lý.');
-    updateTrip(tripId, (x) => ({ ...x, handoverStatus: undefined }));
-    return ok('Demo: Manager đã xử lý lần từ chối – có thể bàn giao lại.');
-  },
 };
 
 export type DriverActions = typeof actions;
@@ -617,7 +547,7 @@ export const useDriver = () => {
   // Chỉ tải lần đầu: mỗi component gắn vào hook này không được kích hoạt tải lại (tránh vòng lặp khi màn hình đổi giữa "đang tải" và danh sách)
   useEffect(() => {
     // Đăng nhập tài khoản khác trong cùng phiên trang: bỏ dữ liệu chuyến của người trước rồi tải lại theo tài khoản mới
-    if (state.loaded && !getDemoMode('driver') && state.loadedFor !== tokenUser()) {
+    if (state.loaded && state.loadedFor !== tokenUser()) {
       setState({ ...emptyData, loaded: false, loadedFor: '', drafts: {} });
     }
     if (!state.loaded) void loadAll();
@@ -632,10 +562,7 @@ export const useDriver = () => {
     }
     return undefined;
   }, [snap.crew, snap.userId]);
-  const myTrips = useMemo(() => {
-    if (!getDemoMode('driver')) return snap.trips;
-    return tripsOf(snap.trips, snap.userId);
-  }, [snap.trips, snap.userId]);
+  const myTrips = snap.trips;
   const activeTrips = useMemo(() => myTrips.filter(isActiveTrip), [myTrips]);
   const completedTrips = useMemo(() => myTrips.filter((t) => !isActiveTrip(t)), [myTrips]);
   const getTrip = useCallback((id?: string) => myTrips.find((t) => t.id === id), [myTrips]);

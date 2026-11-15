@@ -4,7 +4,7 @@ import { ManagerLayout, Icon } from '../../components/ManagerLayout';
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
 import { ActualCostModal, Modal } from '../../components/Modals';
 import { useManager } from '../../hooks/useManager';
-import { MANAGER_NAME } from '../../data/mockData';
+import { MANAGER_NAME } from '../../types';
 import { PAYER_LABEL, costRows, fmtDate, fmtMoney, today } from '../../hooks/managerRules';
 import { flow6Api } from '../../../aftercare/api/flow6Api';
 import type * as T6 from '../../../aftercare/types/flow6.types';

@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SpecialistLayout, Icon } from '../../components/SpecialistLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { Pager } from '../../components/Common/Common';
-import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { useSpecialistFilter } from '../../hooks/useSpecialistFilter';
 import type { SpecTrip } from '../../types';
@@ -92,7 +91,6 @@ export const AssignedTripsPage: React.FC = () => {
         </div>
       </div>
       <Pager total={f.total} page={f.page} pageCount={f.pageCount} setPage={f.setPage} unit="chuyến" />
-      <DemoPanel />
     </SpecialistLayout>
   );
 };

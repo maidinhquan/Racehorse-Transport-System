@@ -8,10 +8,10 @@ import { useState } from 'react';
 // ============================================================================
 import { Chk, Field, Inp, Sel } from '../components/common/ui';
 import { PlacePickMap } from '../components/maps/LeafletMaps';
-import seed from '../data/seed.json';
+import { DEFAULT_POLICY, DEFAULT_ROUTING } from '../domain/coordinatorConfig';
 import { approvedRoute, canPlan, checkpoint, curRoute, groundCountry, groundLegs, opsBlock, placeById, placeByName, reqOfTrip, trip, tripHorses } from '../domain/coordinatorRules';
 import type { Any } from '../store/coordinatorStore';
-import { audit, closeModal, commit, confirmAction, db, demoOn, flushTripStateToStorage, go, me, nextId, notify, nowStamp, onReset, openModal, savePlacesToStorage, toast, ui } from '../store/coordinatorStore';
+import { audit, closeModal, commit, confirmAction, db, flushTripStateToStorage, go, me, nextId, notify, nowStamp, onReset, openModal, savePlacesToStorage, toast, ui } from '../store/coordinatorStore';
 import { addHours, dt, human, stampMs } from '../utils/format';
 import { saveSharedTrip } from '../../../shared/utils/sharedTrips';
 import { pushPlanToBackend } from './planSync';
@@ -26,15 +26,15 @@ const loadSavedPolicy = (): Any => {
   try {
     const saved = JSON.parse(localStorage.getItem(POLICY_KEY) || 'null');
     if (!saved || typeof saved !== 'object') return {};
-    const base = (seed as Any).policy;
+    const base: Any = DEFAULT_POLICY;
     return Object.fromEntries(Object.keys(base).filter((k) => typeof base[k] === 'number' && Number.isFinite(saved[k]) && saved[k] >= 0).map((k) => [k, saved[k]]));
   } catch {
     return {};
   }
 };
-export const ROUTE_POLICY: Any = { ...clone((seed as Any).policy), ...loadSavedPolicy() };
+export const ROUTE_POLICY: Any = { ...clone(DEFAULT_POLICY), ...loadSavedPolicy() };
 export const ROUTING: Any = {
-  ...clone((seed as Any).routing),
+  ...clone(DEFAULT_ROUTING),
   avoidBorders: true,
   checkBorders: true,
   apiKey: '',
@@ -528,35 +528,17 @@ export function rpSchedule(t: Any, rt: Any, legs: Any[]) {
 /** hạn giao cam kết – không bị kéo dài khi ETA bị sửa */
 export const rpDeadline = (t: Any) => { const r = reqOfTrip(t); return t.deliveryDeadline || r.deliveryDeadline || (r.date ? r.date + ' 23:59' : '') || t.etaOriginal || ''; };
 export const rpState: Record<string, Any> = {};
-onReset(() => { Object.keys(rpState).forEach((k) => delete rpState[k]); routeCache.clear(); Object.assign(ROUTING, clone((seed as Any).routing)); });
+onReset(() => { Object.keys(rpState).forEach((k) => delete rpState[k]); routeCache.clear(); Object.assign(ROUTING, clone(DEFAULT_ROUTING)); });
 export const RP = (id: string) => (rpState[id] = rpState[id] || { seg: null, sel: null, selStop: null, filters: { fn: [], country: '', radius: 25, status: 'ACTIVE', hoursOk: false, capOk: false, loading: false, stabling: false, water: false, onboard: false }, seq: 0, routing: { status: 'idle' }, detour: {} });
 export const rpEditable = (t: Any, rt: Any) => !!rt && rt.status === 'DRAFT' && canPlan(t) && !opsBlock(t, true);
 export const fmtMin = (m: number | null | undefined) => (m == null ? '—' : m < 60 ? `${Math.round(m)} phút` : `${Math.floor(m / 60)} giờ ${String(Math.round(m % 60)).padStart(2, '0')}`);
 export const rpRouteKey = (t: Any, rt: Any) => JSON.stringify([rt.status !== 'DRAFT' && rt.metrics ? rt.metrics.provider : ROUTING.provider, ROUTING.url, t.mode, t.truckProfiles || {}, rt.stops.map((x: Any) => [x.lat, x.lng, x.type])]);
-
-/** chuyến demo lập kế hoạch dùng routing mô phỏng riêng */
-function rpSimulateDemo(t: Any, rt: Any) {
-  const ps = RP(t.id);
-  if (rt.status !== 'DRAFT' && rt.routingSnapshot) { ps.routing = { ...clone(rt.routingSnapshot), key: rpRouteKey(t, rt) }; return; }
-  if (t.mode === 'AIR') {
-    const { groups, airErr } = rpGroups(t, rt);
-    if (!groups || !groups.length) {
-      if (ps.routing.key === rpRouteKey(t, rt) && ps.routing.status === 'no_airports') return;
-      ps.routing = { status: 'no_airports', key: rpRouteKey(t, rt), legs: [], message: airErr };
-      return;
-    }
-  }
-  if (rt.stops.some((s: Any) => s.lat == null || s.lng == null)) { ps.routing = { status: 'error', key: rpRouteKey(t, rt), error: 'Điểm mới chưa có tọa độ.' }; return; }
-  const pts = rt.stops.map((s: Any) => [s.lat, s.lng]);
-  ps.routing = { status: 'ok', key: rpRouteKey(t, rt), sim: true, at: nowStamp(), legs: pts.slice(1).map((p: number[], i: number) => { const km = kmBetween(pts[i], p) * 1.3; return { km, min: km, geom: [pts[i], p] }; }) };
-}
 
 export async function rpRoute(t: Any, force = false) {
   const rt = (t?.status !== 'PLANNING' && approvedRoute(t)) || curRoute(t), ps = RP(t.id); if (!rt) return;
   if (force) rpClearRouteCache();
   rpEnsure(t, rt);
   const key = rpRouteKey(t, rt);
-  if (t.demoFlow3) { if (force || ps.routing.key !== key) { rpSimulateDemo(t, rt); commit(); } return; }
   if (rt.status !== 'DRAFT' && rt.routingSnapshot && rt.scheduleSnapshot) { if (ps.routing.key !== key) { ps.routing = { ...clone(rt.routingSnapshot), key }; commit(); } return; }
   if (!force && ps.routing.key === key && ps.routing.status !== 'idle' && ps.routing.status !== 'error' && ps.routing.status !== 'noroute') return;
   const seq = ++ps.seq;
@@ -687,7 +669,7 @@ export function rpCandidates(t: Any) {
 
 export function rpWriteTimes(t: Any, rt: Any, calc: Any) {
   rt.stops.forEach((s: Any, i: number) => { const r = calc.rows[i]; s.plannedAt = (i === 0 ? r.depart : r.arrive) || s.plannedAt; s.departAt = r.depart || ''; s.type = s.type === 'ORIGIN' || s.type === 'DESTINATION' || s.required ? s.type : stopTypeFor(s.purposes); });
-  rt.metrics = { km: Math.round(calc.km), driveMin: Math.round(calc.driveMin), stopMin: Math.round(calc.stopMin), flyMin: Math.round(calc.flyMin), eta: calc.eta, provider: t.demoFlow3 ? 'SIM' : ROUTING.provider, at: nowStamp() };
+  rt.metrics = { km: Math.round(calc.km), driveMin: Math.round(calc.driveMin), stopMin: Math.round(calc.stopMin), flyMin: Math.round(calc.flyMin), eta: calc.eta, provider: ROUTING.provider, at: nowStamp() };
   rt.geom = (RP(t.id).routing.legs || []).map((l: Any) => (l ? l.geom : null));
   rt.stops.forEach((s: Any) => { if (s.placeId && placeById(s.placeId)) s.placeSnapshot = clone(placeById(s.placeId)); });
   rt.scheduleSnapshot = clone(calc); rt.policySnapshot = clone(ROUTE_POLICY);
@@ -1454,7 +1436,7 @@ export function submitRoadRoute(id: string, extraCheck?: () => string, onSubmitt
     flushTripStateToStorage();
     saveSharedTrip(t);
     flushTripStateToStorage();
-    void pushPlanToBackend(t).then((err) => { if (err && !demoOn()) toast('Chưa gửi được phương án lên máy chủ: ' + err); });
+    void pushPlanToBackend(t).then((err) => { if (err) toast('Chưa gửi được phương án lên máy chủ: ' + err); });
     notify('LOGISTICS_MANAGER', `Tuyến ${t.id} cần duyệt`, `v${rt.v} · ${rt.stops.length} điểm dừng`, `m/trip/${t.id}/route`);
     audit('Submitted road route', id, `Version ${rt.v}`);
     toast(`Đã gửi tuyến phiên bản ${rt.v} cho Manager duyệt.`);

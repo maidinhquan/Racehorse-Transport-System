@@ -1,10 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { Place, RequestField } from '../../types';
-import { BOOKING_DESTINATIONS, BOOKING_ORIGINS, city, cityLabel, getCityId, getDefaultCoordinates } from '../../hooks/customerRules';
+import { BOOKING_DESTINATIONS, BOOKING_ORIGINS, city, cityLabel, getDefaultCoordinates } from '../../hooks/customerRules';
 import { customerApi } from '../../api/customerApi';
 import { LocationMap } from '../RouteMap/LocationMap';
 import { Icon } from '../CustomerLayout';
-import { getDemoMode } from '../../../../shared/context/DemoModeContext';
 import { apiMessage } from '../../../../shared/api/apiError';
 
 export type RequestPlaces = { pickup: Place; delivery: Place };
@@ -77,13 +76,12 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
   const dropdown = useRef<HTMLDivElement>(null);
-  const demo = getDemoMode('customer');
 
   const handleSearchLocation = (targetKey: PlaceKey) => {
     const targetPlace = places[targetKey];
     const targetCity = targetKey === 'pickup' ? origin : destination;
     const targetCountry = city(targetCity).country;
-    const targetCityId = targetPlace.cityId || (demo ? getCityId(targetCity) : '');
+    const targetCityId = targetPlace.cityId || '';
     const text = targetPlace.address?.trim() || '';
 
     if (!text) return;
@@ -94,7 +92,7 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
       setSuggestions([]);
       return;
     }
-    if (!targetCityId && !demo) {
+    if (!targetCityId) {
       setSearchError('Đang xác định tỉnh/thành phố trên bản đồ, vui lòng chờ trong giây lát rồi bấm lại.');
       setSuggestions([]);
       return;
@@ -134,7 +132,7 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
     const place = places[key], selectedCity = key === 'pickup' ? origin : destination;
     const cities = key === 'pickup' ? BOOKING_ORIGINS : BOOKING_DESTINATIONS;
     const itemCountry = city(selectedCity).country;
-    const itemCityId = place.cityId || (demo ? getCityId(selectedCity) : '');
+    const itemCityId = place.cityId || '';
     const set = (field: keyof Place, value: string) => onPlaceChange(key, { ...place, [field]: value });
     const missing = (field: keyof Place) => tried && !String(place[field] ?? '').trim();
     const input = (field: 'name' | 'postal' | 'contact' | 'phone' | 'email', label: string, required = false, full = false, placeholder = '') => <div className={`cus-field ${full ? 'cus-create__full' : ''}`}>
@@ -156,7 +154,7 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
               onCityChange(key, newCity);
               onPlaceChange(key, {
                 ...place,
-                cityId: demo ? getCityId(newCity) : '',
+                cityId: '',
                 cityName: newCity,
                 latitude: undefined, longitude: undefined,
               });
@@ -168,8 +166,8 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
             {selectedCity && !cities.some(c => c.name === selectedCity) && <option value={selectedCity} disabled>{cityLabel(selectedCity)} – không còn nhận</option>}
           </select>
         </div>
-        {!demo && <CityBoundaryResolver name={selectedCity} country={itemCountry} value={place.cityId}
-          onResolve={cityId => onPlaceChange(key, { ...place, cityId, latitude: undefined, longitude: undefined })} />}
+        <CityBoundaryResolver name={selectedCity} country={itemCountry} value={place.cityId}
+          onResolve={cityId => onPlaceChange(key, { ...place, cityId, latitude: undefined, longitude: undefined })} />
         <div className="cus-field cus-create__full cus-create__address" ref={search?.key === key ? dropdown : undefined}>
           <label htmlFor={`request-${key}-address`}>Địa chỉ chi tiết *</label>
           <div className="cus-create__address-input-group">
@@ -204,23 +202,11 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
                   setSearchError('');
                 }
               }}
-              onBlur={() => {
-                if (demo && place.address.trim() && (!place.latitude || !place.longitude)) {
-                  const coords = getDefaultCoordinates(selectedCity);
-                  onPlaceChange(key, {
-                    ...place,
-                    latitude: coords.latitude,
-                    longitude: coords.longitude,
-                    cityId: place.cityId || getCityId(selectedCity),
-                    cityName: selectedCity,
-                  });
-                }
-              }}
             />
             <button
               type="button"
               className="cus-btn-find-loc"
-              disabled={locked('places') || !place.address.trim() || (!demo && !itemCityId) || (searching && search?.key === key)}
+              disabled={locked('places') || !place.address.trim() || !itemCityId || (searching && search?.key === key)}
               onClick={() => handleSearchLocation(key)}
             >
               {searching && search?.key === key ? (

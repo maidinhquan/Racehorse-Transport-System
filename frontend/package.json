@@ -10,7 +10,10 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
-    "contract:check": "node scripts/check-flow1-contract.mjs",
+    "contract:check": "node scripts/contract-manager.mjs check",
+    "contract:generate": "node scripts/contract-manager.mjs generate",
+    "contract:sync": "node scripts/contract-manager.mjs sync",
+    "contract:all": "node scripts/contract-manager.mjs all",
     "contract:check:flow6": "node ../contracts/API-Flow/Flow6/validate_contract.mjs"
   },
   "dependencies": {

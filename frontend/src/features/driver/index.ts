@@ -2,7 +2,6 @@
 export * from './types';
 export * from './api/driverApi';
 export * from './api/driverEndpoints';
-export * from './data/mockData';
 export * from './hooks/useDriver';
 export * from './hooks/driverRules';
 export * from './components/DriverLayout';

@@ -7,7 +7,6 @@ import { IncidentLocationPicker } from '../../components/IncidentLocationPicker/
 import { PhotoPicker } from '../../components/PhotoPicker/PhotoPicker';
 import { Modal } from '../../components/Modals/Modal';
 import { useDriver } from '../../hooks/useDriver';
-import { mockTrips } from '../../data/mockData';
 import { INCIDENT_TYPE_LABEL, SEVERITY_LABEL, defaultSegmentRatio, fmtDateTime, incidentWhere, nowStamp, segmentPickable } from '../../hooks/driverRules';
 import { apiClient } from '../../../../shared/api/apiClient';
 import { notifySync } from '../../../../shared/utils/syncChannel';
@@ -364,7 +363,7 @@ export const IncidentsPage: React.FC = () => {
   const { tripId } = useParams<{ tripId?: string }>();
   const navigate = useNavigate();
   const { activeTrips, myTrips, incidents, actions, me, horses } = useDriver();
-  const trip = activeTrips.find((t) => t.id === tripId) ?? activeTrips[0] ?? myTrips[0] ?? mockTrips[0];
+  const trip = activeTrips.find((t) => t.id === tripId) ?? activeTrips[0] ?? myTrips[0];
 
   const isTripMatch = (incTripId?: string, currentTripId?: string, incId?: string, incAt?: string) => {
     // Sự cố mới tạo trong phiên hoặc vừa gửi: luôn hiển thị

@@ -352,3 +352,14 @@ export interface NextMilestone {
   clearance?: Clearance;
   healthCheckRequired?: boolean;
 }
+
+
+export interface DriverNotification {
+  id: string;
+  title: string;
+  text: string;
+  at: string;
+  read: boolean;
+  link?: string;
+}
+

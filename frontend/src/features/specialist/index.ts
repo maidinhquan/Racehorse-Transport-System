@@ -5,7 +5,6 @@ export * from './api/specialistEndpoints';
 export * from './api/flow2Api';
 export * from './api/flow2Endpoints';
 export * from './api/flow2Client';
-export * from './data/mockData';
 export * from './hooks/useSpecialist';
 export * from './hooks/useSpecialistFilter';
 export * from './hooks/specialistRules';

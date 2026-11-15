@@ -3,9 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ManagerLayout, Icon } from '../../components/ManagerLayout';
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
 import { CustomerCell, RouteCell } from '../../components/Common/Common';
-import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useManager } from '../../hooks/useManager';
-import { MANAGER_NAME } from '../../data/mockData';
+import { MANAGER_NAME } from '../../types';
 import {
   MILESTONE_LABEL,
   buildAlerts,
@@ -21,7 +20,7 @@ import './ManagerDashboardPage.css';
 
 /** Tổng quan Logistics Manager: việc cần làm, cảnh báo, yêu cầu chờ duyệt, chuyến đang chạy */
 export const ManagerDashboardPage: React.FC = () => {
-  const { data, requests, trips, stats, actions } = useManager();
+  const { data, requests, trips, stats } = useManager();
   const navigate = useNavigate();
   const alerts = buildAlerts(data);
   const waiting = requests.filter((r) => r.status === 'PENDING_REVIEW').sort((a, b) => a.date.localeCompare(b.date));
@@ -118,8 +117,6 @@ export const ManagerDashboardPage: React.FC = () => {
               {!alerts.length && <p className="mgr-hint">Không có cảnh báo.</p>}
             </div>
           </section>
-          <DemoPanel buttons={[{ label: 'Khách hàng gửi yêu cầu vận chuyển mới', run: () => actions.demo.customerSubmitRequest(), primary: true }]}
-            hint="Tạo một yêu cầu mới từ khách hàng để thử quy trình xét duyệt → hợp đồng → chuyến đi." />
         </aside>
       </div>
     </ManagerLayout>

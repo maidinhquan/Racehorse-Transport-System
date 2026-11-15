@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '../../../../shared/components';
 import { useDriver } from '../../hooks/useDriver';
 import { formatNotification } from '../../../../shared/utils/notificationFormat';
-import type { DriverNotification } from '../../data/mockData';
+import type { DriverNotification } from '../../types';
 import './DriverLayout.css';
 
 // ---------------------------------------------------------------------------

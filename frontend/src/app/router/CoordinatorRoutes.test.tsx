@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setDemoModeStorage } from '../../shared/context/DemoModeContext';
-import { db, resetDemo } from '../../features/coordinator/store/coordinatorStore';
+import { db, resetCoordinatorState } from '../../features/coordinator/store/coordinatorStore';
 import { ROUTING } from '../../features/coordinator/workflows/routePlanner';
 import AppRouter from './AppRouter';
 
@@ -14,8 +13,7 @@ vi.mock('../../features/coordinator/components/maps/LeafletMaps', () => ({
 
 describe('Coordinator routes after replacing the old portal', () => {
   beforeEach(() => {
-    setDemoModeStorage(true);
-    resetDemo(true);
+    resetCoordinatorState();
     ROUTING.provider = 'SIM';
   });
 
@@ -66,8 +64,7 @@ describe('Coordinator routes after replacing the old portal', () => {
   });
 
   it('shows an empty portal when demo data is disabled', () => {
-    setDemoModeStorage(false);
-    resetDemo(false);
+    resetCoordinatorState();
     window.history.replaceState({}, '', '/coordinator/dashboard');
     const { container } = render(<AppRouter />);
     expect(container.querySelector('.cbn-coord')).toBeInTheDocument();

@@ -17,22 +17,10 @@ import { getSharedIncidents } from '../../../shared/utils/sharedIncidents';
 import {
   SPECIALIST_NAME,
   type SpecialistNotification,
-  mockSpecialistNotifications,
-  mockAudit,
-  mockBookings,
-  mockCustomerDocs,
-  mockDocTypes,
-  mockDocuments,
-  mockPackages,
-  mockRegulations,
-  mockRequests,
-  mockTrips,
-} from '../data/mockData';
+} from '../types';
 import {
   CUSTOMER_DOC_NAME,
   TYPE_CUSTOMER_KEY,
-  addDays,
-  checklist,
   customerDoc,
   deployed,
   docEffective,
@@ -54,7 +42,6 @@ import {
   pkgWhyNot,
   prepTrips,
   snapshot,
-  suggestPackage,
   today,
   type SpecialistData,
 } from './specialistRules';
@@ -70,7 +57,6 @@ interface SpecialistState extends SpecialistData {
   notifications: SpecialistNotification[];
 }
 
-import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import { getSharedRequests, saveSharedRequest } from '../../../shared/utils/sharedRequests';
 import { getSharedTrips } from '../../../shared/utils/sharedTrips';
 import { createSyncController } from '../../../shared/utils/syncChannel';
@@ -130,14 +116,6 @@ function persistSpecialistReadNotifIds(ids: string[]): void {
   }
 }
 
-const resolveSpecialistNotifs = (list: SpecialistNotification[]): SpecialistNotification[] => {
-  const readIds = getSpecialistReadNotifIds();
-  return list.map((n) => ({
-    ...n,
-    read: Boolean(n.read || readIds.has(n.id) || readIds.has(cleanId(n.id))),
-  }));
-};
-
 const emptyData = (): SpecialistData => ({
   trips: [],
   docTypes: [],
@@ -148,7 +126,7 @@ const emptyData = (): SpecialistData => ({
   requests: [],
   bookings: [],
   audit: [],
-  notifications: resolveSpecialistNotifs(clone(mockSpecialistNotifications)),
+  notifications: [],
 });
 
 let state: SpecialistState;
@@ -161,8 +139,8 @@ export function autoApplyMatchingPackages(trips: SpecTrip[], packages: RegPackag
       if (match) {
         const dummyData: SpecialistData = dataContext ?? {
           trips,
-          docTypes: (state && state.docTypes) ? state.docTypes.filter((d: any) => d.provider !== 'CUSTOMER' && !['DT-1', 'DT-2', 'DT-3'].includes(d.id)) : (getDemoMode('specialist') ? clone(mockDocTypes) : []),
-          regulations: (state && state.regulations) ? state.regulations : (getDemoMode('specialist') ? clone(mockRegulations) : []),
+          docTypes: (state && state.docTypes) ? state.docTypes.filter((d: any) => d.provider !== 'CUSTOMER' && !['DT-1', 'DT-2', 'DT-3'].includes(d.id)) : [],
+          regulations: (state && state.regulations) ? state.regulations : [],
           packages,
           customerDocs: (state && state.customerDocs) ? state.customerDocs : [],
           documents: (state && state.documents) ? state.documents : [],
@@ -186,18 +164,16 @@ function sharedTripsAndDocs(forUser?: string): { trips: SpecTrip[]; customerDocs
 
   for (const r of shared) {
     const reqSpecId = (r as any).specialistId || (r as any).assignedSpecialistId;
-    if (!getDemoMode('specialist')) {
-      if (!reqSpecId || cleanId(reqSpecId) !== cleanId(currentUserId)) {
-        continue;
-      }
+    if (!reqSpecId || cleanId(reqSpecId) !== cleanId(currentUserId)) {
+      continue;
     }
     const isAir = (r.origin && r.destination && (r.origin.includes('Tokyo') || r.destination.includes('Sapporo') || r.destination.includes('Japan') || r.destination.includes('Osaka')));
     const tripId = `TRP-${(r.id || '').replace(/^TRN[_-]/, '')}`;
-    const horseList = (r.horses && r.horses.length > 0 ? r.horses : ['HOR-1029']).map((h: string) => ({
+    const horseList = (r.horses ?? []).map((h: string) => ({
       id: h,
-      name: h.includes('1029') ? 'Thunderbolt' : (r.horseName || h),
-      microchip: '985112004571029',
-      passportNo: 'VN-EQ-2020-1029',
+      name: r.horseName || h,
+      microchip: '',
+      passportNo: '',
     }));
     trips.push({
       id: tripId,
@@ -264,10 +240,8 @@ function sharedTripsAndDocs(forUser?: string): { trips: SpecTrip[]; customerDocs
   const sharedTripsMap = getSharedTrips();
   Object.values(sharedTripsMap).forEach((st) => {
     const specId = st.specialistId || (typeof st.deployment === 'object' ? st.deployment?.specialistId : undefined);
-    if (!getDemoMode('specialist')) {
-      if (!specId || cleanId(specId) !== cleanId(currentUserId)) {
-        return;
-      }
+    if (!specId || cleanId(specId) !== cleanId(currentUserId)) {
+      return;
     }
     const existing = trips.find((t) => cleanId(t.id) === cleanId(st.id) || (st.requestId && cleanId(t.requestId) === cleanId(st.requestId)));
     const depStatus = (typeof st.deployment === 'object' ? st.deployment?.status : st.deployment) || (specId ? 'CONFIRMED' : 'NOT_CONFIRMED');
@@ -295,7 +269,7 @@ function sharedTripsAndDocs(forUser?: string): { trips: SpecTrip[]; customerDocs
         specialistId: specId,
         plannedDepart: st.plannedDepart || `${today()} 06:00`,
         eta: st.eta || `${today()} 22:00`,
-        horses: Array.isArray(st.horses) && st.horses.length > 0 ? st.horses : [{ id: 'HOR-1029', name: 'Thunderbolt', microchip: '985112004571029', passportNo: 'VN-EQ-2020-1029' }],
+        horses: Array.isArray(st.horses) && st.horses.length > 0 ? st.horses : [],
         checkpoints: Array.isArray(st.checkpoints) ? st.checkpoints : [],
         ...({
           coordinatorId: st.coordinatorId || (typeof st.deployment === 'object' ? st.deployment?.coordinatorId : undefined),
@@ -304,7 +278,7 @@ function sharedTripsAndDocs(forUser?: string): { trips: SpecTrip[]; customerDocs
       });
     }
   });
-  const currentPkgs = (state && state.packages && state.packages.length) ? state.packages : (getDemoMode('specialist') ? clone(mockPackages) : []);
+  const currentPkgs = (state && state.packages && state.packages.length) ? state.packages : [];
   autoApplyMatchingPackages(trips, currentPkgs);
   return { trips, customerDocs };
 }
@@ -335,7 +309,7 @@ function normalizeCustomerDocs(docs: CustomerDoc[], trips: SpecTrip[]): Customer
 
   for (const t of trips) {
     const isCompleted = t.status === 'COMPLETED';
-    const horses = t.horses && t.horses.length > 0 ? t.horses : [{ id: 'HOR-1029', name: 'Thunderbolt' }];
+    const horses = t.horses ?? [];
     const tTrips = [t.id, cleanId(t.id), t.requestId, cleanId(t.requestId)].filter(Boolean);
     for (const h of horses) {
       for (const k of STANDARD_KEYS) {
@@ -365,41 +339,18 @@ function normalizeCustomerDocs(docs: CustomerDoc[], trips: SpecTrip[]): Customer
   return normalized;
 }
 
-const initialDemo = getDemoMode('specialist');
 const initialShared = sharedTripsAndDocs();
-const initialTrips = initialDemo
-  ? [...initialShared.trips, ...clone(mockTrips).filter((m) => !initialShared.trips.some((s) => cleanId(s.id) === cleanId(m.id)))]
-  : [];
-const initialCustomerDocs = normalizeCustomerDocs(
-  initialDemo
-    ? [...initialShared.customerDocs, ...clone(mockCustomerDocs).filter((m) => !initialShared.customerDocs.some((s) => cleanId(s.tripId) === cleanId(m.tripId) && s.key === m.key))]
-    : [],
-  initialTrips
-);
+const initialTrips = initialShared.trips;
+const initialCustomerDocs = normalizeCustomerDocs(initialShared.customerDocs, initialTrips);
 
 const initialSavedDocTypes = getCustomDocTypes();
-const initialBaseDocTypes = initialDemo ? clone(mockDocTypes) : [];
-const initialMergedDocTypes = [...initialBaseDocTypes];
-for (const dt of initialSavedDocTypes) {
-  const idx = initialMergedDocTypes.findIndex((x) => x.id === dt.id);
-  if (idx >= 0) initialMergedDocTypes[idx] = dt; else initialMergedDocTypes.push(dt);
-}
+const initialMergedDocTypes = [...initialSavedDocTypes];
 
 const initialSavedRegs = getCustomRegulations();
-const initialBaseRegs = initialDemo ? clone(mockRegulations) : [];
-const initialMergedRegs = [...initialBaseRegs];
-for (const r of initialSavedRegs) {
-  const idx = initialMergedRegs.findIndex((x) => x.id === r.id);
-  if (idx >= 0) initialMergedRegs[idx] = r; else initialMergedRegs.push(r);
-}
+const initialMergedRegs = [...initialSavedRegs];
 
 const initialSavedPkgs = getCustomPackages();
-const initialBasePkgs = initialDemo ? clone(mockPackages) : [];
-const initialMergedPkgs = [...initialBasePkgs];
-for (const p of initialSavedPkgs) {
-  const idx = initialMergedPkgs.findIndex((x) => x.id === p.id);
-  if (idx >= 0) initialMergedPkgs[idx] = p; else initialMergedPkgs.push(p);
-}
+const initialMergedPkgs = [...initialSavedPkgs];
 
 state = {
   trips: initialTrips,
@@ -407,14 +358,14 @@ state = {
   regulations: initialMergedRegs,
   packages: initialMergedPkgs,
   customerDocs: initialCustomerDocs,
-  documents: initialDemo ? clone(mockDocuments) : [],
-  requests: initialDemo ? clone(mockRequests) : [],
-  bookings: initialDemo ? clone(mockBookings) : [],
-  audit: initialDemo ? clone(mockAudit) : [],
+  documents: [],
+  requests: [],
+  bookings: [],
+  audit: [],
   loading: false,
   loaded: false,
   toast: null,
-  notifications: resolveSpecialistNotifs(clone(mockSpecialistNotifications)),
+  notifications: [],
 };
 autoApplyMatchingPackages(state.trips, state.packages);
 const listeners = new Set<() => void>();
@@ -445,7 +396,7 @@ const mergeBackendDocs = (backend: any[], shared: any[]) => {
 
 /** Tải lại giấy tờ khách hàng và yêu cầu bổ sung từ backend (giữ nguyên dữ liệu đang chỉnh khác) để thấy khách vừa nộp */
 async function refreshCustomerDocs() {
-  if (!state.loaded || getDemoMode('specialist')) return;
+  if (!state.loaded) return;
   try {
     const [trips, customerDocs, requests] = await Promise.all([specialistApi.getTrips(), specialistApi.getCustomerDocs(), specialistApi.getRequests()]);
     const me = tokenUser();
@@ -483,53 +434,13 @@ if (typeof window !== 'undefined') {
       const newDocs = [...s.customerDocs];
       for (const d of sh.customerDocs) {
         if (!newTrips.some((t) => cleanId(t.id) === cleanId(d.tripId))) continue;
-        if (backendDocTrips.has(cleanId(d.tripId)) && !getDemoMode('specialist')) continue;
+        if (backendDocTrips.has(cleanId(d.tripId))) continue;
         const idx = newDocs.findIndex((x) => cleanId(x.tripId) === cleanId(d.tripId) && x.key === d.key && cleanId(x.scope) === cleanId(d.scope));
         if (idx >= 0) newDocs[idx] = { ...newDocs[idx], ...d };
         else newDocs.unshift(d);
       }
       return { trips: newTrips, customerDocs: newDocs };
     });
-  });
-
-  window.addEventListener('rts_demo_mode_change', (event: Event) => {
-    const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
-    if (customEvent.detail && customEvent.detail.role === 'specialist') {
-      const sh = sharedTripsAndDocs();
-      if (customEvent.detail.enabled) {
-        const mergedTrips = [...sh.trips, ...clone(mockTrips).filter((m) => !sh.trips.some((s) => cleanId(s.id) === cleanId(m.id)))];
-        const mergedDocs = [...sh.customerDocs, ...clone(mockCustomerDocs).filter((m) => !sh.customerDocs.some((s) => cleanId(s.tripId) === cleanId(m.tripId) && s.key === m.key))];
-        setState({
-          trips: mergedTrips,
-          customerDocs: mergedDocs,
-          documents: clone(mockDocuments),
-          requests: clone(mockRequests),
-          bookings: clone(mockBookings),
-          audit: clone(mockAudit),
-          docTypes: clone(mockDocTypes),
-          regulations: clone(mockRegulations),
-          packages: clone(mockPackages),
-          loading: false,
-          loaded: true,
-        });
-        toast('Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.');
-      } else {
-        setState({
-          trips: sh.trips,
-          customerDocs: sh.customerDocs,
-          documents: [],
-          requests: [],
-          bookings: [],
-          audit: [],
-          docTypes: [],
-          regulations: [],
-          packages: [],
-          loading: false,
-          loaded: false,
-        });
-        toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
-      }
-    }
   });
 }
 /** Mã chứng từ trên giao diện -> mã do backend cấp (sau khi ghi nhận) */
@@ -551,15 +462,7 @@ const audit = (d: SpecialistData, action: string, entity: string, detail?: strin
   d.audit.unshift({ at: nowStamp(), actor, role, action, entity, detail });
 const nextId = (prefix: string, ids: string[]) => `${prefix}-${Math.max(0, ...ids.map((x) => Number(x.split('-')[1]) || 0)) + 1}`;
 const tripOf = (d: SpecialistData, id: string) => {
-  const found = d.trips.find((t) => t.id === id || cleanId(t.id) === cleanId(id) || cleanId(t.requestId) === cleanId(id));
-  if (found) return found;
-  const mock = getDemoMode('specialist') && mockTrips.find((m) => m.id === id || cleanId(m.id) === cleanId(id) || cleanId(m.requestId) === cleanId(id));
-  if (mock) {
-    const copy = clone(mock);
-    d.trips.push(copy);
-    return copy;
-  }
-  return undefined;
+  return d.trips.find((t) => t.id === id || cleanId(t.id) === cleanId(id) || cleanId(t.requestId) === cleanId(id));
 };
 /** Kiểm tra xem hồ sơ chuyến có đang bị khoá sau khi Docs READY không (chỉ mở khi có sự cố) */
 const checkDocsLocked = (tripId: string): string | null => {
@@ -592,21 +495,17 @@ async function loadAll(targetUser?: string) {
     if (version !== loadVersion) return;
     const sh = sharedTripsAndDocs(currentUser);
     let baseTrips = trips && trips.length > 0 ? trips : [];
-    if (!getDemoMode('specialist')) {
-      baseTrips = baseTrips.filter((bt) => !!currentUser && cleanId(bt.specialistId) === cleanId(currentUser));
-    }
-    const mergedTrips = getDemoMode('specialist')
-      ? [...sh.trips, ...baseTrips.filter((bt) => !sh.trips.some((st) => cleanId(st.id) === cleanId(bt.id)))]
-      : baseTrips.map((bt) => {
-          const st = sh.trips.find((trip) => cleanId(trip.id) === cleanId(bt.id));
-          return st ? { ...st, ...definedOnly(bt) } : bt;
-        });
+    baseTrips = baseTrips.filter((bt) => !!currentUser && cleanId(bt.specialistId) === cleanId(currentUser));
+    const mergedTrips = baseTrips.map((bt) => {
+      const st = sh.trips.find((trip) => cleanId(trip.id) === cleanId(bt.id));
+      return st ? { ...st, ...definedOnly(bt) } : bt;
+    });
     const visibleTrips = new Set(mergedTrips.map((t) => cleanId(t.id)));
     const baseDocs = (customerDocs || []).filter((d) => visibleTrips.has(cleanId(d.tripId)));
     const mergedDocs = normalizeCustomerDocs(mergeBackendDocs(baseDocs, sh.customerDocs.filter((d) => visibleTrips.has(cleanId(d.tripId)))), mergedTrips);
 
     const savedPackages = getCustomPackages();
-    const basePackages = (packages && packages.length > 0) ? packages : (getDemoMode('specialist') ? clone(mockPackages) : []);
+    const basePackages = packages || [];
     const mergedPackages = [...basePackages];
     for (const p of savedPackages) {
       const idx = mergedPackages.findIndex((x) => x.id === p.id);
@@ -615,7 +514,7 @@ async function loadAll(targetUser?: string) {
     const activePackages = mergedPackages;
 
     const savedRegs = getCustomRegulations();
-    const baseRegs = (regulations && regulations.length > 0) ? regulations : (getDemoMode('specialist') ? clone(mockRegulations) : []);
+    const baseRegs = regulations || [];
     const mergedRegs = [...baseRegs];
     for (const r of savedRegs) {
       const idx = mergedRegs.findIndex((x) => x.id === r.id);
@@ -624,7 +523,7 @@ async function loadAll(targetUser?: string) {
     const activeRegs = mergedRegs.map((g) => ({ ...g, lines: (g.lines || []).filter((l: any) => l.provider !== 'CUSTOMER') }));
 
     const savedDocTypes = getCustomDocTypes();
-    const rawDocTypes = (docTypes && docTypes.length > 0) ? docTypes : (getDemoMode('specialist') ? clone(mockDocTypes) : []);
+    const rawDocTypes = docTypes || [];
     const mergedDocTypes = [...rawDocTypes];
     for (const dt of savedDocTypes) {
       const idx = mergedDocTypes.findIndex((x) => x.id === dt.id);
@@ -644,56 +543,23 @@ async function loadAll(targetUser?: string) {
     };
     autoApplyMatchingPackages(mergedTrips, activePackages, dummyCtx);
 
-    if (!getDemoMode('specialist')) {
-      setState({
-        trips: mergedTrips,
-        customerDocs: mergedDocs,
-        documents: ((documents && documents.length > 0) ? documents : clone(mockDocuments)).filter((d) => visibleTrips.has(cleanId(d.tripId))),
-        requests: (requests || []).filter((r) => visibleTrips.has(cleanId(r.tripId))),
-        bookings: (bookings || []).filter((b) => visibleTrips.has(cleanId(b.tripId))),
-        docTypes: activeDocTypes,
-        regulations: activeRegs,
-        packages: activePackages,
-        audit: auditLog || [],
-        loading: false,
-        loaded: true,
-        loadedFor: currentUser,
-      });
-      return;
-    }
-    const allDemoTrips = [...mergedTrips, ...clone(mockTrips).filter((m) => !mergedTrips.some((t) => cleanId(t.id) === cleanId(m.id)))];
-    const allDemoDocs = [...mergedDocs, ...clone(mockCustomerDocs).filter((m) => !mergedDocs.some((d) => cleanId(d.tripId) === cleanId(m.tripId) && d.key === m.key))];
     setState({
-      trips: allDemoTrips,
-      customerDocs: allDemoDocs,
-      documents: documents?.length ? documents : clone(mockDocuments),
-      requests: requests?.length ? requests : clone(mockRequests),
-      bookings: bookings?.length ? bookings : clone(mockBookings),
+      trips: mergedTrips,
+      customerDocs: mergedDocs,
+      documents: (documents || []).filter((d) => visibleTrips.has(cleanId(d.tripId))),
+      requests: (requests || []).filter((r) => visibleTrips.has(cleanId(r.tripId))),
+      bookings: (bookings || []).filter((b) => visibleTrips.has(cleanId(b.tripId))),
       docTypes: activeDocTypes,
       regulations: activeRegs,
       packages: activePackages,
-      audit: auditLog?.length ? auditLog : clone(mockAudit),
+      audit: auditLog || [],
       loading: false,
       loaded: true,
       loadedFor: currentUser,
     });
   } catch {
     if (version !== loadVersion) return;
-    const sh = sharedTripsAndDocs(currentUser);
-    if (!getDemoMode('specialist')) {
-      setState({ ...emptyData(), loading: false, loaded: true, loadedFor: currentUser });
-    } else {
-      setState({
-        trips: [...sh.trips, ...clone(mockTrips).filter((m) => !sh.trips.some((s) => cleanId(s.id) === cleanId(m.id)))],
-        customerDocs: [...sh.customerDocs, ...clone(mockCustomerDocs).filter((m) => !sh.customerDocs.some((s) => cleanId(s.tripId) === cleanId(m.tripId) && s.key === m.key))],
-        documents: clone(mockDocuments),
-        requests: clone(mockRequests),
-        bookings: clone(mockBookings),
-        loading: false,
-        loaded: true,
-        loadedFor: currentUser,
-      });
-    }
+    setState({ ...emptyData(), loading: false, loaded: true, loadedFor: currentUser });
   }
 }
 
@@ -1119,77 +985,11 @@ const specialistActions = {
   },
 };
 
-// ============================================================================
-// Nút demo: giả lập thao tác của Manager / khách hàng / tổ xe (không bao giờ là một quyết định duyệt)
-// ============================================================================
-const demoActions = {
-  managerAssign(tripId: string): ActionResult {
-    const t = tripOf(state, tripId);
-    if (!t || t.deployment === 'CONFIRMED') return fail('Chuyến đã được giao.');
-    mutate((d) => { tripOf(d, tripId)!.deployment = 'CONFIRMED'; audit(d, 'Giao chuyến cho Specialist', tripId, undefined, 'LOGISTICS_MANAGER', 'Linh Pham'); });
-    return ok(`Demo: Manager đã giao ${tripId} cho bạn. Hãy chọn bộ yêu cầu hồ sơ.`);
-  },
-  customerUpload(tripId: string): ActionResult {
-    const target = state.customerDocs.find((x) => x.tripId === tripId && !x.optional && ['ACTION_REQUIRED', 'MISSING'].includes(x.status));
-    if (!target) return fail('Demo: không có giấy tờ nào đang chờ khách nộp.');
-    mutate((d) => {
-      const x = customerDoc(d, tripId, target.key, target.scope)!;
-      x.status = 'SUBMITTED'; x.issue = undefined; x.file = `${target.scope.toLowerCase()}-${target.key}-moi.pdf`;
-      if (x.key === 'health') x.expiry = addDays(tripOf(d, tripId)!.eta.slice(0, 10), 5);
-      d.requests.filter((q) => q.tripId === tripId && q.key === target.key && q.scope === target.scope && q.status === 'OPEN')
-        .forEach((q) => { q.status = 'SUBMITTED'; q.history.push([nowStamp(), 'Khách hàng đã nộp lại']); });
-      audit(d, 'Khách hàng nộp giấy tờ', tripId, CUSTOMER_DOC_NAME[target.key], 'CUSTOMER', 'Alex Equine');
-    });
-    return ok(`Demo: khách hàng đã nộp ${CUSTOMER_DOC_NAME[target.key]} – chờ bạn duyệt.`);
-  },
-  prepareAll(tripId: string): ActionResult {
-    const t = tripOf(state, tripId);
-    if (!t || opsBlock(t)) return fail(t ? opsBlock(t) : 'Không tìm thấy chuyến.');
-    if (t.status !== 'PLANNING') return fail('Chuyến đã qua bước chuẩn bị.');
-    mutate((d) => {
-      const tt = tripOf(d, tripId)!;
-      if (!tt.reqSet) { const p = suggestPackage(d, tt); if (p) tt.reqSet = snapshot(d, p, SPECIALIST_NAME); }
-      d.customerDocs.filter((x) => x.tripId === tripId && !x.optional).forEach((x) => {
-        x.status = 'APPROVED'; x.issue = undefined; x.file = x.file ?? `${x.scope.toLowerCase()}-${x.key}.pdf`;
-        if (x.expiry && x.expiry < tt.eta.slice(0, 10)) x.expiry = addDays(tt.eta.slice(0, 10), 5);
-        x.reviewedAt = nowStamp(); x.reviewedBy = SPECIALIST_NAME;
-      });
-      d.requests.filter((q) => q.tripId === tripId && q.status !== 'FULFILLED').forEach((q) => { q.status = 'FULFILLED'; q.history.push([nowStamp(), 'Demo: đã hoàn tất']); });
-      checklist(d, tt).items.filter((i) => i.counted && i.provider === 'CBN' && i.status !== 'APPROVED' && !i.missingRule).forEach((i) => {
-        let doc = findDoc(d, tt, i.typeId, i.horseId);
-        if (!doc) {
-          doc = { id: nextId('DOC', d.documents.map((x) => x.id)), tripId, typeId: i.typeId, horseId: i.horseId, status: 'SUBMITTED', number: '', issuer: '', issuedAt: '', expiry: '', versions: [], reviews: [], physicalCopy: false };
-          d.documents.push(doc);
-        }
-        Object.assign(doc, { status: 'APPROVED', number: `${i.typeId}-${tripId.slice(4)}`, issuer: 'Cơ quan chức năng (demo)', issuedAt: today(), expiry: addDays(tt.eta.slice(0, 10), 30), rejectReason: undefined, physicalCopy: true });
-        doc.versions.push({ v: doc.versions.length + 1, file: `${tripId.toLowerCase()}-${i.typeId.toLowerCase()}.pdf`, at: nowStamp(), by: SPECIALIST_NAME });
-        doc.reviews.push({ v: doc.versions.length, decision: 'APPROVED', at: nowStamp(), by: SPECIALIST_NAME, remark: 'Demo: chuẩn bị đủ hồ sơ' });
-      });
-      tt.insurance = { insurer: 'Bảo hiểm Bảo Việt', policy: tt.insurance?.policy ?? `BV-DEMO-${tripId.slice(4)}`, validFrom: tt.plannedDepart.slice(0, 10), validTo: addDays(tt.eta.slice(0, 10), 1), coverage: 150000, status: 'VERIFIED', checkedBy: SPECIALIST_NAME, checkedAt: nowStamp() };
-      audit(d, 'Demo: chuẩn bị đủ hồ sơ', tripId);
-    });
-    return ok('Demo: đã chuẩn bị đủ hồ sơ và bảo hiểm. Có thể xác nhận Docs READY.');
-  },
-  expireDocument(tripId: string): ActionResult {
-    const target = state.documents.find((x) => x.tripId === tripId && x.status === 'APPROVED');
-    if (!target) return fail('Demo: chuyến chưa có chứng từ đã duyệt.');
-    mutate((d) => { const x = d.documents.find((y) => y.id === target.id)!; x.expiry = addDays(today(), -1); invalidateReady(tripOf(d, tripId)!); audit(d, 'Demo: chứng từ hết hạn', tripId, target.id, 'SYSTEM', 'Hệ thống'); });
-    return ok(`Demo: ${target.id} đã hết hạn.`);
-  },
-  crewArrive(tripId: string): ActionResult {
-    const t = tripOf(state, tripId);
-    const i = t ? t.checkpoints.findIndex((c) => !c.arrivedAt) : -1;
-    if (!t || t.status !== 'IN_TRANSIT' || i < 0) return fail('Demo: không còn điểm kiểm tra nào chưa đến.');
-    mutate((d) => { const c = tripOf(d, tripId)!.checkpoints[i]; c.arrivedAt = nowStamp(); audit(d, 'Tổ xe đến điểm kiểm tra', tripId, c.name, 'SYSTEM', 'Tổ xe'); });
-    return ok(`Demo: tổ xe đã đến ${t.checkpoints[i].name}.`);
-  },
-};
-
-export type SpecialistActions = typeof specialistActions & { demo: typeof demoActions };
-const actions: SpecialistActions = { ...specialistActions, demo: demoActions };
+export type SpecialistActions = typeof specialistActions;
+const actions: SpecialistActions = specialistActions;
 if (typeof window !== 'undefined') {
   window.addEventListener('rts_trips_updated', () => {
-    if (!getDemoMode('specialist')) actions.reload();
+    actions.reload();
   });
 }
 
@@ -1218,7 +1018,7 @@ export function useSpecialist() {
   const currentUser = tokenUser();
 
   useEffect(() => {
-    if ((state.loaded || state.loading) && !getDemoMode('specialist') && state.loadedFor !== currentUser) {
+    if ((state.loaded || state.loading) && state.loadedFor !== currentUser) {
       loadVersion++;
       setState({ ...emptyData(), loaded: false, loadedFor: '', loading: false });
     }

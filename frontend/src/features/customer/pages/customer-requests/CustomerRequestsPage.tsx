@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
-import { DemoGuide } from '../../components/DemoGuide/DemoGuide';
 import { RouteText, horseNames } from '../../components/Common/Common';
 import { needsCustomerAction, useCustomer } from '../../hooks/useCustomer';
 import { useCustomerFilter, type RequestStatusFilter } from '../../hooks/useCustomerFilter';
@@ -28,8 +27,6 @@ export const CustomerRequestsPage: React.FC = () => {
           <Icon name="plus" />Tạo yêu cầu vận chuyển
         </button>
       </div>
-
-      <DemoGuide kind="active" />
 
       <div className="cus-toolbar">
         <label className="cus-search">

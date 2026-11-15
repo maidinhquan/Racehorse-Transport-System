@@ -1,4 +1,4 @@
-import type { SpecialistNotification } from '../../data/mockData';
+import type { SpecialistNotification } from '../../types';
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SpecialistLayout, Icon } from '../../components/SpecialistLayout';

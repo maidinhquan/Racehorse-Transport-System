@@ -7,7 +7,6 @@ import { SEX_LABEL, today } from '../../hooks/customerRules';
 import { useCustomer } from '../../hooks/useCustomer';
 import { FilePreviewModal } from '../Modals/FilePreviewModal';
 import './HorseForm.css';
-import { getDemoMode } from '../../../../shared/context/DemoModeContext';
 import { AuthImage } from '../../../../shared/components/AuthImage';
 
 interface HorseFormProps {
@@ -34,7 +33,6 @@ export const HorseForm: React.FC<HorseFormProps> = ({
   const { actions } = useCustomer();
   const [preview, setPreview] = useState<{ file: FileRef; title: string } | null>(null);
   const locked = lockedBy.length > 0;
-  const demo = getDemoMode('customer');
   const set = <K extends keyof HorseInput>(k: K, v: HorseInput[K]) => onChange({ ...h, [k]: v });
   const setPass = (k: keyof HorseInput['passport'], v: string | FileRef | undefined) => onChange({ ...h, passport: { ...h.passport, [k]: v } });
   
@@ -94,7 +92,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
         <div className="cus-file__text"><b>{file.name}</b><span>{file.file ? 'Đã chọn, chưa lưu' : 'Đã lưu'}</span></div>
         <button type="button" className="cus-btn cus-btn--sm" onClick={() => setPreview({ file, title: fileTitle(field) })}>Xem</button>
         <FilePickButton label="Thay tệp" onPick={update} onError={actions.showToast} types={field === 'photo' ? PHOTO_TYPES : undefined} />
-        {(demo || file.file) && <button type="button" className="cus-btn cus-btn--sm cus-btn--danger" onClick={() => update(undefined)}>Xóa</button>}
+        {file.file && <button type="button" className="cus-btn cus-btn--sm cus-btn--danger" onClick={() => update(undefined)}>Xóa</button>}
       </div>
     ) : (
       <div className={`cus-file cus-file--empty ${bad(field)}`}>

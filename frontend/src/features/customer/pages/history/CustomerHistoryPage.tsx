@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
-import { DemoGuide } from '../../components/DemoGuide/DemoGuide';
 import { RouteText } from '../../components/Common/Common';
 import { useCustomer } from '../../hooks/useCustomer';
 import { useCustomerFilter, type RequestStatusFilter } from '../../hooks/useCustomerFilter';
@@ -26,7 +25,6 @@ export const CustomerHistoryPage: React.FC = () => {
           </p>
         </div>
       </div>
-      <DemoGuide kind="history" />
       <div className="cus-toolbar">
         <label className="cus-search">
           <Icon name="search" />

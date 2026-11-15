@@ -28,10 +28,9 @@ import type {
 } from '../types';
 
 // ============================================================================
-// Đồng hồ demo: chạy theo thời gian thực để tương thích hoàn toàn với Backend C#
+// Đồng hồ: chạy theo thời gian thực để tương thích hoàn toàn với Backend C#
 // Mọi thao tác mới (gửi đơn, phát hành hợp đồng, thanh toán, mốc hành trình…) dùng chung đồng hồ này.
 // ============================================================================
-export const DEMO_CLOCK_START = Date.now();
 const VN_OFFSET = 7 * 3600000;
 
 export const clockMs = () => Date.now();
@@ -697,28 +696,3 @@ export function tabVisible(r: TransportRequest, tab: RequestDetailTab) {
   if (tab === 'complaints') return (r.complaints?.length ?? 0) > 0 || !!r.trip?.handover || ['DELIVERED', 'CLOSED'].includes(r.status);
   return true;
 }
-
-/** Danh sách tình huống mẫu để thử nhanh (hiển thị ở trang Yêu cầu và Lịch sử) */
-export const DEMO_GUIDE: Record<'active' | 'history', Array<[string, string, string]>> = {
-  active: [
-    ['TRN-8931', 'Bản nháp – đang khai báo', 'Tiếp tục wizard: điểm nhận/giao, chọn ngựa & hồ sơ rồi gửi Manager xét duyệt.'],
-    ['TRN-8930', 'Chờ Manager xét duyệt', 'Dùng nút demo để Manager chấp nhận, yêu cầu sửa hoặc từ chối (kèm lý do).'],
-    ['TRN-8926', 'Manager yêu cầu sửa', 'Sửa thông tin chuyến theo góp ý rồi gửi lại để xét duyệt.'],
-    ['TRN-8929', 'Đang soạn hợp đồng', 'Dùng nút demo để Manager phát hành hợp đồng v1.'],
-    ['TRN-8928', 'Hợp đồng sẵn sàng – còn hạn 24 giờ', 'Đọc hợp đồng, yêu cầu thay đổi hoặc đồng ý điều khoản rồi thanh toán cọc bằng QR Sandbox.'],
-    ['TRN-8925', 'Đã gửi yêu cầu sửa hợp đồng', 'Manager phát hành phiên bản mới hoặc trả lời và giữ phiên bản; cả hai đều cấp lại 24 giờ.'],
-    ['TRN-8927', 'Hợp đồng quá hạn', 'Không ký được nữa; yêu cầu phiên bản cập nhật hoặc để Manager gia hạn. Quá hạn không tự hủy yêu cầu.'],
-    ['TRN-8941', 'Đã thanh toán cọc – chờ Sandbox xác minh', 'Trong tab Thanh toán bấm kết quả Sandbox thành công hoặc thất bại.'],
-    ['TRN-8942', 'Đã xác minh cọc – chờ ký OTP', 'Ký hợp đồng bằng OTP (mã demo 123456): hợp đồng có hiệu lực và tạo đúng một chuyến.'],
-    ['TRN-8924', 'Đang chuẩn bị – có giấy tờ bị từ chối', 'Xem lý do từ chối / yêu cầu bổ sung và tải lại giấy tờ.'],
-    ['TRN-8945', 'Đã lên lịch', 'Dùng nút demo tổ xe xuất phát để bắt đầu hành trình.'],
-    ['TRN-8923', 'Đang vận chuyển', 'Theo dõi các mốc hành trình đã được xác nhận; nút demo chạy tiếp tới bàn giao.'],
-    ['TRN-8810', 'Đã giao', 'Xác nhận nghiệm thu hoặc gửi khiếu nại nếu có.'],
-  ],
-  history: [
-    ['TRN-8750', 'Đã đóng – hợp đồng đã hoàn thành', 'Đã giao, thanh toán đủ, hết 24 giờ phản hồi; hợp đồng hết hiệu lực, chỉ xem.'],
-    ['TRN-8943', 'Đã hủy trước khi ký – hoàn cọc', 'Tiền cọc đã xác minh được hoàn lại; xem trạng thái hoàn tiền ở tab Thanh toán.'],
-    ['TRN-8602', 'Đã hủy', 'Yêu cầu bị hủy, chưa có hợp đồng.'],
-    ['TRN-8511', 'Bị từ chối', 'Manager từ chối kèm lý do.'],
-  ],
-};

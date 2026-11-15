@@ -20,7 +20,6 @@ import {
   versionState,
 } from '../../../hooks/customerRules';
 import { Icon } from '../../../components/CustomerLayout';
-import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
 import { LockedCard, Note } from '../../../components/Common/Common';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
 
@@ -127,7 +126,6 @@ export const PaymentTab: React.FC<{ request: TransportRequest }> = ({ request: r
               <div><span>Số ngựa</span><b>{r.horseCount}</b></div>
             </div>
           </div>
-          <DemoPanel request={r} />
         </div>
       </div>
     </>

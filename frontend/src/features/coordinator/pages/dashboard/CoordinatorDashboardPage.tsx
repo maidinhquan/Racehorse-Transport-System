@@ -1,7 +1,6 @@
 // Tổng quan của Điều phối: số liệu lập kế hoạch, bảng phân công, cảnh báo cần chú ý, thông báo gần đây
 import { useEffect } from 'react';
 import { DataTable, Empty, Icon, PillT, RouteCell } from '../../components/common/ui';
-import { DemoCard, EmptyPlanLaunch } from '../../components/demo/Demo';
 import { CoordinatorLayout, myNotifs } from '../../components/layout/CoordinatorLayout';
 import { ACTIVE_TRIP, coordTrips, curRoute, deployed, emp, etaOverdue, planPill, planState, reqOfTrip, resourceGaps, tripVehicleIds } from '../../domain/coordinatorRules';
 import type { Any } from '../../store/coordinatorStore';
@@ -36,7 +35,6 @@ export function CoordinatorDashboardPage() {
   const first = (me()?.name || 'Phạm Hải').split(' ').pop();
   return (
     <CoordinatorLayout title="Tổng quan">
-      <EmptyPlanLaunch />
       <div className="head"><div><h2 className="page-title">Xin chào, {first === 'Hai' ? 'Hải' : first}</h2><p className="subtitle">Tuyến, xe và nhân sự cho các chuyến đã triển khai.</p></div></div>
       <div className="stats six">
         {card('map', 'Chờ lập tuyến', toRoute, toRoute.length ? `${toRoute.filter((t: Any) => curRoute(t)).length} đang có bản nháp` : 'Không có chuyến cần lập kế hoạch')}
@@ -72,7 +70,6 @@ export function CoordinatorDashboardPage() {
               </button>))}</div>
               : <Empty title="Không có thông báo" text="Quyết định triển khai và tuyến đường sẽ hiển thị tại đây." />}
           </div>
-          <DemoCard />
         </div>
       </div>
     </CoordinatorLayout>

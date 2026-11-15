@@ -7,7 +7,7 @@ import { Cell, Chk, Field, Inp, Sel, Txt } from '../components/common/ui';
 import { DateTimeInput } from '../components/forms/DateTime';
 import { assignedOperator, canPlan, crewOf, curRoute, groundCountry, groundLegCheck, groundLegName, opsBlock, placeById, placeByName, reqOfTrip, trip, tripHorses } from '../domain/coordinatorRules';
 import type { Any } from '../store/coordinatorStore';
-import { audit, commit, confirmAction, db, demoOn, flushTripStateToStorage, me, notify, nowStamp, openModal, toast } from '../store/coordinatorStore';
+import { audit, commit, confirmAction, db, flushTripStateToStorage, me, notify, nowStamp, openModal, toast } from '../store/coordinatorStore';
 import { addHours, cityLabel, dt, MILESTONE_LABEL, stampMs, usd } from '../utils/format';
 import { plannerMap, resourceSignature, ROUTE_POLICY, RP, rpCalc, rpDeadline, rpEnsure, rpFlightKey, rpRoute, rpWriteTimes, stop, validateRoute } from './routePlanner';
 import { apiClient } from '../../../shared/api/apiClient';
@@ -244,7 +244,7 @@ export function serviceSelect(id: string) {
 
       return (
         <>
-          <p className="hint">{Math.max(1, tripHorses(t).length)} ngựa · {cityLabel(reqOfTrip(t).origin)} → {cityLabel(reqOfTrip(t).destination)} · khởi hành {dt(t.plannedDepart)}. Dữ liệu mở rộng lịch bay từ 11/2026 đến 03/2027.{t.id === 'TRP-DEMO-AIR' ? ' Mã mẫu cho Trip này: Pegasus Bloodstock Air · PBA-DEMO-01 hoặc PBA-DEC-28.' : ''}</p>
+          <p className="hint">{Math.max(1, tripHorses(t).length)} ngựa · {cityLabel(reqOfTrip(t).origin)} → {cityLabel(reqOfTrip(t).destination)} · khởi hành {dt(t.plannedDepart)}. Dữ liệu mở rộng lịch bay từ 11/2026 đến 03/2027.</p>
           <div className="svc-grid">
             <div className="svc-left">
               <Field label="Mã chuyến bay *"><Inp name="code" autoComplete="off" placeholder="Nhập hoặc click mã chuyến bay bên dưới" /></Field>
@@ -405,7 +405,7 @@ export function submitAirPlan(id: string) {
     flushTripStateToStorage();
     commit();
 
-    void pushPlanToBackend(t).then((err) => { if (err && !demoOn()) toast('Chưa gửi được phương án lên máy chủ: ' + err); });
+    void pushPlanToBackend(t).then((err) => { if (err) toast('Chưa gửi được phương án lên máy chủ: ' + err); });
     try {
       if (t.flight) {
         void flow3Api.submitFlightProposal(t.id, { expectedVersion: 0, flightVersion: 1 }, `fp-${t.id}-${Date.now()}`).catch(() => {});

@@ -102,10 +102,6 @@ export const minutesBetween = (a: string, b: string) => (stampMs(b) - stampMs(a)
 // ============================================================================
 export const isActiveTrip = (t: Trip) => t.status !== 'COMPLETED';
 
-/** Một nhân sự chỉ có MỘT chuyến đang hoạt động – nhưng vẫn hỗ trợ danh sách */
-export const tripsOf = (trips: Trip[], userId: string) =>
-  trips.filter((t) => Object.values(t.crew).includes(userId));
-
 export const myPosition = (t: Trip, userId: string) => {
   const slot = (Object.keys(t.crew) as CrewSlot[]).find((k) => t.crew[k] === userId);
   return slot ? SLOT_LABEL[slot] : '';

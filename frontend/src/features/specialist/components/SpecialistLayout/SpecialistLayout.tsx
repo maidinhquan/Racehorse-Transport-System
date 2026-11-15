@@ -4,7 +4,7 @@ import { ThemeToggle } from '../../../../shared/components';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { fmtDateTime } from '../../hooks/specialistRules';
 import { formatNotification } from '../../../../shared/utils/notificationFormat';
-import { SPECIALIST_INITIALS, SPECIALIST_NAME, type SpecialistNotification } from '../../data/mockData';
+import { SPECIALIST_INITIALS, SPECIALIST_NAME, type SpecialistNotification } from '../../types';
 import { requestReviewApi } from '../../../../shared/api/requestReviewApi';
 import './SpecialistLayout.css';
 

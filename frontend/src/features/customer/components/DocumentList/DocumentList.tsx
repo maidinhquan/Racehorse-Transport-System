@@ -6,7 +6,6 @@ import { FilePickButton } from './FilePickButton';
 import { useCustomer } from '../../hooks/useCustomer';
 import { FilePreviewModal } from '../Modals/FilePreviewModal';
 import './DocumentList.css';
-import { getDemoMode } from '../../../../shared/context/DemoModeContext';
 
 interface DocumentRowsProps {
   requestId: string;
@@ -39,7 +38,7 @@ export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, ed
                     {rejected ? 'Cập nhật thông tin' : 'Sửa thông tin'}
                   </button>
                 )}
-                {editable && it.kind === 'file' && (getDemoMode('customer') || ['passport', 'ownership', 'valueProof', 'flu'].includes(it.key) || (rejected && it.key === 'health')) && (
+                {editable && it.kind === 'file' && (['passport', 'ownership', 'valueProof', 'flu'].includes(it.key) || (rejected && it.key === 'health')) && (
                   <FilePickButton label={rejected ? 'Tải lại tệp mới' : it.file ? 'Thay tệp' : 'Tải tệp'}
                     className={`cus-btn cus-btn--sm ${rejected ? 'cus-btn--solid' : ''}`}
                     onPick={(f) => actions.uploadDoc(requestId, it.key, it.scope, f)}
