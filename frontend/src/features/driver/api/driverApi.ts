@@ -62,6 +62,7 @@ const mapIncidentDto = (d: any): Incident => {
     'HORSE_HEALTH',
     'CUSTOMS_HOLD',
     'ROAD_CLOSURE',
+    'PICKUP_ACCESS_BLOCKED',
     'OTHER',
   ];
   const typeMap: Record<string, IncidentType> = {
@@ -70,6 +71,8 @@ const mapIncidentDto = (d: any): Incident => {
     ACCIDENT: 'TRAFFIC_ACCIDENT',
     HEALTH: 'HORSE_HEALTH',
     DELAY: 'ROAD_CLOSURE',
+    PICKUP_ACCESS_BLOCKED: 'PICKUP_ACCESS_BLOCKED',
+    PICKUP_BLOCKED: 'PICKUP_ACCESS_BLOCKED',
   };
   const type: IncidentType = validTypes.includes(cat as IncidentType)
     ? (cat as IncidentType)
@@ -426,6 +429,7 @@ export const driverApi = {
       HORSE_HEALTH: 'HORSE_HEALTH',
       ROAD_CLOSURE: 'ROAD_CLOSURE',
       BORDER_DELAY: 'BORDER_DELAY',
+      PICKUP_ACCESS_BLOCKED: 'PICKUP_ACCESS_BLOCKED',
     };
     const category = categoryMap[body.type] || body.type || 'OTHER';
     const payload = {
@@ -438,11 +442,14 @@ export const driverApi = {
       locationCoordinates: body.locationCoordinates,
       photos: body.photos,
       imageUrl: body.photos?.[0] || undefined,
-      immediateCare: body.immediateCare || 'Người và ngựa đã được sơ cứu hoặc đảm bảo an toàn',
+      immediateCare: body.immediateCare || (body.type === 'HORSE_HEALTH' ? 'Người và ngựa đã được sơ cứu hoặc đảm bảo an toàn' : 'Xe đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định'),
       horseId: body.horseId,
       horseName: body.horseName,
       healthIssueType: body.healthIssueType,
       occurredAt: new Date().toISOString(),
+      proposedRelocationPlaceName: body.proposedRelocationPlaceName,
+      blockedImageUrl: body.blockedImageUrl,
+      relocationImageUrl: body.relocationImageUrl,
     };
     try {
       const res = await apiClient.post<ApiResponse<{ incidentId: string }>>(
@@ -465,6 +472,65 @@ export const driverApi = {
   /** Ghi nhận người nhận từ chối / không thể bàn giao (Flow 6) */
   refuseHandover: (tripId: string, body: RefuseHandoverRequestDto) =>
     send(DRIVER_ENDPOINTS.HANDOVER_REFUSAL(tripId), body),
+
+  /** Báo cáo xe không vào được điểm lấy ngựa (Flow 5 Ngoại lệ điểm đón) */
+  reportPickupAccessBlocked: async (
+    tripId: string,
+    body: {
+      reason: string;
+      latitude: number;
+      longitude: number;
+      imageUrl?: string;
+      blockedImageUrl?: string;
+      relocationImageUrl?: string;
+      proposedRelocationPlaceName?: string;
+      notes?: string;
+    }
+  ) => {
+    const res = await apiClient.post<ApiResponse<any>>(
+      `/driver/trips/${tripId}/pickup-access-blocked`,
+      body
+    );
+    return res.data?.data;
+  },
+
+  /** Tra cứu trạng thái ngoại lệ điểm đón */
+  getPickupAccessStatus: async (tripId: string) => {
+    try {
+      const res = await apiClient.get<ApiResponse<any>>(
+        `/driver/trips/${tripId}/pickup-access-status`
+      );
+      if (res.data?.success !== false && res.data?.data) {
+        return res.data.data;
+      }
+    } catch {}
+    try {
+      const res = await apiClient.get<ApiResponse<any>>(
+        `/coordinator/trips/${tripId}/pickup-access-status`
+      );
+      if (res.data?.success !== false && res.data?.data) {
+        return res.data.data;
+      }
+    } catch {}
+    return null;
+  },
+
+  /** Lấy danh sách cơ sở y tế / trạm thú y kèm đề xuất theo tỉnh hoặc chuyến */
+  getVetFacilities: async (params?: { tripId?: string; province?: string; lat?: number; lng?: number }) => {
+    try {
+      const query = new URLSearchParams();
+      if (params?.tripId) query.append('tripId', params.tripId);
+      if (params?.province) query.append('province', params.province);
+      if (params?.lat !== undefined) query.append('lat', String(params.lat));
+      if (params?.lng !== undefined) query.append('lng', String(params.lng));
+
+      const res = await apiClient.get<ApiResponse<any[]>>(`/flow5/vet-facilities?${query.toString()}`);
+      if (res.data?.success !== false && Array.isArray(res.data?.data) && res.data.data.length > 0) {
+        return res.data.data;
+      }
+    } catch {}
+    return null;
+  },
 };
 
 export default driverApi;

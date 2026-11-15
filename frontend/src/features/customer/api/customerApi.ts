@@ -1,7 +1,7 @@
 import { apiRequest } from '../../../shared/api/apiRequest';
 import { contractClient, withRouteList, type FormOptions } from '../../../shared/api/contractClient';
 import { apiMessage } from '../../../shared/api/apiError';
-import type { ComplaintInput, ContractChangeInput, CustomerNotification, CustomerProfile, FileRef, Horse, HorseInput, Place, TransportRequest, TripInfoInput, ContractVersion, DocRecord, Payment } from '../types';
+import type { ComplaintInput, ContractChangeInput, CustomerNotification, CustomerProfile, FileRef, Horse, HorseInput, Place, TransportRequest, TripInfoInput, ContractVersion, Payment } from '../types';
 import { city, registerBackendCity } from '../hooks/customerRules';
 import { CUSTOMER_ENDPOINTS } from './customerEndpoints';
 import { attachContractFeedback, contractFromWire, documentKey, fileFromWire, paymentFromWire, refundFromWire, utcMs, type WirePayment, type WireHorse, type WireContract } from '../../../shared/api/flow1Wire';
@@ -318,5 +318,10 @@ export const customerApi = {
     contractClient<any>('get', CUSTOMER_ENDPOINTS.PICKUP_RELOCATION(tripId)),
   decidePickupRelocation: (tripId: string, body: { relocationId: string; proposalVersion: number; decision: 'ACCEPT' | 'REJECT'; note: string; acknowledged: boolean }) =>
     contractClient<any>('post', CUSTOMER_ENDPOINTS.PICKUP_RELOCATION_DECISION(tripId), body),
+  // Flow 5: Pickup Access Exception Decision
+  getPickupAccessStatus: (tripId: string) =>
+    apiRequest<any>('get', `/customer/trips/${tripId}/pickup-access-status`),
+  decidePickupAccess: (tripId: string, body: { decision: 'APPROVED' | 'REJECTED'; rejectionReason?: string }) =>
+    apiRequest<any>('post', `/customer/trips/${tripId}/pickup-access-decision`, body),
 };
 export default customerApi;

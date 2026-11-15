@@ -54,8 +54,19 @@ describe('SpecialistIncidentsPage Layout & Interaction', () => {
 
     expect(screen.getByText('INC-7495')).toBeDefined();
     expect(screen.getByText('TRIP_003')).toBeDefined();
-    expect(screen.getByText(/Thời tiết xấu/)).toBeDefined();
     expect(screen.getByText('Mưa to ngập đường xe di chuyển chậm')).toBeDefined();
     expect(screen.getByRole('button', { name: /rà soát pháp lý/i })).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Đóng sự cố' })).toBeNull();
+  });
+
+  it('only offers final closure after specialist review and incident resolution', () => {
+    saveSharedIncident({
+      id: 'INC-READY', tripId: 'TRIP_003', type: 'BAD_WEATHER', severity: 'MEDIUM',
+      status: 'RESOLVED', at: '2026-11-06T23:56:00.000Z', by: 'USER_015',
+      location: 'Trên tuyến', description: 'Đã xử lý', photos: [],
+      complianceReview: { reviewedAt: '2026-11-07T00:00:00.000Z', reviewedBy: 'Specialist', note: 'Hợp lệ', impact: 'NONE' },
+    });
+    render(<ThemeProvider><MemoryRouter><SpecialistIncidentsPage /></MemoryRouter></ThemeProvider>);
+    expect(screen.getByRole('button', { name: 'Đóng sự cố' })).toBeDefined();
   });
 });

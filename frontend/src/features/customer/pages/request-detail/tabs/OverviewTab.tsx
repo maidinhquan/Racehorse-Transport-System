@@ -21,6 +21,7 @@ import {
 } from '../../../hooks/customerRules';
 import { Note, PlaceBlock, Timeline } from '../../../components/Common/Common';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
+import { CustomerRelocationCard } from '../../../components/RelocationProposal/CustomerRelocationCard';
 import { NextAction } from './NextAction';
 
 /** Tab Tổng quan: xét duyệt, thông tin yêu cầu, khách hàng, điểm nhận/giao, ngựa, việc cần làm */
@@ -70,6 +71,9 @@ export const OverviewTab: React.FC<{ request: TransportRequest }> = ({ request: 
             </>
           )}
         </div>
+
+        {/* Đề xuất điểm đón / Xe trung chuyển (Flow 5 Ngoại lệ điểm lấy ngựa) */}
+        <CustomerRelocationCard tripId={r.trip?.id || r.id} />
 
         <div className="cus-card">
           <h3 className="cus-card__title">Thông tin yêu cầu</h3>

@@ -53,7 +53,16 @@ export const date = (s?: string | null) => {
 /** '2026-10-18 06:00' → '18/10/2026 06:00' */
 export const dt = (s?: string | null) => {
   if (!s) return '—';
-  const [d, t] = String(s).replace('T', ' ').split(' ');
+  const str = String(s).trim();
+  // Nếu là chuỗi ISO UTC (chứa 'Z', '+' hoặc định dạng ISO có 'T' và giây)
+  if (str.includes('Z') || str.includes('+') || (str.includes('T') && str.length > 16)) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const p = (n: number) => String(n).padStart(2, '0');
+      return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+  }
+  const [d, t] = str.replace('T', ' ').split(' ');
   if (!t) return date(d);
   return `${date(d)} ${t.slice(0, 5)}`;
 };

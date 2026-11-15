@@ -43,6 +43,7 @@ export type IncidentType =
   | 'HORSE_HEALTH'
   | 'CUSTOMS_HOLD'
   | 'ROAD_CLOSURE'
+  | 'PICKUP_ACCESS_BLOCKED'
   | 'OTHER';
 export type IncidentSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type IncidentStatus = 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
@@ -101,6 +102,7 @@ export interface Milestone {
   at: string;
   /** Thời điểm hệ thống ghi nhận (ISO, có giây) */
   recordedAt?: string;
+  updatedAt?: string;
   by: string; // crew id
   note?: string;
 }
@@ -111,6 +113,7 @@ export interface Clearance {
   result: ClearanceResult;
   notes: string;
   at: string;
+  updatedAt?: string;
   by: string;
 }
 
@@ -128,6 +131,7 @@ export interface HealthLog {
   id: string;
   horseId: string;
   at: string;
+  updatedAt?: string;
   temp: number;
   hr: number;
   condition: HorseCondition;
@@ -164,6 +168,7 @@ export interface DocumentPackage {
 export interface DepartureDelay {
   status: DelayStatus;
   at: string;
+  updatedAt?: string;
   by: string;
   reason: string;
   proposedDepart?: string;
@@ -178,6 +183,7 @@ export interface Incident {
   severity: IncidentSeverity;
   status: IncidentStatus;
   at: string;
+  updatedAt?: string;
   by: string;
   location: string;
   /** Tọa độ do tài xế chọn trên đoạn đường giữa hai trạm */
@@ -221,6 +227,7 @@ export interface HandoverRecord {
 
 export interface HandoverAttempt {
   at: string;
+  updatedAt?: string;
   status: 'COMPLETED' | 'REFUSED';
   by: string;
   category?: RefuseCategory;
@@ -259,6 +266,15 @@ export interface Trip {
   handover?: HandoverRecord;
   handoverAttempts: HandoverAttempt[];
   handoverStatus?: 'COMPLETED' | 'REFUSED';
+  pickupAccessStatus?: 'NORMAL' | 'BLOCKED' | 'RELOCATING' | 'SHUTTLING' | 'RESOLVED';
+  relocationMeetingPointName?: string;
+  relocationLatitude?: number;
+  relocationLongitude?: number;
+  relocationDistanceMeters?: number;
+  shuttleVehicleId?: string;
+  shuttleDriverId?: string;
+  shuttleCostVnd?: number;
+  customerApprovalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 /** Bản nháp bàn giao đang nhập trên thiết bị (chưa gửi) */
@@ -278,6 +294,7 @@ export interface RecordMilestoneRequestDto {
   type: MilestoneType;
   stopIndex: number;
   at: string;
+  updatedAt?: string;
   note?: string;
 }
 
@@ -286,6 +303,7 @@ export interface HealthLogRequestDto {
   milestoneId?: string;
   horseId: string;
   at: string;
+  updatedAt?: string;
   temp: number;
   hr: number;
   condition: HorseCondition;
@@ -308,6 +326,9 @@ export interface ReportIncidentRequestDto {
   horseName?: string;
   healthIssueType?: HorseHealthIssue;
   immediateCare?: string;
+  proposedRelocationPlaceName?: string;
+  blockedImageUrl?: string;
+  relocationImageUrl?: string;
 }
 
 export interface DepartureDelayRequestDto {
