@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { SpecialistLayout, Icon } from '../../components/SpecialistLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { LockedCard, Note } from '../../components/Common/Common';
-import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import type { SpecTrip, TripDetailTab } from '../../types';
 import { CHECKLIST_LABEL, CUSTOMER_DOC_LABEL, CUSTOMER_DOC_NAME, MODE_VI, checklist, fmtDateTime, horseName, itemName, tripTotals, type SpecialistData } from '../../hooks/specialistRules';
@@ -63,7 +62,6 @@ export const TripDetailPage: React.FC = () => {
         <div className="spc-trip__locked">
           <LockedCard title={t.deployment === 'ON_HOLD' ? 'Chuyến đang tạm dừng' : 'Chuyến chưa được Manager giao'}
             text="Khi Logistics Manager xác nhận giao việc, chuyến được gửi đến bạn; khi đó bạn chọn bộ yêu cầu hồ sơ và bắt đầu duyệt giấy tờ. Hiện chỉ xem được thông tin." />
-          <DemoPanel trip={t} />
         </div>
       ) : (
         <>
@@ -74,7 +72,6 @@ export const TripDetailPage: React.FC = () => {
               {active === 'required' && <CompanyDocsTab trip={t} />}
               {active === 'insurance' && <InsuranceTab trip={t} />}
             </div>
-            <DemoPanel trip={t} />
           </div>
         </>
       )}

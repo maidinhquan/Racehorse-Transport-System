@@ -6,7 +6,6 @@ import { BackLink, LockedCard, Note } from '../../components/Common/Common';
 import { WorkflowHeader } from '../../components/WorkflowNav/WorkflowHeader';
 import { ContractPreview } from '../../components/ContractPreview/ContractPreview';
 import { Modal, ReasonModal } from '../../components/Modals';
-import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useManager } from '../../hooks/useManager';
 import {
   CANCELLABLE,
@@ -30,7 +29,7 @@ import { ContractWizard } from './ContractWizard';
 import './ContractEditorPage.css';
 import { onSync } from '../../../../shared/utils/syncChannel';
 
-type Dialog = '' | 'view' | 'cancel' | 'extend' | 'demo-cancel' | 'demo-change';
+type Dialog = '' | 'view' | 'cancel' | 'extend';
 
 /** Hợp đồng & giá của một yêu cầu: soạn 4 bước, phát hành, phản hồi yêu cầu sửa, gia hạn, lịch sử phiên bản */
 export const ContractEditorPage: React.FC = () => {
@@ -81,7 +80,6 @@ export const ContractEditorPage: React.FC = () => {
   const change = v?.change && !v.change.response ? v.change : undefined;
   const editorOpen = canIssue && !change && (r.status === 'CONTRACT_PREPARATION' || !v || isVoid || state === 'EXPIRED' || editing);
   const canManage = !!v && !v.signedAt && ['ISSUED', 'EXPIRED'].includes(state!) && ['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status);
-  const processing = data.transactions.find((x) => x.requestId === r.id && x.status === 'PROCESSING');
 
   return (
     <ManagerLayout title="Hợp đồng & giá">
@@ -205,14 +203,6 @@ export const ContractEditorPage: React.FC = () => {
               <button type="button" className="mgr-btn mgr-btn--danger mgr-btn--sm" onClick={() => setDialog('cancel')}>Hủy / Thu hồi hợp đồng</button>
             </section>
           )}
-          <DemoPanel buttons={[
-            { label: 'Khách hàng đồng ý điều khoản', run: () => actions.demo.customerAcceptTerms(r.id), primary: true, hidden: !(r.status === 'CONTRACT_READY' && state === 'ISSUED' && !v?.termsAcceptedAt) },
-            { label: 'Khách hàng chuyển khoản tiền cọc', run: () => actions.demo.customerPayBank(r.id), primary: true, hidden: !(r.status === 'CONTRACT_READY' && state === 'ISSUED' && !!v?.termsAcceptedAt && !pendingTx(data, r) && !depositPaid(data, r)) },
-            { label: `Cổng thanh toán xác nhận ${processing?.id ?? ''}`, run: () => actions.demo.gatewayConfirm(processing!.id), primary: true, hidden: !processing },
-            { label: 'Khách hàng ký OTP', run: () => actions.demo.customerSign(r.id), primary: true, hidden: r.status !== 'DEPOSIT_VERIFIED' },
-            { label: 'Khách hàng yêu cầu sửa hợp đồng', run: () => setDialog('demo-change'), hidden: !(r.status === 'CONTRACT_READY' && state === 'ISSUED' && !depositPaid(data, r) && !pendingTx(data, r)) },
-            { label: 'Khách hàng yêu cầu hủy', run: () => setDialog('demo-cancel'), hidden: !['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status) },
-          ]} hint="Giả lập thao tác của khách hàng và cổng thanh toán với hợp đồng này." />
         </aside>
       </div>
 
@@ -235,19 +225,7 @@ export const ContractEditorPage: React.FC = () => {
           return res.ok;
         }} />
 
-      <ReasonModal open={dialog === 'demo-cancel'} title={`Demo: Khách hàng yêu cầu hủy hợp đồng ${r.id}`} okText="Gửi yêu cầu hủy" danger minLength={5}
-        label="Lý do hủy hợp đồng *" placeholder="VD: Kế hoạch thay đổi, giải đua bị hoãn." onClose={close} onSubmit={async (reason) => {
-          actions.demo.customerRequestCancel(r.id, reason);
-          close();
-          return true;
-        }} />
 
-      <ReasonModal open={dialog === 'demo-change'} title={`Demo: Khách hàng yêu cầu sửa hợp đồng ${r.id}`} okText="Gửi yêu cầu sửa" minLength={5}
-        label="Nội dung đề nghị sửa *" placeholder="VD: Đề nghị dời ngày vận chuyển thêm 3 ngày và giảm 5% cước." onClose={close} onSubmit={async (text) => {
-          actions.demo.customerRequestChange(r.id, text);
-          close();
-          return true;
-        }} />
     </ManagerLayout>
   );
 };

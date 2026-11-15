@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SpecialistLayout } from '../../components/SpecialistLayout';
 import { useSpecialist } from '../../hooks/useSpecialist';
-import { SPECIALIST_NAME } from '../../data/mockData';
+import { SPECIALIST_NAME } from '../../types';
 
 export const SpecialistProfilePage: React.FC = () => {
   const { stats, trips } = useSpecialist();

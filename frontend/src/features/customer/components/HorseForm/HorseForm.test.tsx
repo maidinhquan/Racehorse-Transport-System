@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { emptyHorse } from '../../hooks/customerRules';
 import { HorseForm } from './HorseForm';
 
-vi.mock('../../../../shared/context/DemoModeContext', () => ({ getDemoMode: () => true }));
 
 vi.mock('../../hooks/useCustomer', () => ({ useCustomer: () => ({ actions: { showToast: vi.fn() } }) }));
 

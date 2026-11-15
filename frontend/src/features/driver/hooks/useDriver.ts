@@ -14,12 +14,12 @@ import type {
 } from '../types';
 import { saveIncidentPin } from '../../../shared/utils/sharedIncidentPins';
 import { driverApi, saveLocalIncident } from '../api/driverApi';
-import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
+import { createSyncController, notifySync, onSync } from '../../../shared/utils/syncChannel';
 import { saveSharedIncident } from '../../../shared/utils/sharedIncidents';
 import { saveSharedNotification } from '../../../shared/utils/sharedNotifications';
 import { tripFromTracking } from '../api/flow4Mapper';
 import { flow4Api } from '../../tracking/api/flow4Api';
-import { DEFAULT_DRIVER_USER, mockCrew, mockHorses, mockIncidents, mockTrips, mockDriverNotifications, type DriverNotification } from '../data/mockData';
+import type { DriverNotification } from '../types';
 import {
   INCIDENT_TYPE_LABEL,
   delayPending,
@@ -31,7 +31,6 @@ import {
   minutesBetween,
   nextMilestone,
   nowStamp,
-  tripsOf,
   incidentSegment,
   incidentWhere,
   pointOnSegment,
@@ -39,7 +38,6 @@ import {
   lastMilestone,
   openIncidentHold,
 } from './driverRules';
-import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import { flow6Api } from '../../aftercare/api/flow6Api';
 
 // ============================================================================
@@ -64,7 +62,6 @@ interface DriverState {
 }
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
-const USER_KEY = 'rts_driver_user';
 
 /** Mã người dùng của tài khoản đang đăng nhập (claim `sub` trong access token) */
 const tokenUser = () => {
@@ -75,10 +72,7 @@ const tokenUser = () => {
     return typeof payload.sub === 'string' ? payload.sub : '';
   } catch { return ''; }
 };
-const savedUser = () => {
-  if (!getDemoMode('driver')) { const u = tokenUser(); if (u) return u; }
-  try { return sessionStorage.getItem(USER_KEY) || DEFAULT_DRIVER_USER; } catch { return DEFAULT_DRIVER_USER; }
-};
+const savedUser = () => tokenUser();
 
 const cleanId = (s: string) => String(s || '').replace(/[-_]/g, '').toUpperCase();
 const DRIVER_READ_NOTIFS_KEY = 'driver_read_notifications';
@@ -107,28 +101,18 @@ function persistDriverReadNotifIds(ids: string[]): void {
   }
 }
 
-const resolveDriverNotifs = (list: DriverNotification[]): DriverNotification[] => {
-  const readIds = getDriverReadNotifIds();
-  return list.map((n) => ({
-    ...n,
-    read: Boolean(n.read || readIds.has(n.id) || readIds.has(cleanId(n.id))),
-  }));
-};
-
-const initialDemo = getDemoMode('driver');
-const emptyData = { trips: [] as Trip[], crew: [] as CrewMember[], horses: [] as Horse[], incidents: [] as Incident[], notifications: resolveDriverNotifs(clone(mockDriverNotifications)) };
-const demoData = () => ({ trips: clone(mockTrips), crew: clone(mockCrew), horses: clone(mockHorses), incidents: clone(mockIncidents), notifications: resolveDriverNotifs(clone(mockDriverNotifications)) });
+const emptyData = { trips: [] as Trip[], crew: [] as CrewMember[], horses: [] as Horse[], incidents: [] as Incident[], notifications: [] as DriverNotification[] };
 
 let state: DriverState = {
   userId: savedUser(),
-  ...(initialDemo ? demoData() : emptyData),
+  ...emptyData,
   loading: false,
   loaded: false,
   loadedFor: '',
   toast: null,
   drafts: {},
   incidentPhotos: [],
-  notifications: resolveDriverNotifs(clone(mockDriverNotifications)),
+  notifications: [],
 };
 const listeners = new Set<() => void>();
 const setState = (patch: Partial<DriverState> | ((s: DriverState) => Partial<DriverState>)) => {
@@ -151,19 +135,6 @@ const ok = (message: string): ActionResult => { toast(message); return { ok: tru
 const fail = (message: string): ActionResult => ({ ok: false, message });
 
 if (typeof window !== 'undefined') {
-  window.addEventListener('rts_demo_mode_change', (event: Event) => {
-    const detail = (event as CustomEvent<{ role: string; enabled: boolean }>).detail;
-    if (!detail || detail.role !== 'driver') return;
-    if (detail.enabled) {
-      setState({ ...demoData(), loading: false, loaded: true, drafts: {} });
-      toast('Đã bật dữ liệu mẫu & hiển thị nút demo.');
-    } else {
-      setState({ ...emptyData, loading: false, loaded: false, drafts: {} });
-      toast('Đã tắt dữ liệu mẫu & chuyển sang dữ liệu thật từ máy chủ.');
-      void loadAll();
-    }
-  });
-
   const reloadIncidents = async () => {
     try {
       const serverIncidents = await driverApi.getIncidents();
@@ -188,6 +159,11 @@ if (typeof window !== 'undefined') {
               merged.unshift(loc);
             }
           });
+          merged.sort((a, b) => {
+            const tA = new Date((a as any).updatedAt || a.at || 0).getTime() || 0;
+            const tB = new Date((b as any).updatedAt || b.at || 0).getTime() || 0;
+            return tB - tA;
+          });
           return { incidents: merged };
         });
       }
@@ -197,11 +173,49 @@ if (typeof window !== 'undefined') {
   };
   window.addEventListener('rts_incident_created', reloadIncidents);
   window.addEventListener('rts_incident_pins_changed', reloadIncidents);
-  // Điều phối (tab/cửa sổ khác) duyệt phương án, tiếp nhận hoặc cho đi tiếp → ghi localStorage; tài xế phải thấy ngay
+
+  const handlePickupResolution = (event: Event) => {
+    const detail = (event as CustomEvent<any>).detail;
+    if (!detail || !detail.tripId) return;
+    const cleanId = (detail.tripId || '').replace(/[-_]/g, '').toUpperCase();
+    setState((s) => ({
+      trips: s.trips.map((t) => {
+        const tClean = t.id.replace(/[-_]/g, '').toUpperCase();
+        if (tClean === cleanId || t.id === detail.tripId || (t.status === 'IN_TRANSIT' && s.trips.length === 1)) {
+          return {
+            ...t,
+            pickupAccessStatus: detail.resolutionType,
+            relocationMeetingPointName: detail.meetingPointName,
+            relocationLatitude: detail.meetingLatitude,
+            relocationLongitude: detail.meetingLongitude,
+            relocationDistanceMeters: detail.distanceMeters,
+            shuttleVehicleId: detail.shuttleVehicleId,
+            shuttleDriverId: detail.shuttleDriverId,
+            shuttleCostVnd: detail.shuttleCostVnd,
+            customerApprovalStatus: detail.customerApprovalStatus,
+          };
+        }
+        return t;
+      }),
+    }));
+  };
+  window.addEventListener('rts_pickup_resolution_updated', handlePickupResolution);
+
+  onSync((msg) => {
+    if (msg.type === 'requests_updated' || msg.type === 'refresh_all') {
+      void reloadIncidents();
+      void loadAll();
+    }
+  });
+
   window.addEventListener('storage', (e: StorageEvent) => {
     if (e.key === null || /^(rts_incident_|rts_ack_|rts_vet_|rts_shared_incidents)/.test(e.key)) void reloadIncidents();
   });
-  window.addEventListener('focus', () => { void reloadIncidents(); });
+
+  window.addEventListener('focus', () => {
+    void reloadIncidents();
+    void loadAll();
+  });
 }
 
 /** Vị trí hiện tại của tổ xe: định vị thiết bị (tối đa 5 giây) hoặc, nếu không có, điểm của mốc gần nhất */
@@ -228,8 +242,6 @@ const updateTrip = (tripId: string, fn: (t: Trip) => Trip) =>
   setState((s) => ({ trips: s.trips.map((t) => (t.id === tripId ? fn(clone(t)) : t)) }));
 const crewName = (id: string) => state.crew.find((c) => c.id === id)?.name ?? id;
 const horseName = (id: string) => state.horses.find((h) => h.id === id)?.name ?? id;
-// Chế độ thật: backend đã lọc chuyến theo tài khoản đăng nhập
-const isMine = (t: Trip) => !getDemoMode('driver') || Object.values(t.crew).includes(state.userId);
 const draftOf = (t: Trip) => state.drafts[t.id] ?? emptyHandoverDraft(t);
 
 /** Dựng một chuyến từ dữ liệu thật: Flow 4 (hành trình) kết hợp Flow 6 (người nhận, trạng thái bàn giao) */
@@ -250,6 +262,45 @@ async function buildLiveTrip(id: string, f6?: { tripId: string; requestId: strin
   if (trackingRes.status === 'fulfilled') {
     const mapped = tripFromTracking(trackingRes.value, extras);
     mapped.trip.health = health;
+    const cleanId = id.replace(/-/g, '_');
+    const rawRes = typeof localStorage !== 'undefined'
+      ? (localStorage.getItem(`rts_pickup_resolution_${cleanId}`) || localStorage.getItem(`rts_pickup_resolution_${id}`))
+      : null;
+    if (rawRes) {
+      try {
+        const parsed = JSON.parse(rawRes);
+        mapped.trip.pickupAccessStatus = parsed.resolutionType;
+        mapped.trip.relocationMeetingPointName = parsed.meetingPointName;
+        mapped.trip.relocationLatitude = parsed.meetingLatitude;
+        mapped.trip.relocationLongitude = parsed.meetingLongitude;
+        mapped.trip.relocationDistanceMeters = parsed.distanceMeters;
+        mapped.trip.shuttleVehicleId = parsed.shuttleVehicleId;
+        mapped.trip.shuttleDriverId = parsed.shuttleDriverId;
+        mapped.trip.shuttleCostVnd = parsed.shuttleCostVnd;
+        mapped.trip.customerApprovalStatus = parsed.customerApprovalStatus;
+      } catch {}
+    }
+    const storedStatus = typeof localStorage !== 'undefined'
+      ? (localStorage.getItem(`rts_driver_pickup_status_${cleanId}`) || localStorage.getItem(`rts_driver_pickup_status_${id}`))
+      : null;
+    if (storedStatus && !mapped.trip.pickupAccessStatus) {
+      mapped.trip.pickupAccessStatus = storedStatus as any;
+    }
+
+    try {
+      const liveStatus = await driverApi.getPickupAccessStatus(id);
+      if (liveStatus && liveStatus.pickupAccessStatus && liveStatus.pickupAccessStatus !== 'NORMAL') {
+        mapped.trip.pickupAccessStatus = liveStatus.pickupAccessStatus;
+        if (liveStatus.relocationMeetingPointName) {
+          mapped.trip.relocationMeetingPointName = liveStatus.relocationMeetingPointName;
+        }
+        if (liveStatus.relocationLatitude) mapped.trip.relocationLatitude = liveStatus.relocationLatitude;
+        if (liveStatus.relocationLongitude) mapped.trip.relocationLongitude = liveStatus.relocationLongitude;
+        if (liveStatus.relocationDistanceMeters) mapped.trip.relocationDistanceMeters = liveStatus.relocationDistanceMeters;
+        mapped.trip.customerApprovalStatus = liveStatus.customerApprovalStatus || 'APPROVED';
+      }
+    } catch {}
+
     return mapped;
   }
   const trip: Trip = {
@@ -265,7 +316,7 @@ async function buildLiveTrip(id: string, f6?: { tripId: string; requestId: strin
 /** Làm mới nền dữ liệu chuyến thật (nhật ký sức khỏe, mốc, trạng thái) khi người khác trong tổ xe vừa ghi, không bật trạng thái "đang tải" */
 let refreshingLive = false;
 async function refreshLiveTrips() {
-  if (getDemoMode('driver') || !state.loaded || state.loading || refreshingLive) return;
+  if (!state.loaded || state.loading || refreshingLive) return;
   refreshingLive = true;
   try {
     const [f4Res, f6Res] = await Promise.allSettled([flow4Api.getDriverTrips(), flow6Api.getTrips()]);
@@ -305,48 +356,35 @@ async function loadAll() {
   if (state.loading) return;
   setState({ loading: true });
   try {
-    if (!getDemoMode('driver')) {
-      try {
-        const [f4Res, f6Res, incRes] = await Promise.allSettled([
-          flow4Api.getDriverTrips(),
-          flow6Api.getTrips(),
-          driverApi.getIncidents(),
-        ]);
-        if (f4Res.status === 'rejected' && f6Res.status === 'rejected') throw f6Res.reason;
-        const f4 = f4Res.status === 'fulfilled' ? f4Res.value : [];
-        const f6 = f6Res.status === 'fulfilled' ? f6Res.value : [];
-        const incidents = incRes.status === 'fulfilled' ? incRes.value : [];
-        const ids = [...new Set([...f4.map((x) => x.tripId), ...f6.map((x) => x.tripId)])];
-        const built = await Promise.all(ids.map((id) => buildLiveTrip(id, f6.find((x) => x.tripId === id))));
-        const crewMap = new Map<string, CrewMember>();
-        const horseMap = new Map<string, Horse>();
-        built.forEach((b) => { b.crew.forEach((c) => crewMap.set(c.id, c)); b.horses.forEach((h) => horseMap.set(h.id, h)); });
-        const currentLocals = state.incidents.filter((li) => !incidents.some((srv) => srv.id === li.id));
-        const finalIncidents = [...currentLocals, ...incidents];
-        setState({
-          trips: built.map((b) => b.trip),
-          crew: [...crewMap.values()],
-          horses: [...horseMap.values()],
-          incidents: finalIncidents,
-          userId: tokenUser() || state.userId,
-          loading: false,
-          loaded: true,
-          loadedFor: tokenUser(),
-        });
-        return;
-      } catch (err) {
-        console.warn('[useDriver] Failed to fetch real trips:', err);
-        setState({ ...emptyData, loading: false, loaded: true });
-        return;
-      }
-    }
-
-    const [trips, crew, horses, incidents] = await Promise.all([
-      driverApi.getMyTrips(), driverApi.getCrew(), driverApi.getHorses(), driverApi.getIncidents(),
+    const [f4Res, f6Res, incRes] = await Promise.allSettled([
+      flow4Api.getDriverTrips(),
+      flow6Api.getTrips(),
+      driverApi.getIncidents(),
     ]);
-    setState({ trips, crew, horses, incidents, loading: false, loaded: true });
+    if (f4Res.status === 'rejected' && f6Res.status === 'rejected') throw f6Res.reason;
+    const f4 = f4Res.status === 'fulfilled' ? f4Res.value : [];
+    const f6 = f6Res.status === 'fulfilled' ? f6Res.value : [];
+    const incidents = incRes.status === 'fulfilled' ? incRes.value : [];
+    const ids = [...new Set([...f4.map((x) => x.tripId), ...f6.map((x) => x.tripId)])];
+    const built = await Promise.all(ids.map((id) => buildLiveTrip(id, f6.find((x) => x.tripId === id))));
+    const crewMap = new Map<string, CrewMember>();
+    const horseMap = new Map<string, Horse>();
+    built.forEach((b) => { b.crew.forEach((c) => crewMap.set(c.id, c)); b.horses.forEach((h) => horseMap.set(h.id, h)); });
+    const currentLocals = state.incidents.filter((li) => !incidents.some((srv) => srv.id === li.id));
+    const finalIncidents = [...currentLocals, ...incidents];
+    setState({
+      trips: built.map((b) => b.trip),
+      crew: [...crewMap.values()],
+      horses: [...horseMap.values()],
+      incidents: finalIncidents,
+      userId: tokenUser() || state.userId,
+      loading: false,
+      loaded: true,
+      loadedFor: tokenUser(),
+    });
+    return;
   } catch {
-    setState({ ...(getDemoMode('driver') ? demoData() : emptyData), loading: false, loaded: true });
+    setState({ ...emptyData, loading: false, loaded: true });
   }
 }
 
@@ -358,16 +396,9 @@ const actions = {
   clearToast: () => setState({ toast: null }),
   showToast: (message: string) => toast(message),
 
-  /** Đổi tài khoản demo (tài xế / bác sĩ thú y) */
-  switchUser(userId: string) {
-    try { sessionStorage.setItem(USER_KEY, userId); } catch { /* ignore */ }
-    setState({ userId });
-    toast(`Đang dùng tài khoản ${crewName(userId)} (demo).`);
-  },
-
   // ---------- Hành trình ----------
   async recordMilestone(tripId: string, atInput: string, note: string): Promise<ActionResult> {
-    const t = findTrip(tripId); if (!t || !isMine(t)) return fail('Không tìm thấy chuyến được giao.');
+    const t = findTrip(tripId); if (!t) return fail('Không tìm thấy chuyến được giao.');
     // Bác sĩ thú y / hộ tống chỉ ghi nhật ký sức khỏe; mốc hành trình do tài xế cập nhật
     const me = state.crew.find((c) => c.id === state.userId);
     if (me && me.role !== 'DRIVER') return fail('Bác sĩ thú y không được cập nhật mốc hành trình. Hãy ghi nhật ký sức khỏe ngựa; mốc do tài xế ghi.');
@@ -384,16 +415,12 @@ const actions = {
     } catch (error) {
       return fail(error instanceof Error && error.message ? error.message : 'Không ghi nhận được mốc.');
     }
-    if (!getDemoMode('driver')) {
-      // Backend đã ghi mốc: lỗi khi tải lại dữ liệu không được làm hỏng kết quả ghi nhận.
-      try {
-        const fresh = await buildLiveTrip(tripId);
-        setState((s) => ({ trips: s.trips.map((x) => (x.id === tripId ? { ...fresh.trip, handover: x.handover, handoverAttempts: x.handoverAttempts, handoverStatus: x.handoverStatus } : x)) }));
-      } catch (error) {
-        console.warn('[useDriver] Đã ghi mốc nhưng chưa làm mới được chuyến:', error);
-      }
-    } else {
-      updateTrip(tripId, (x) => ({ ...x, milestones: [...x.milestones, m], status: n.type === 'DEPARTED' ? 'IN_TRANSIT' : x.status }));
+    // Backend đã ghi mốc: lỗi khi tải lại dữ liệu không được làm hỏng kết quả ghi nhận.
+    try {
+      const fresh = await buildLiveTrip(tripId);
+      setState((s) => ({ trips: s.trips.map((x) => (x.id === tripId ? { ...fresh.trip, handover: x.handover, handoverAttempts: x.handoverAttempts, handoverStatus: x.handoverStatus } : x)) }));
+    } catch (error) {
+      console.warn('[useDriver] Đã ghi mốc nhưng chưa làm mới được chuyến:', error);
     }
     const extra = n.type === 'ARRIVED_CHECKPOINT' ? ' Specialist đã được báo để ghi kết quả thông quan.'
       : n.type === 'ARRIVED_DESTINATION' ? ' Hãy tiến hành bàn giao.' : '';
@@ -446,7 +473,7 @@ const actions = {
   addIncidentPhoto: (p: Photo) => setState((s) => ({ incidentPhotos: [...s.incidentPhotos, p] })),
   removeIncidentPhoto: (i: number) => setState((s) => ({ incidentPhotos: s.incidentPhotos.filter((_, k) => k !== i) })),
 
-  async reportIncident(tripId: string, body: Omit<ReportIncidentRequestDto, 'photos' | 'location' | 'locationCoordinates'> & { locationDetail: string; safe: boolean; ratio: number; coordinates?: { lat: number; lng: number } }): Promise<ActionResult> {
+  async reportIncident(tripId: string, body: Omit<ReportIncidentRequestDto, 'photos' | 'location' | 'locationCoordinates'> & { locationDetail: string; safe: boolean; ratio: number; coordinates?: { lat: number; lng: number }; customPhotos?: string[] }): Promise<ActionResult> {
     let t = findTrip(tripId);
     if (!t || t.status === 'COMPLETED') {
       const activeFallback = state.trips.find((x) => x.status === 'IN_TRANSIT') || state.trips.find((x) => x.status !== 'COMPLETED') || state.trips[0];
@@ -458,11 +485,13 @@ const actions = {
     if (!t) return fail('Không tìm thấy thông tin chuyến đi phù hợp.');
     if (!body.type || !body.severity) return fail('Chọn loại và mức độ sự cố.');
     if (body.description.trim().length < 5) return fail('Vui lòng mô tả sự việc ít nhất 5 ký tự.');
-    if (!body.safe) return fail('Xác nhận người và ngựa đã an toàn hoặc đã bắt đầu sơ cứu.');
+    if (!body.safe && body.type !== 'PICKUP_ACCESS_BLOCKED') {
+      return fail(body.type === 'HORSE_HEALTH' ? 'Xác nhận đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa.' : 'Xác nhận đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định.');
+    }
     const { a, b } = incidentSegment(t);
     const point = body.coordinates || (a && b ? pointOnSegment(a, b, body.ratio) : null);
     const location = incidentWhere(t, body.ratio) + (body.locationDetail.trim() ? ' – ' + body.locationDetail.trim() : '');
-    const photos = state.incidentPhotos.map((p) => p.url || p.name);
+    const photos = body.customPhotos ?? state.incidentPhotos.map((p) => p.url || p.name);
     const locationCoordinates = point ? `${point.lat.toFixed(6)},${point.lng.toFixed(6)}` : undefined;
     const backendRes = await driverApi.reportIncident(tripId, {
       type: body.type,
@@ -474,9 +503,13 @@ const actions = {
       horseId: body.horseId,
       horseName: body.horseName,
       healthIssueType: body.healthIssueType,
-      immediateCare: body.immediateCare,
+      immediateCare: body.immediateCare || (body.safe ? (body.type === 'HORSE_HEALTH' ? 'Đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa.' : 'Xe đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định.') : undefined),
+      proposedRelocationPlaceName: body.proposedRelocationPlaceName,
+      blockedImageUrl: body.blockedImageUrl,
+      relocationImageUrl: body.relocationImageUrl,
     });
     const realId = backendRes?.incidentId || `INC-${String(Date.now()).slice(-4)}`;
+    const effectiveImmediateCare = body.immediateCare || (body.safe ? (body.type === 'HORSE_HEALTH' ? 'Đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa.' : 'Xe đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định.') : undefined);
     const inc: Incident = {
       id: realId,
       tripId,
@@ -484,6 +517,7 @@ const actions = {
       severity: body.severity,
       status: 'NEW',
       at: nowStamp(),
+      updatedAt: nowStamp(),
       by: state.userId,
       location,
       lat: point?.lat,
@@ -493,7 +527,7 @@ const actions = {
       horseId: body.horseId,
       horseName: body.horseName,
       healthIssueType: body.healthIssueType,
-      immediateCare: body.immediateCare,
+      immediateCare: effectiveImmediateCare,
     };
     saveSharedIncident(inc as any);
     {
@@ -567,6 +601,37 @@ const actions = {
     return ok('Đã ghi nhận từ chối bàn giao. Manager đã được thông báo.');
   },
 
+  // ---------- Ngoại lệ tiếp cận điểm đón ----------
+  acknowledgePickupResolution(tripId: string): ActionResult {
+    const t = findTrip(tripId); if (!t) return fail('Không tìm thấy chuyến.');
+    const cleanId = tripId.replace(/-/g, '_');
+    try {
+      localStorage.setItem(`rts_driver_pickup_ack_${cleanId}`, 'true');
+      localStorage.setItem(`rts_driver_pickup_ack_${tripId}`, 'true');
+    } catch {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('rts_driver_pickup_ack', { detail: { tripId } }));
+      notifySync('requests_updated');
+    }
+    return ok('Tài xế đã xác nhận tiếp nhận thông tin phương án đón ngựa mới.');
+  },
+
+  confirmPickupAccessResolved(tripId: string): ActionResult {
+    const t = findTrip(tripId); if (!t) return fail('Không tìm thấy chuyến.');
+    const cleanId = tripId.replace(/-/g, '_');
+    try {
+      localStorage.setItem(`rts_pickup_resolved_${cleanId}`, 'true');
+      localStorage.setItem(`rts_pickup_resolved_${tripId}`, 'true');
+      localStorage.removeItem(`rts_driver_pickup_status_${cleanId}`);
+      localStorage.removeItem(`rts_driver_pickup_status_${tripId}`);
+    } catch {}
+    updateTrip(tripId, (x) => ({ ...x, pickupAccessStatus: 'RESOLVED', customerApprovalStatus: 'APPROVED' }));
+    if (typeof window !== 'undefined') {
+      notifySync('requests_updated');
+    }
+    return ok('Đã xác nhận tiếp nhận ngựa an toàn. Mở khóa hành trình.');
+  },
+
   // ---------- Nút demo (giả lập Specialist / Coordinator / Manager) ----------
   demoClearance(tripId: string): ActionResult {
     const t = findTrip(tripId); const n = t && nextMilestone(t);
@@ -583,7 +648,6 @@ const actions = {
     updateTrip(tripId, (x) => ({ ...x, plannedDepart: newDepart, departureDelay: x.departureDelay && { ...x.departureDelay, status: 'APPROVED', proposedDepart: newDepart } }));
     return ok(`Demo: Manager duyệt lịch khởi hành mới ${newDepart}.`);
   },
-
   markNotificationRead(id: string): void {
     persistDriverReadNotifIds([id]);
     setState((s) => ({
@@ -599,11 +663,6 @@ const actions = {
       };
     });
   },
-  demoResolveRefusal(tripId: string): ActionResult {
-    const t = findTrip(tripId); if (t?.handoverStatus !== 'REFUSED') return fail('Không có lần từ chối cần xử lý.');
-    updateTrip(tripId, (x) => ({ ...x, handoverStatus: undefined }));
-    return ok('Demo: Manager đã xử lý lần từ chối – có thể bàn giao lại.');
-  },
 };
 
 export type DriverActions = typeof actions;
@@ -617,7 +676,7 @@ export const useDriver = () => {
   // Chỉ tải lần đầu: mỗi component gắn vào hook này không được kích hoạt tải lại (tránh vòng lặp khi màn hình đổi giữa "đang tải" và danh sách)
   useEffect(() => {
     // Đăng nhập tài khoản khác trong cùng phiên trang: bỏ dữ liệu chuyến của người trước rồi tải lại theo tài khoản mới
-    if (state.loaded && !getDemoMode('driver') && state.loadedFor !== tokenUser()) {
+    if (state.loaded && state.loadedFor !== tokenUser()) {
       setState({ ...emptyData, loaded: false, loadedFor: '', drafts: {} });
     }
     if (!state.loaded) void loadAll();
@@ -632,10 +691,7 @@ export const useDriver = () => {
     }
     return undefined;
   }, [snap.crew, snap.userId]);
-  const myTrips = useMemo(() => {
-    if (!getDemoMode('driver')) return snap.trips;
-    return tripsOf(snap.trips, snap.userId);
-  }, [snap.trips, snap.userId]);
+  const myTrips = snap.trips;
   const activeTrips = useMemo(() => myTrips.filter(isActiveTrip), [myTrips]);
   const completedTrips = useMemo(() => myTrips.filter((t) => !isActiveTrip(t)), [myTrips]);
   const getTrip = useCallback((id?: string) => myTrips.find((t) => t.id === id), [myTrips]);

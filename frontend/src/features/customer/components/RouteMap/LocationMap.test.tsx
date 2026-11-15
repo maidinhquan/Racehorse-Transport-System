@@ -6,17 +6,20 @@ vi.mock('./GeoapifyTiles', () => ({ addGeoapifyTiles: () => () => {} }));
 const mock = vi.hoisted(() => {
   const map = { setView: vi.fn(), fitBounds: vi.fn(), invalidateSize: vi.fn(), remove: vi.fn() };
   const layer = { addTo: vi.fn(), bindTooltip: vi.fn() };
-  return { map, layer, circleMarker: vi.fn(), polyline: vi.fn(), bounds: vi.fn(), disconnect: vi.fn() };
+  return { map, layer, circleMarker: vi.fn(), polyline: vi.fn(), bounds: vi.fn(), disconnect: vi.fn(), marker: vi.fn() };
 });
 vi.mock('leaflet', () => ({ default: {
   map: () => mock.map, tileLayer: () => mock.layer,
   circleMarker: mock.circleMarker, polyline: mock.polyline, latLngBounds: mock.bounds,
+  divIcon: vi.fn(), marker: mock.marker,
 } }));
 beforeEach(() => {
   mock.map.setView.mockReturnValue(mock.map);
   mock.layer.addTo.mockReturnValue(mock.layer);
+  mock.layer.bindTooltip.mockReturnValue(mock.layer);
   mock.circleMarker.mockReturnValue(mock.layer);
   mock.polyline.mockReturnValue(mock.layer);
+  mock.marker.mockReturnValue(mock.layer);
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect = mock.disconnect; });
 });
 
@@ -38,7 +41,7 @@ describe('Customer Leaflet map', () => {
       { latitude: 11, longitude: 107, label: '<img src=x onerror=alert(1)>' },
       { latitude: 91, longitude: 108, label: 'Invalid' },
     ]} />);
-    expect(mock.circleMarker).toHaveBeenCalledTimes(2);
+    expect(mock.marker).toHaveBeenCalledTimes(2);
     expect(mock.polyline).not.toHaveBeenCalled();
     const tooltip = mock.layer.bindTooltip.mock.calls.at(-1)![0] as HTMLElement;
     expect(tooltip.querySelector('img')).toBeNull();

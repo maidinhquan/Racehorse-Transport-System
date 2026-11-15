@@ -277,3 +277,16 @@ export interface ActionResult {
 
 export type TripDetailTab = 'customer' | 'required' | 'insurance';
 export type SetupTab = 'types' | 'regs' | 'sets';
+
+export const SPECIALIST_NAME = 'Hoang Thu Ha';
+export const SPECIALIST_INITIALS = 'HH';
+
+export interface SpecialistNotification {
+  id: string;
+  title: string;
+  text: string;
+  at: string;
+  read: boolean;
+  link?: string;
+}
+

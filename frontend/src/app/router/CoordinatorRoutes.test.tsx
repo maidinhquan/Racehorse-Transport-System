@@ -1,22 +1,58 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setDemoModeStorage } from '../../shared/context/DemoModeContext';
-import { db, resetDemo } from '../../features/coordinator/store/coordinatorStore';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { apiClient } from '../../shared/api/apiClient';
+import {
+  db, resetCoordinatorState, syncCoordinatorIncidents, syncCoordinatorMasterData, syncCoordinatorTrips,
+} from '../../features/coordinator/store/coordinatorStore';
 import { ROUTING } from '../../features/coordinator/workflows/routePlanner';
 import AppRouter from './AppRouter';
+
+// Dữ liệu mẫu cho test, trả về qua API giả để store dựng đúng như khi chạy thật.
+const TRIPS = [
+  { tripId: 'TRIP_001', requestId: 'REQUEST_001', status: 'PLANNING', mode: 'ROAD', plannedDepart: '2026-12-09 06:00', eta: '2026-12-10 07:00' },
+  { tripId: 'TRIP_002', requestId: 'REQUEST_002', status: 'PLANNING', mode: 'AIR', plannedDepart: '2026-12-11 06:00', eta: '2026-12-12 07:00' },
+];
+const tripContext = (tripId: string) => {
+  const trip = TRIPS.find((t) => t.tripId === tripId) ?? TRIPS[0];
+  return {
+    tripId: trip.tripId, requestId: trip.requestId, deployment: 'CONFIRMED', mode: trip.mode,
+    specialistId: 'USER_005', coordinatorId: 'USER_006', horseIds: ['HORSE_001'],
+    pickup: { name: 'Pickup stable', address: 'Address A', geo: { lat: 10, lng: 106 } },
+    delivery: { name: 'Delivery stable', address: 'Address B', geo: { lat: 21, lng: 105 } },
+    deliveryDeadline: '2027-02-11 18:00',
+  };
+};
+const VEHICLES = [{ id: 'VEH_001', plate: '51C-123.45', model: 'Xe chuyên dụng', base: 'Hà Nội', status: 'READY', capacity: 2 }];
+const INCIDENTS = [{ incidentId: 'INC_001', tripId: 'TRIP_001', category: 'OTHER', severity: 'HIGH', status: 'REPORTED', description: 'Sự cố mẫu', reportedAt: '2026-12-09T08:00:00Z' }];
+
+function fakeApi(url: string): unknown {
+  if (url === '/coordinator/trips') return TRIPS;
+  if (url.startsWith('/coordinator/trips/')) return tripContext(decodeURIComponent(url.split('/').pop() ?? ''));
+  if (url === '/coordinator/vehicles') return VEHICLES;
+  if (url === '/incidents') return INCIDENTS;
+  return [];
+}
 
 // Exercise real pages and routing; maps are outside the scope of this migration.
 vi.mock('../../features/coordinator/components/maps/LeafletMaps', () => ({
   RouteMap: () => <div data-testid="route-map" />,
   PlannerMap: () => <div data-testid="planner-map" />,
   PlacePickMap: () => <div data-testid="place-map" />,
+  IncidentMap: () => <div data-testid="incident-map" />,
 }));
 
 describe('Coordinator routes after replacing the old portal', () => {
-  beforeEach(() => {
-    setDemoModeStorage(true);
-    resetDemo(true);
+  beforeEach(async () => {
+    resetCoordinatorState();
     ROUTING.provider = 'SIM';
+    vi.spyOn(apiClient, 'get').mockImplementation(async (url: string) => ({ data: { data: fakeApi(url) } }) as never);
+    await syncCoordinatorTrips();
+    await syncCoordinatorIncidents();
+    await syncCoordinatorMasterData();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it.each([
@@ -66,8 +102,7 @@ describe('Coordinator routes after replacing the old portal', () => {
   });
 
   it('shows an empty portal when demo data is disabled', () => {
-    setDemoModeStorage(false);
-    resetDemo(false);
+    resetCoordinatorState();
     window.history.replaceState({}, '', '/coordinator/dashboard');
     const { container } = render(<AppRouter />);
     expect(container.querySelector('.cbn-coord')).toBeInTheDocument();

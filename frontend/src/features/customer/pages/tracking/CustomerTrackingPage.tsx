@@ -3,7 +3,6 @@ import { onSync } from '../../../../shared/utils/syncChannel';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { RouteMap } from '../../components/RouteMap/RouteMap';
-import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { LockedCard, Note } from '../../components/Common/Common';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { useCustomer } from '../../hooks/useCustomer';
@@ -355,7 +354,6 @@ export const CustomerTrackingPage: React.FC = () => {
             )}
           </div>
 
-          <DemoPanel request={r} />
         </div>
       </div>
     </CustomerLayout>

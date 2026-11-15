@@ -28,9 +28,9 @@ beforeEach(() => {
 
 async function openReview() {
   render(<ReviewInbox role="specialist" button="btn" />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Mở xét duyệt' }));
+  fireEvent.click(await screen.findByRole('button', { name: /Thẩm định|Mở xét duyệt/i }));
   await screen.findByRole('button', { name: 'Gửi đánh giá hồ sơ' });
-  fireEvent.change(screen.getByLabelText('Kết luận hồ sơ'), { target: { value: 'FEASIBLE' } });
+  fireEvent.change(screen.getByLabelText(/Kết luận hồ sơ/i), { target: { value: 'FEASIBLE' } });
 }
 
 it('explains why a review cannot be sent when the checklist version is missing', async () => {
@@ -45,8 +45,9 @@ it('shows an API rejection beside the submit button', async () => {
   api.detail.mockResolvedValueOnce({ ...detail, options: [{ ...detail.options[0], checklistVersion: 'version-1' }] });
   api.specialist.mockRejectedValue(new Error('Hồ sơ đã thay đổi. Tải lại checklist.'));
   await openReview();
-  fireEvent.click(screen.getByRole('button', { name: 'Gửi đánh giá hồ sơ' }));
-  const form = screen.getByRole('button', { name: 'Gửi đánh giá hồ sơ' }).closest('form')!;
+  const submitButton = screen.getByRole('button', { name: 'Gửi đánh giá hồ sơ' });
+  const form = submitButton.closest('form')!;
+  fireEvent.click(submitButton);
   expect(await within(form).findByRole('alert')).toHaveTextContent('Hồ sơ đã thay đổi. Tải lại checklist.');
   await waitFor(() => expect(api.specialist).toHaveBeenCalledOnce());
 });
@@ -66,9 +67,9 @@ it('hides flight schedule in coordinator review', async () => {
   });
 
   render(<ReviewInbox role="coordinator" button="btn" />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Mở xét duyệt' }));
+  fireEvent.click(await screen.findByRole('button', { name: /Thẩm định|Mở xét duyệt/i }));
 
-  expect(await screen.findByText(/Xe sẵn sàng theo quốc gia và sức chứa/)).toBeInTheDocument();
+  expect(await screen.findByText(/Xe (chuyên dụng )?sẵn sàng/)).toBeInTheDocument();
   expect(screen.queryByText(/Danh mục chuyến bay/)).not.toBeInTheDocument();
   expect(screen.queryByText(/VN123/)).not.toBeInTheDocument();
 });
@@ -91,18 +92,19 @@ it('hides health certificate and vaccination from specialist checklist and submi
   api.specialist.mockResolvedValueOnce({ ...detail, status: 'MANAGER_PENDING' });
 
   render(<ReviewInbox role="specialist" button="btn" />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Mở xét duyệt' }));
+  fireEvent.click(await screen.findByRole('button', { name: /Thẩm định|Mở xét duyệt/i }));
 
   // PASSPORT should be rendered
-  expect(await screen.findByText(/Ngựa Bạch Long · Hộ chiếu FEI/)).toBeInTheDocument();
+  expect(await screen.findByText(/Hộ chiếu FEI/)).toBeInTheDocument();
+  expect(screen.getByText(/Ngựa Bạch Long/)).toBeInTheDocument();
 
   // HEALTH_CERTIFICATE and VACCINATION must be hidden from UI
-  expect(screen.queryByText(/Ngựa Bạch Long · Giấy kiểm dịch \/ sức khỏe/)).not.toBeInTheDocument();
-  expect(screen.queryByText(/Ngựa Bạch Long · Sổ tiêm chủng/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Giấy kiểm dịch \/ sức khỏe/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Sổ tiêm (chủng|ngừa)/)).not.toBeInTheDocument();
 
   // Set status for visible document (PASSPORT)
-  fireEvent.change(screen.getByLabelText('Trạng thái giấy tờ'), { target: { value: 'VERIFIED' } });
-  fireEvent.change(screen.getByLabelText('Kết luận hồ sơ'), { target: { value: 'FEASIBLE' } });
+  fireEvent.change(screen.getByLabelText(/Trạng thái (giấy tờ|thẩm định)/i), { target: { value: 'VERIFIED' } });
+  fireEvent.change(screen.getByLabelText(/Kết luận hồ sơ/i), { target: { value: 'FEASIBLE' } });
 
   fireEvent.click(screen.getByRole('button', { name: 'Gửi đánh giá hồ sơ' }));
 
@@ -127,7 +129,7 @@ it('lets the specialist view the customer file inline and disables the button wh
     ...detail,
     options: [{ ...detail.options[0], checklistVersion: 'v1', checklist: [
       { checklistItemId: 'HOR_1:PASSPORT', horseId: 'HOR_1', horseName: 'Bạch Long', documentType: 'PASSPORT', stage: 'BEFORE_CONTRACT', fileAvailable: true, expiryDate: null, usable: true },
-      { checklistItemId: 'HOR_1:VACCINATION', horseId: 'HOR_1', horseName: 'Bạch Long', documentType: 'VACCINATION', stage: 'BEFORE_DEPARTURE', fileAvailable: false, expiryDate: null, usable: false },
+      { checklistItemId: 'HOR_1:OWNERSHIP', horseId: 'HOR_1', horseName: 'Bạch Long', documentType: 'OWNERSHIP', stage: 'BEFORE_CONTRACT', fileAvailable: false, expiryDate: null, usable: false },
     ] }],
   };
   api.detail.mockResolvedValue(withFiles);

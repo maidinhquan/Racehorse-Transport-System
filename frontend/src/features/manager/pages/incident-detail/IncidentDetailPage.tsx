@@ -33,7 +33,7 @@ export const IncidentDetailPage: React.FC = () => {
           <p className="mgr-subtitle">{INCIDENT_TYPE_LABEL[i.type] || i.type} • {i.tripId || '—'}{r ? ` • ${routeText(r)}` : ''}</p>
         </div>
         <div className="mgr-btn-row">
-          {i.status !== 'CLOSED' && <span className="mgr-hint">Chỉ xem: Điều phối viên tiếp nhận và đóng sự cố khi xử lý xong.</span>}
+          {i.status !== 'CLOSED' && <span className="mgr-hint">Chỉ xem: Chuyên viên đóng sự cố sau khi xử lý xong.</span>}
         </div>
       </div>
       <div className="mgr-grid-main">
@@ -42,6 +42,7 @@ export const IncidentDetailPage: React.FC = () => {
             <h3 className="mgr-card__title">Diễn biến</h3>
             <p style={{ lineHeight: 1.6, marginTop: 0 }}>{i.description}</p>
             <div className="mgr-kv">
+              <div><span>Loại sự cố</span><b>{INCIDENT_TYPE_LABEL[i.type] || i.type}</b></div>
               <div><span>Báo lúc</span><b>{fmtDateTime(i.at)}</b></div>
               <div><span>Người báo</span><b>{i.by}</b></div>
               <div>
@@ -61,8 +62,32 @@ export const IncidentDetailPage: React.FC = () => {
               </div>
               <div><span>Ngựa liên quan</span><b>{i.horseId ? horseName(data, i.horseId) : (r?.horses || []).map((h) => horseName(data, h)).join(', ') || 'Không'}</b></div>
             </div>
-            <Note tone={i.safety ? 'green' : 'grey'} title="Biện pháp an toàn tức thời">{i.safety || 'Người báo xác nhận người và ngựa an toàn. Chăm sóc khẩn cấp không cần chờ phê duyệt.'}</Note>
-            {(i.photos || []).length > 0 && <div className="mgr-photos">{(i.photos || []).map((p) => <button key={p} type="button" className="mgr-photo" onClick={() => openSampleFile(p)}>{p}</button>)}</div>}
+            <Note tone={i.safety ? 'green' : 'grey'} title="Biện pháp an toàn tức thời">{i.safety || (i.type === 'HORSE_HEALTH' ? 'Người báo xác nhận người và ngựa an toàn / Đang chăm sóc sơ cứu.' : 'Xe đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định.')}</Note>
+            {i.status === 'ESCALATED' && (
+              <Note tone="red" title="Chuyển cấp từ Điều phối viên">
+                Điều phối viên từ chối hỗ trợ tại chỗ và chuyển sự cố lên Quản lý giải quyết. Vui lòng bấm &ldquo;Tiếp nhận xử lý&rdquo; để ra quyết định phương án hoặc điều phối khẩn cấp.
+              </Note>
+            )}
+            {(i.photos || []).length > 0 && (
+              <div className="mgr-photos" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+                {(i.photos || []).map((p, idx) => (
+                  <button
+                    key={`${p.slice(0, 30)}-${idx}`}
+                    type="button"
+                    className="mgr-photo"
+                    onClick={() => openSampleFile(p)}
+                    style={{ padding: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="Bấm để xem ảnh phóng to"
+                  >
+                    {p.startsWith('data:image') || p.startsWith('http') || p.startsWith('/') ? (
+                      <img src={p} alt={`Ảnh hiện trường ${idx + 1}`} style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 4 }} />
+                    ) : (
+                      <span>{p}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </section>
           <section className="mgr-card">
             <h3 className="mgr-card__title">Phương án xử lý</h3>

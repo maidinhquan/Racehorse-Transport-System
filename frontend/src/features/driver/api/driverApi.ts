@@ -5,10 +5,8 @@ import { DRIVER_ENDPOINTS } from './driverEndpoints';
 import type {
   ApiResponse,
   CompleteHandoverRequestDto,
-  CrewMember,
   DepartureDelayRequestDto,
   HealthLogRequestDto,
-  Horse,
   Incident,
   IncidentSeverity,
   IncidentStatus,
@@ -17,15 +15,11 @@ import type {
   RefuseHandoverRequestDto,
   ReportIncidentRequestDto,
   Trip,
-  TripStatus,
 } from '../types';
-import { mockCrew, mockHorses, mockIncidents, mockTrips } from '../data/mockData';
-import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import { flow4Api } from '../../tracking/api/flow4Api';
+import { tripFromTracking } from './flow4Mapper';
 import { generateUuidV4 } from '../../../shared/utils/uuid';
 import { getSharedIncidents } from '../../../shared/utils/sharedIncidents';
-
-const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 const roadLegCache = new Map<string, Array<Array<[number, number]>>>();
 
@@ -68,6 +62,7 @@ const mapIncidentDto = (d: any): Incident => {
     'HORSE_HEALTH',
     'CUSTOMS_HOLD',
     'ROAD_CLOSURE',
+    'PICKUP_ACCESS_BLOCKED',
     'OTHER',
   ];
   const typeMap: Record<string, IncidentType> = {
@@ -76,6 +71,8 @@ const mapIncidentDto = (d: any): Incident => {
     ACCIDENT: 'TRAFFIC_ACCIDENT',
     HEALTH: 'HORSE_HEALTH',
     DELAY: 'ROAD_CLOSURE',
+    PICKUP_ACCESS_BLOCKED: 'PICKUP_ACCESS_BLOCKED',
+    PICKUP_BLOCKED: 'PICKUP_ACCESS_BLOCKED',
   };
   const type: IncidentType = validTypes.includes(cat as IncidentType)
     ? (cat as IncidentType)
@@ -130,19 +127,18 @@ const mapIncidentDto = (d: any): Incident => {
 };
 
 /**
- * GET có fallback về mock data CHỈ KHI demo mode đang bật.
- * Khi demo tắt và API lỗi, trả về emptyFallback (mảng rỗng / undefined).
+ * GET trả về emptyFallback (mảng rỗng / undefined) khi API lỗi.
  */
-async function getOr<T>(url: string, mockFallback: T, emptyFallback: T = [] as unknown as T): Promise<T> {
+async function getOr<T>(url: string, emptyFallback: T = [] as unknown as T): Promise<T> {
   try {
     const res = await apiClient.get<ApiResponse<T>>(url);
-    return res.data?.data ?? (getDemoMode('driver') ? clone(mockFallback) : emptyFallback);
+    return res.data?.data ?? emptyFallback;
   } catch {
-    return getDemoMode('driver') ? clone(mockFallback) : emptyFallback;
+    return emptyFallback;
   }
 }
 
-/** POST: trả về true nếu Backend nhận, false nếu đang chạy chế độ mock (UI vẫn cập nhật cục bộ) */
+/** POST: trả về true nếu Backend nhận, false nếu gọi API thất bại */
 async function send(url: string, body?: unknown): Promise<boolean> {
   try {
     const res = await apiClient.post<ApiResponse<unknown>>(url, body);
@@ -197,53 +193,18 @@ export function updateLocalIncident(id: string, patch: Partial<Incident>) {
 }
 
 export const driverApi = {
-  /** Các chuyến được giao cho tài khoản tổ xe đang đăng nhập */
-  getMyTrips: async (): Promise<Trip[]> => {
-    try {
-      const live = await flow4Api.getDriverTrips();
-      if (live && live.length > 0) {
-        return live.map((s, idx) => {
-          const fallback = mockTrips.find((t) => t.id === s.tripId) || mockTrips[idx % mockTrips.length];
-          return {
-            ...fallback,
-            id: s.tripId,
-            status: (s.tripStatus as TripStatus) || fallback.status,
-            plannedDepart: fallback.plannedDepart,
-            eta: s.eta?.currentEta || fallback.eta,
-          };
-        });
-      }
-    } catch {
-      // Fallback to driver endpoints or mock
-    }
-    return getOr<Trip[]>(DRIVER_ENDPOINTS.MY_TRIPS, mockTrips);
-  },
-
   /** Chi tiết một chuyến */
   getTrip: async (tripId: string): Promise<Trip | undefined> => {
     try {
       const tracking = await flow4Api.getTracking(tripId);
       if (tracking && tracking.trip) {
-        const fallback = mockTrips.find((t) => t.id === tripId) || mockTrips[0];
-        return {
-          ...fallback,
-          id: tracking.trip.tripId,
-          status: (tracking.trip.tripStatus as TripStatus) || fallback.status,
-          plannedDepart: fallback.plannedDepart,
-          eta: tracking.trip.eta?.currentEta || fallback.eta,
-        };
+        return tripFromTracking(tracking).trip;
       }
     } catch {
       // Fallback
     }
-    return getOr<Trip | undefined>(DRIVER_ENDPOINTS.TRIP_DETAIL(tripId), mockTrips.find((t) => t.id === tripId), undefined);
+    return getOr<Trip | undefined>(DRIVER_ENDPOINTS.TRIP_DETAIL(tripId), undefined);
   },
-
-  /** Danh bạ tổ xe (tài xế, phụ lái, bác sĩ thú y) */
-  getCrew: () => getOr<CrewMember[]>(DRIVER_ENDPOINTS.CREW, mockCrew),
-
-  /** Thông tin ngựa trên các chuyến */
-  getHorses: () => getOr<Horse[]>(DRIVER_ENDPOINTS.HORSES, mockHorses),
 
   /** Sự cố của các chuyến được giao */
   getIncidents: async (): Promise<Incident[]> => {
@@ -366,22 +327,14 @@ export const driverApi = {
       // Backend error or offline
     }
 
-    const fallback = getDemoMode('driver') ? clone(mockIncidents) : [];
-    const merged = [...local];
-    fallback.forEach((fi) => {
-      if (!merged.some((li) => li.id === fi.id || cleanTargetId(li.id) === cleanTargetId(fi.id))) {
-        merged.push(fi);
-      }
-    });
-    return merged;
+    return local;
   },
 
   /**
-   * Ghi nhận mốc hành trình (Flow 4). Chế độ demo chỉ cập nhật cục bộ. Chế độ thật dùng đúng mã mốc và phiên bản
+   * Ghi nhận mốc hành trình (Flow 4). Chế độ thật dùng đúng mã mốc và phiên bản
    * hiện tại của backend; lỗi từ backend được ném ra để giao diện hiển thị, không cập nhật giả.
    */
   recordMilestone: async (tripId: string, body: RecordMilestoneRequestDto): Promise<boolean> => {
-    if (getDemoMode('driver')) return true;
     const key = generateUuidV4();
     const tracking = await flow4Api.getTracking(tripId);
     const { binding } = tracking;
@@ -438,7 +391,6 @@ export const driverApi = {
    * hiện tại của backend, gắn nhật ký với mốc đang chờ, và ném lỗi từ backend ra để giao diện hiển thị.
    */
   addHealthLog: async (tripId: string, body: HealthLogRequestDto): Promise<boolean> => {
-    if (getDemoMode('driver')) return true;
     const { binding } = await flow4Api.getTracking(tripId);
     await flow4Api.recordHealthLog(tripId, {
       expectedVersion: binding.executionVersion,
@@ -477,6 +429,7 @@ export const driverApi = {
       HORSE_HEALTH: 'HORSE_HEALTH',
       ROAD_CLOSURE: 'ROAD_CLOSURE',
       BORDER_DELAY: 'BORDER_DELAY',
+      PICKUP_ACCESS_BLOCKED: 'PICKUP_ACCESS_BLOCKED',
     };
     const category = categoryMap[body.type] || body.type || 'OTHER';
     const payload = {
@@ -489,11 +442,14 @@ export const driverApi = {
       locationCoordinates: body.locationCoordinates,
       photos: body.photos,
       imageUrl: body.photos?.[0] || undefined,
-      immediateCare: body.immediateCare || 'Người và ngựa đã được sơ cứu hoặc đảm bảo an toàn',
+      immediateCare: body.immediateCare || (body.type === 'HORSE_HEALTH' ? 'Người và ngựa đã được sơ cứu hoặc đảm bảo an toàn' : 'Xe đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định'),
       horseId: body.horseId,
       horseName: body.horseName,
       healthIssueType: body.healthIssueType,
       occurredAt: new Date().toISOString(),
+      proposedRelocationPlaceName: body.proposedRelocationPlaceName,
+      blockedImageUrl: body.blockedImageUrl,
+      relocationImageUrl: body.relocationImageUrl,
     };
     try {
       const res = await apiClient.post<ApiResponse<{ incidentId: string }>>(
@@ -516,6 +472,65 @@ export const driverApi = {
   /** Ghi nhận người nhận từ chối / không thể bàn giao (Flow 6) */
   refuseHandover: (tripId: string, body: RefuseHandoverRequestDto) =>
     send(DRIVER_ENDPOINTS.HANDOVER_REFUSAL(tripId), body),
+
+  /** Báo cáo xe không vào được điểm lấy ngựa (Flow 5 Ngoại lệ điểm đón) */
+  reportPickupAccessBlocked: async (
+    tripId: string,
+    body: {
+      reason: string;
+      latitude: number;
+      longitude: number;
+      imageUrl?: string;
+      blockedImageUrl?: string;
+      relocationImageUrl?: string;
+      proposedRelocationPlaceName?: string;
+      notes?: string;
+    }
+  ) => {
+    const res = await apiClient.post<ApiResponse<any>>(
+      `/driver/trips/${tripId}/pickup-access-blocked`,
+      body
+    );
+    return res.data?.data;
+  },
+
+  /** Tra cứu trạng thái ngoại lệ điểm đón */
+  getPickupAccessStatus: async (tripId: string) => {
+    try {
+      const res = await apiClient.get<ApiResponse<any>>(
+        `/driver/trips/${tripId}/pickup-access-status`
+      );
+      if (res.data?.success !== false && res.data?.data) {
+        return res.data.data;
+      }
+    } catch {}
+    try {
+      const res = await apiClient.get<ApiResponse<any>>(
+        `/coordinator/trips/${tripId}/pickup-access-status`
+      );
+      if (res.data?.success !== false && res.data?.data) {
+        return res.data.data;
+      }
+    } catch {}
+    return null;
+  },
+
+  /** Lấy danh sách cơ sở y tế / trạm thú y kèm đề xuất theo tỉnh hoặc chuyến */
+  getVetFacilities: async (params?: { tripId?: string; province?: string; lat?: number; lng?: number }) => {
+    try {
+      const query = new URLSearchParams();
+      if (params?.tripId) query.append('tripId', params.tripId);
+      if (params?.province) query.append('province', params.province);
+      if (params?.lat !== undefined) query.append('lat', String(params.lat));
+      if (params?.lng !== undefined) query.append('lng', String(params.lng));
+
+      const res = await apiClient.get<ApiResponse<any[]>>(`/flow5/vet-facilities?${query.toString()}`);
+      if (res.data?.success !== false && Array.isArray(res.data?.data) && res.data.data.length > 0) {
+        return res.data.data;
+      }
+    } catch {}
+    return null;
+  },
 };
 
 export default driverApi;

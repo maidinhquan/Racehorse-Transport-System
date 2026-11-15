@@ -494,3 +494,7 @@ export interface ManagerNotification {
   link: string;
   read: boolean;
 }
+
+export const MANAGER_NAME = 'Linh Pham';
+export const MANAGER_INITIALS = 'LP';
+

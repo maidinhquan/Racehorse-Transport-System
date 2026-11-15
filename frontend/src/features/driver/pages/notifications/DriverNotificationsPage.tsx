@@ -1,4 +1,4 @@
-import type { DriverNotification } from '../../data/mockData';
+import type { DriverNotification } from '../../types';
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DriverLayout, Icon } from '../../components/DriverLayout';

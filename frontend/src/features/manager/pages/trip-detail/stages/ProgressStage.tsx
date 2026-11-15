@@ -3,7 +3,6 @@ import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
 import { Note } from '../../../components/Common/Common';
-import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
 import { ManagerRouteMap } from '../../../components/RouteMap/ManagerRouteMap';
 import { refreshTripExecution, useManager } from '../../../hooks/useManager';
 import type { Trip } from '../../../types';
@@ -23,7 +22,7 @@ import { useIncidentPins } from '../../../../../shared/utils/sharedIncidentPins'
 
 /** Bước 4: theo dõi mốc hành trình (tổ xe cập nhật thủ công), ETA, sự cố, bàn giao */
 export const ProgressStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
-  const { data, actions } = useManager();
+  const { data } = useManager();
   // Lịch trình thực hiện (Flow 4) ưu tiên hơn phương án tuyến: cùng nguồn với tài xế, có tọa độ và tự cập nhật khi tài xế check-in
   const stops = tripStops(t), m = lastMilestone(t), n = nextMilestone(t);
   const sharedPins = useIncidentPins(t.id);
@@ -200,13 +199,6 @@ export const ProgressStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
           )}
           <div className="mgr-actions"><Link className="mgr-btn mgr-btn--sm" to={`/manager/requests/${t.requestId}/closure`}>Bàn giao & đóng đơn</Link></div>
         </section>
-        <DemoPanel buttons={[
-          { label: 'Tài xế xác nhận khởi hành', run: () => actions.demo.driverDepart(t.id), primary: true, hidden: t.status !== 'READY_TO_DEPART' },
-          { label: n ? `Tài xế: ${milestoneText(t, n)}` : '', run: () => actions.demo.driverNext(t.id), primary: true, hidden: !(t.status === 'IN_TRANSIT' && n) },
-          { label: 'Tổ xe hoàn tất bàn giao', run: () => actions.demo.driverHandover(t.id), primary: true, hidden: !(t.status === 'IN_TRANSIT' && arrived(t) && !refusalOpen) },
-          { label: 'Người nhận từ chối bàn giao', run: () => actions.demo.receiverRefuse(t.id), hidden: !(t.status === 'IN_TRANSIT' && arrived(t) && !refusalOpen) },
-          { label: 'Tài xế báo sự cố (lỗi làm mát)', run: () => actions.demo.driverIncident(t.id), hidden: t.status !== 'IN_TRANSIT' || arrived(t) },
-        ]} hint="Mỗi nút chỉ mô phỏng một thao tác của tổ xe hoặc người nhận trên chuyến này." />
       </aside>
     </div>
   );

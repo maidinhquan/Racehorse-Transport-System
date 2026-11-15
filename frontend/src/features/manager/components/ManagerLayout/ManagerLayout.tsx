@@ -4,7 +4,7 @@ import { ThemeToggle } from '../../../../shared/components';
 import { formatNotification } from '../../../../shared/utils/notificationFormat';
 import { useManager } from '../../hooks/useManager';
 import { fmtDateTime } from '../../hooks/managerRules';
-import { MANAGER_INITIALS, MANAGER_NAME } from '../../data/mockData';
+import { MANAGER_INITIALS, MANAGER_NAME } from '../../types';
 import './ManagerLayout.css';
 
 // ---------------------------------------------------------------------------

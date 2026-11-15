@@ -5,16 +5,18 @@
 // ============================================================================
 import type { ReactNode } from 'react';
 import { useSyncExternalStore } from 'react';
-import { getDemoMode } from '../../../shared/context/DemoModeContext';
-import seed from '../data/seed.json';
+import {
+  COORDINATOR_DEFAULT_USERS,
+  DEFAULT_AIR,
+  DEFAULT_CITIES,
+  DEFAULT_VET_STATIONS,
+} from '../domain/coordinatorConfig';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export type Any = any;
 
-// ---------- đồng hồ demo: 04/10/2026 11:30 (giờ Việt Nam), chạy theo thời gian thực ----------
-const DEMO_CLOCK_START = Date.UTC(2026, 9, 4, 4, 30);
-const T0 = Date.now();
-export const clockNow = () => new Date(DEMO_CLOCK_START + (Date.now() - T0));
+// ---------- đồng hồ: theo thời gian thực ----------
+export const clockNow = () => new Date();
 export const nowStamp = () => new Date(clockNow().getTime() + 7 * 3600000).toISOString().slice(0, 16).replace('T', ' ');
 export const today = () => nowStamp().slice(0, 10);
 
@@ -30,8 +32,6 @@ export interface Db {
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
-import { getSharedRequests } from '../../../shared/utils/sharedRequests';
-import { getSharedTrips } from '../../../shared/utils/sharedTrips';
 import { apiClient } from '../../../shared/api/apiClient';
 import { progressFromMilestones } from '../../tracking/utils/progress';
 
@@ -103,8 +103,8 @@ export function loadPlacesFromStorage(fallbackPlaces: Any[]): Any[] {
 }
 
 const emptyDb = (): Db => {
-  const loadedPlaces = loadPlacesFromStorage((seed as Any).places);
-  const loadedVehicles = loadVehiclesFromStorage((seed as Any).vehicles);
+  const loadedPlaces = loadPlacesFromStorage([]);
+  const loadedVehicles = loadVehiclesFromStorage([]);
   const maxPlaceNum = loadedPlaces.reduce((max: number, p: Any) => {
     const m = String(p.id || '').match(/PL-(\d+)/);
     return m ? Math.max(max, parseInt(m[1], 10)) : max;
@@ -112,21 +112,21 @@ const emptyDb = (): Db => {
   return {
     trips: [],
     requests: [],
-    customers: clone((seed as Any).customers),
-    horses: clone((seed as Any).horses),
+    customers: [],
+    horses: [],
     vehicles: loadedVehicles,
-    employees: clone((seed as Any).employees),
+    employees: [],
     places: loadedPlaces,
     incidents: [],
     complaints: [],
-    notifications: clone((seed as Any).notifications || []),
+    notifications: [],
     audit: [],
-    air: clone((seed as Any).air),
-    vetStations: clone((seed as Any).vetStations),
+    air: clone(DEFAULT_AIR),
+    vetStations: clone(DEFAULT_VET_STATIONS),
     quarantineBookings: [],
     clearances: [],
-    cities: clone((seed as Any).cities),
-    users: { coordinator: clone((seed as Any).ROLES.FC.user), manager: clone((seed as Any).ROLES.LM), specialist: clone((seed as Any).ROLES.TS) },
+    cities: clone(DEFAULT_CITIES),
+    users: clone(COORDINATOR_DEFAULT_USERS),
     seq: Math.max(maxPlaceNum, loadedVehicles.reduce((max: number, v: Any) => {
       const m = String(v.id || '').match(/VH-(\d+)/);
       return m ? Math.max(max, parseInt(m[1], 10)) : max;
@@ -172,123 +172,8 @@ export function applyTripStateFromStorage(trips: Any[]) {
     console.warn('[coordinator] Failed to read trip state', e);
   }
 }
-/** Áp trạng thái tuyến do Quản lý quyết định (qua sharedTrips) – chỉ khi đúng phiên bản đang làm. */
-function applySharedRoute(t: Any, st: Any): boolean {
-  if (!st?.route) return false;
-  if (!t.routes || !t.routes.length) {
-    t.routes = [{ v: st.route.v || 1, status: st.route.status, submittedAt: st.route.submittedAt, decidedAt: st.route.decidedAt, note: st.route.decisionNote || st.route.note, stops: st.route.stops || [] }];
-    return true;
-  }
-  const cur = t.routes[t.routes.length - 1];
-  if (st.route.v && cur.v && st.route.v !== cur.v) return false;
-  let changed = false;
-  const status = st.route.status === 'CHANGES_REQUESTED' ? 'RETURNED' : st.route.status;
-  if (status && cur.status !== status) { cur.status = status; changed = true; }
-  if (st.route.decidedAt && cur.decidedAt !== st.route.decidedAt) { cur.decidedAt = st.route.decidedAt; changed = true; }
-  if (st.route.decisionNote && cur.note !== st.route.decisionNote) { cur.note = st.route.decisionNote; changed = true; }
-  if (autoConfirmIfApproved(t)) changed = true;
-  return changed;
-}
 
-function seededDb(): Db {
-  const s = clone(seed as Any);
-  const shared = getSharedRequests();
-  const sharedTrips = shared.map((r: any) => ({
-    id: `TRP-${(r.id || '').replace(/^TRN[_-]/, '')}`,
-    requestId: r.id,
-    customerName: r.customerName || (r.pickup?.contact) || 'Khách hàng',
-    origin: r.origin,
-    destination: r.destination,
-    status: 'PLANNING',
-    deployment: { status: 'CONFIRMED', assignees: { coordinator: 'USER_006', specialist: 'USER_005' } },
-    plannedDepart: `${r.date || '2026-12-26'} 06:00`,
-    eta: `${r.date || '2026-12-26'} 22:00`,
-    mode: r.destination?.includes('Sapporo') || r.destination?.includes('Tokyo') ? 'AIR' : 'ROAD',
-    routes: [],
-    crew: {},
-    horses: r.horses || [],
-  }));
-  const mergedTrips = [...sharedTrips, ...s.trips.filter((t: any) => !sharedTrips.some((st: any) => cleanId(st.id) === cleanId(t.id) || cleanId(st.requestId) === cleanId(t.requestId)))];
-  const sharedRequests = shared.map((r: any) => ({
-    id: r.id,
-    customer: r.customerId || 'CUS-001',
-    customerName: r.customerName || 'Khách hàng',
-    origin: r.origin,
-    destination: r.destination,
-    date: r.date,
-    count: r.horseCount || (r.horses ? r.horses.length : 1),
-    horses: r.horses || [],
-    pickup: r.pickup || {},
-    delivery: r.delivery || {},
-    status: r.status,
-  }));
-  const mergedRequests = [...sharedRequests, ...s.requests.filter((sr: any) => !sharedRequests.some((sh: any) => cleanId(sh.id) === cleanId(sr.id)))];
-  applyTripStateFromStorage(mergedTrips);
-  const sharedTripMap = getSharedTrips();
-  mergedTrips.forEach((t: any) => {
-    const st = Object.values(sharedTripMap).find((x: any) => cleanId(x.id) === cleanId(t.id) || cleanId(x.requestId) === cleanId(t.requestId));
-    if (st) {
-      if (st.status) t.status = st.status;
-      if (st.plannedDepart) t.plannedDepart = st.plannedDepart;
-      if (st.eta) t.eta = st.eta;
-      applySharedRoute(t, st);
-      if (st.flight) {
-        if (!t.flight) t.flight = {};
-        if (st.flight.status) t.flight.status = st.flight.status;
-        if (st.flight.decidedAt) t.flight.budgetDecidedAt = st.flight.decidedAt;
-        if (st.flight.airline) t.flight.airline = st.flight.airline;
-        if (st.flight.flightNo) t.flight.flightNo = st.flight.flightNo;
-        if (st.flight.budget) t.flight.cost = st.flight.budget;
-        if (st.flight.from) t.flight.from = st.flight.from;
-        if (st.flight.to) t.flight.to = st.flight.to;
-      }
-    }
-  });
-  Object.values(sharedTripMap).forEach((st: any) => {
-    if (!mergedTrips.some((t: any) => cleanId(t.id) === cleanId(st.id) || (st.requestId && cleanId(t.requestId) === cleanId(st.requestId)))) {
-      const newTrip: any = {
-        id: st.id,
-        requestId: st.requestId || 'TRN-DEMO',
-        mode: st.mode || 'ROAD',
-        status: st.status || 'PLANNING',
-        deployment: { status: 'CONFIRMED', assignees: { coordinator: 'USER_006', specialist: 'USER_005' } },
-        plannedDepart: st.plannedDepart || `${today()} 06:00`,
-        eta: st.eta || `${today()} 22:00`,
-        routes: [],
-        crew: {},
-        horses: [],
-      };
-      applySharedRoute(newTrip, st);
-      mergedTrips.unshift(newTrip);
-    }
-  });
-  return {
-    trips: mergedTrips,
-    requests: mergedRequests,
-    customers: s.customers,
-    horses: s.horses,
-    vehicles: loadVehiclesFromStorage(s.vehicles),
-    employees: s.employees,
-    places: loadPlacesFromStorage(s.places),
-    incidents: s.incidents,
-    complaints: s.complaints,
-    notifications: s.notifications,
-    audit: [],
-    air: s.air,
-    vetStations: s.vetStations,
-    quarantineBookings: s.quarantineBookings,
-    clearances: s.clearances || [],
-    cities: s.cities,
-    users: { coordinator: s.ROLES.FC.user, manager: s.ROLES.LM, specialist: s.ROLES.TS },
-    seq: Math.max(s.seq || 1040, loadPlacesFromStorage(s.places).reduce((max: number, p: Any) => {
-      const m = String(p.id || '').match(/PL-(\d+)/);
-      return m ? Math.max(max, parseInt(m[1], 10)) : max;
-    }, 1040)),
-  };
-}
-
-export let db: Db = getDemoMode('coordinator') ? seededDb() : emptyDb();
-export const demoOn = () => getDemoMode('coordinator');
+export let db: Db = emptyDb();
 
 /** trạng thái giao diện (tab, bảng, bộ lọc…) – giữ nguyên khi chuyển trang */
 export const ui: Any = { tab: {}, t: {}, journeyDisclosures: {}, lastSavedPlaceId: null, lastSavedVehicleId: null };
@@ -314,6 +199,7 @@ const subscribe = (l: () => void) => { listeners.add(l); return () => { listener
 export const useCoordinatorStore = () => useSyncExternalStore(subscribe, () => version);
 
 export async function syncCoordinatorTrips(): Promise<void> {
+  if (typeof apiClient?.get !== 'function') return;
   try {
     const res = await apiClient.get<Any>('/coordinator/trips');
     const apiTrips = res.data?.data || (Array.isArray(res.data) ? res.data : []);
@@ -581,7 +467,6 @@ export async function syncCoordinatorTrips(): Promise<void> {
       };
     });
 
-    const isDemo = getDemoMode('coordinator');
     applyTripStateFromStorage(mappedTrips);
     // Kết quả duyệt của Quản lý lấy từ backend: chỉ áp vào phiên bản đang chờ duyệt hoặc chuyến đã duyệt/khởi hành
     const DECIDED: Record<string, string> = { PLANNED: 'APPROVED', READY: 'APPROVED', ROUTE_RETURNED: 'RETURNED' };
@@ -602,17 +487,7 @@ export async function syncCoordinatorTrips(): Promise<void> {
       }
       autoConfirmIfApproved(t);
     });
-    if (!isDemo) {
-      db.trips = mappedTrips;
-    } else {
-      const existing = [...db.trips];
-      for (const mt of mappedTrips) {
-        const idx = existing.findIndex((x: Any) => cleanId(x.id) === cleanId(mt.id));
-        if (idx >= 0) existing[idx] = { ...existing[idx], ...mt };
-        else existing.unshift(mt);
-      }
-      db.trips = existing;
-    }
+    db.trips = mappedTrips;
     commit();
     void syncCoordinatorIncidents();
   } catch (err) {
@@ -629,7 +504,62 @@ const DELETED_SPAM_IDS = new Set([
   'INC_20261108_C40695', 'INC_20261107_D190C1',
 ]);
 
+export function toLocalTimeString(val?: string | null): string {
+  if (!val) return '';
+  const str = String(val).trim();
+  const d = new Date(str);
+  if (!isNaN(d.getTime()) && (str.includes('T') || str.endsWith('Z') || str.includes('+'))) {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+  return str.replace('T', ' ').slice(0, 19);
+}
+
+export function parseIncidentTime(val?: string | number | null): number {
+  if (!val) return 0;
+  if (typeof val === 'number') return val;
+  const t = new Date(val).getTime();
+  if (!isNaN(t) && t > 0) return t;
+  const parts = String(val).split(/[ T]/);
+  if (parts.length >= 2) {
+    const dParts = parts[0].split(/[-/]/);
+    const tParts = parts[1].split(':');
+    if (dParts.length === 3 && tParts.length >= 2) {
+      const y = dParts[0].length === 4 ? Number(dParts[0]) : Number(dParts[2]);
+      const m = (dParts[0].length === 4 ? Number(dParts[1]) : Number(dParts[1])) - 1;
+      const day = dParts[0].length === 4 ? Number(dParts[2]) : Number(dParts[0]);
+      const hr = Number(tParts[0]);
+      const min = Number(tParts[1]);
+      const sec = tParts[2] ? Number(tParts[2]) : 0;
+      const parsed = new Date(y, m, day, hr, min, sec).getTime();
+      if (!isNaN(parsed)) return parsed;
+    }
+  }
+  return 0;
+}
+
+export function sortIncidentsLatestFirst<T extends { id?: string; at?: string; updatedAt?: string; vetStatus?: string; status?: string }>(list: T[]): T[] {
+  return [...list].sort((a, b) => {
+    // 1. Luôn đưa sự cố cần xử lý (NEW, REPORTED, REFERRAL_REQUESTED) lên trên các sự cố đã hoàn tất
+    const isDoneA = ['CLOSED', 'RESOLVED', 'RECOVERY_APPLIED'].includes(String(a.status || ''));
+    const isDoneB = ['CLOSED', 'RESOLVED', 'RECOVERY_APPLIED'].includes(String(b.status || ''));
+    if (isDoneA !== isDoneB) return isDoneA ? 1 : -1;
+
+    // 2. Sắp xếp giảm dần theo mốc thời gian cập nhật/phát sinh mới nhất
+    const timeA = Math.max(parseIncidentTime(a.updatedAt), parseIncidentTime(a.at));
+    const timeB = Math.max(parseIncidentTime(b.updatedAt), parseIncidentTime(b.at));
+    if (timeB !== timeA) return timeB - timeA;
+
+    const urgentA = a.vetStatus === 'REFERRAL_REQUESTED' ? 2 : (a.status === 'REPORTED' || a.status === 'NEW' ? 1 : 0);
+    const urgentB = b.vetStatus === 'REFERRAL_REQUESTED' ? 2 : (b.status === 'REPORTED' || b.status === 'NEW' ? 1 : 0);
+    if (urgentB !== urgentA) return urgentB - urgentA;
+
+    return String(b.id || '').localeCompare(String(a.id || ''));
+  });
+}
+
 export async function syncCoordinatorIncidents(): Promise<void> {
+  if (typeof apiClient?.get !== 'function') return;
   try {
     const res = await apiClient.get<Any>('/incidents');
     const apiIncidents = res.data?.data || (Array.isArray(res.data) ? res.data : []);
@@ -645,19 +575,29 @@ export async function syncCoordinatorIncidents(): Promise<void> {
       if (!id || DELETED_SPAM_IDS.has(cleanId(id)) || DELETED_SPAM_IDS.has(id)) continue;
       const isApplied = bi.status === 'RECOVERY_APPLIED' || bi.status === 'EXECUTING';
       const existing = db.incidents.find((x: Any) => cleanId(x.id) === cleanId(id));
+      const biUpdatedAt = bi.updatedAt ? toLocalTimeString(bi.updatedAt) : undefined;
+      const biReportedAt = bi.reportedAt ? toLocalTimeString(bi.reportedAt) : (bi.at ? toLocalTimeString(bi.at) : undefined);
+
       if (existing) {
+        if (biReportedAt && (!existing.at || existing.at !== biReportedAt)) {
+          existing.at = biReportedAt;
+          existing.reportedAt = biReportedAt;
+          hasChange = true;
+        }
         if (bi.status && existing.status !== bi.status) {
           existing.status = isApplied ? 'EXECUTING' : bi.status;
+          existing.updatedAt = biUpdatedAt || nowStamp();
           hasChange = true;
         }
         if (bi.status && bi.status !== 'REPORTED' && !existing.ackAt) {
-          existing.ackAt = bi.reportedAt ? bi.reportedAt.replace('T', ' ').slice(0, 16) : nowStamp();
+          existing.ackAt = biReportedAt ? biReportedAt.slice(0, 16) : nowStamp();
           hasChange = true;
         }
         if (bi.approvedPlan && !existing.approvedPlan) {
           existing.approvedPlan = bi.approvedPlan;
           existing.resolutionNotes = bi.resolutionNotes || bi.approvedPlan;
           existing.resolutionType = bi.resolutionType;
+          existing.updatedAt = biUpdatedAt || nowStamp();
           hasChange = true;
         }
         if (existing.approvedPlan && (!existing.plans || existing.plans.length === 0)) {
@@ -713,6 +653,7 @@ export async function syncCoordinatorIncidents(): Promise<void> {
         }
         if (bi.vetStatus && existing.vetStatus !== bi.vetStatus) {
           existing.vetStatus = bi.vetStatus;
+          existing.updatedAt = biUpdatedAt || nowStamp();
           hasChange = true;
         }
         if (bi.targetVetStation && !existing.targetVetStation) {
@@ -723,19 +664,38 @@ export async function syncCoordinatorIncidents(): Promise<void> {
           existing.vetResolutionNote = bi.vetResolutionNote;
           hasChange = true;
         }
+        if (!existing.proposedRelocationPlaceName && bi.proposedRelocationPlaceName) {
+          existing.proposedRelocationPlaceName = bi.proposedRelocationPlaceName;
+          hasChange = true;
+        }
+        if (!existing.blockedImageUrl && bi.blockedImageUrl) {
+          existing.blockedImageUrl = bi.blockedImageUrl;
+          hasChange = true;
+        }
+        if (!existing.relocationImageUrl && bi.relocationImageUrl) {
+          existing.relocationImageUrl = bi.relocationImageUrl;
+          hasChange = true;
+        }
+        if (biUpdatedAt && (!existing.updatedAt || parseIncidentTime(biUpdatedAt) > parseIncidentTime(existing.updatedAt))) {
+          existing.updatedAt = biUpdatedAt;
+          hasChange = true;
+        }
       } else {
         const isPastReported = bi.status && bi.status !== 'REPORTED';
+        const atTime = biReportedAt || (bi.at ? toLocalTimeString(bi.at) : nowStamp());
         const newInc: Any = {
           id,
           tripId: bi.tripId,
           type: bi.category || bi.incidentType || 'OTHER',
           severity: bi.severity || 'HIGH',
           status: isApplied ? 'EXECUTING' : (bi.status || 'REPORTED'),
-          ackAt: isPastReported ? (bi.reportedAt ? bi.reportedAt.replace('T', ' ').slice(0, 16) : nowStamp()) : undefined,
+          ackAt: isPastReported ? (biReportedAt ? biReportedAt.slice(0, 16) : nowStamp()) : undefined,
           approvedPlan: bi.approvedPlan,
           resolutionNotes: bi.resolutionNotes,
           resolutionType: bi.resolutionType,
-          at: bi.reportedAt ? bi.reportedAt.replace('T', ' ').slice(0, 16) : nowStamp(),
+          at: atTime,
+          reportedAt: atTime,
+          updatedAt: biUpdatedAt || atTime,
           by: bi.reportedByUserName || bi.reportedByUserId || 'Tài xế / Áp tải',
           reporterName: bi.reportedByUserName || '',
           reporterRole: bi.reportedByUserRole || (bi.category === 'HORSE_HEALTH' ? 'VETERINARIAN' : 'MAIN_DRIVER'),
@@ -751,6 +711,9 @@ export async function syncCoordinatorIncidents(): Promise<void> {
           vetStatus: bi.vetStatus || '',
           targetVetStation: bi.targetVetStation || '',
           vetResolutionNote: bi.vetResolutionNote || '',
+          proposedRelocationPlaceName: bi.proposedRelocationPlaceName || '',
+          blockedImageUrl: bi.blockedImageUrl || undefined,
+          relocationImageUrl: bi.relocationImageUrl || undefined,
           plans: bi.approvedPlan ? [{
             v: 1,
             kind: bi.resolutionType || 'NO_CHANGE',
@@ -767,18 +730,72 @@ export async function syncCoordinatorIncidents(): Promise<void> {
         hasChange = true;
       }
     }
+    db.incidents = sortIncidentsLatestFirst(db.incidents);
     if (hasChange) commit();
   } catch (err) {
     console.error('[coordinator] Failed to sync incidents from API:', err);
   }
 }
 
-export function resetDemo(on: boolean) {
-  db = on ? seededDb() : emptyDb();
+export async function syncCoordinatorMasterData(): Promise<void> {
+  if (typeof apiClient?.get !== 'function') return;
+  try {
+    const [placesRes, vehiclesRes, staffRes, airRes] = await Promise.allSettled([
+      apiClient.get<Any>('/coordinator/places'),
+      apiClient.get<Any>('/coordinator/vehicles'),
+      apiClient.get<Any>('/coordinator/staff'),
+      apiClient.get<Any>('/coordinator/air-partners'),
+    ]);
+
+    let hasChange = false;
+
+    if (placesRes.status === 'fulfilled') {
+      const placesData = placesRes.value.data?.data || (Array.isArray(placesRes.value.data) ? placesRes.value.data : []);
+      if (Array.isArray(placesData) && placesData.length > 0) {
+        db.places = placesData;
+        savePlacesToStorage(placesData);
+        hasChange = true;
+      }
+    }
+
+    if (vehiclesRes.status === 'fulfilled') {
+      const vehiclesData = vehiclesRes.value.data?.data || (Array.isArray(vehiclesRes.value.data) ? vehiclesRes.value.data : []);
+      if (Array.isArray(vehiclesData) && vehiclesData.length > 0) {
+        db.vehicles = vehiclesData;
+        saveVehiclesToStorage(vehiclesData);
+        hasChange = true;
+      }
+    }
+
+    if (staffRes.status === 'fulfilled') {
+      const staffData = staffRes.value.data?.data || (Array.isArray(staffRes.value.data) ? staffRes.value.data : []);
+      if (Array.isArray(staffData) && staffData.length > 0) {
+        db.employees = staffData;
+        hasChange = true;
+      }
+    }
+
+    if (airRes.status === 'fulfilled') {
+      const airData = airRes.value.data?.data || (Array.isArray(airRes.value.data) ? airRes.value.data : []);
+      if (Array.isArray(airData) && airData.length > 0) {
+        db.air.partners = airData;
+        hasChange = true;
+      }
+    }
+
+    if (hasChange) commit();
+  } catch (err) {
+    console.error('[coordinator] Failed to sync master data from API:', err);
+  }
+}
+
+export function resetCoordinatorState() {
+  db = emptyDb();
   ui.tab = {}; ui.t = {}; ui.journeyDisclosures = {};
   resetHooks.forEach((fn) => fn());
   commit();
   void syncCoordinatorTrips();
+  void syncCoordinatorMasterData();
 }
 const resetHooks: Array<() => void> = [];
 export const onReset = (fn: () => void) => { resetHooks.push(fn); };
@@ -793,7 +810,7 @@ export function autoConfirmIfApproved(t: Any): boolean {
 
 /** Kiểm tra nhẹ kết quả duyệt của Quản lý (1 request) – chỉ chạy khi có tuyến đang chờ duyệt và tab đang mở. */
 async function pollRouteDecisions() {
-  if (demoOn() || document.visibilityState !== 'visible') return;
+  if (document.visibilityState !== 'visible' || typeof apiClient?.get !== 'function') return;
   const pending = db.trips.filter((t: Any) => t.routes?.[t.routes.length - 1]?.status === 'PENDING_APPROVAL');
   if (!pending.length) return;
   try {
@@ -817,110 +834,15 @@ async function pollRouteDecisions() {
 
 if (typeof window !== 'undefined') {
   void syncCoordinatorTrips();
+  void syncCoordinatorMasterData();
   window.setInterval(() => { void pollRouteDecisions(); }, 15000);
 
   window.addEventListener('rts_trips_updated', () => {
-    const sharedMap = getSharedTrips();
-    let changed = false;
-    Object.values(sharedMap).forEach((st) => {
-      const t = db.trips.find((x: Any) => cleanId(x.id) === cleanId(st.id) || (st.requestId && cleanId(x.requestId) === cleanId(st.requestId)));
-      if (t) {
-        if (st.status && t.status !== st.status) {
-          t.status = st.status;
-          changed = true;
-        }
-        if (applySharedRoute(t, st)) changed = true;
-        if (st.flight) {
-          if (!t.flight) t.flight = {};
-          if (st.flight.status && t.flight.status !== st.flight.status) {
-            t.flight.status = st.flight.status;
-            changed = true;
-          }
-          if (st.flight.decidedAt) t.flight.budgetDecidedAt = st.flight.decidedAt;
-        }
-      } else {
-        const newTrip: Any = {
-          id: st.id,
-          requestId: st.requestId || 'TRN-DEMO',
-          mode: st.mode || 'ROAD',
-          status: st.status || 'PLANNING',
-          deployment: { status: 'CONFIRMED', assignees: { coordinator: 'USER_006', specialist: 'USER_005' } },
-          plannedDepart: st.plannedDepart || `${today()} 06:00`,
-          eta: st.eta || `${today()} 22:00`,
-          routes: [],
-          crew: {},
-          horses: [],
-        };
-        applySharedRoute(newTrip, st);
-        db.trips.unshift(newTrip);
-        changed = true;
-      }
-    });
-    if (changed) {
-      flushTripStateToStorage();
-      commit();
-    }
-  });
-
-  window.addEventListener('rts_requests_updated', () => {
-    const isDemo = demoOn();
-    if (isDemo) {
-      const shared = getSharedRequests();
-      let changed = false;
-      shared.forEach((r: any) => {
-        const reqIdx = db.requests.findIndex((x: any) => cleanId(x.id) === cleanId(r.id));
-        const formattedReq = {
-          id: r.id,
-          customer: r.customerId || 'CUS-001',
-          customerName: r.customerName || (r.pickup?.contact) || 'Khách hàng',
-          origin: r.origin,
-          destination: r.destination,
-          date: r.date,
-          count: r.horseCount || (r.horses ? r.horses.length : 1),
-          horses: r.horses || [],
-          pickup: r.pickup || {},
-          delivery: r.delivery || {},
-          status: r.status,
-        };
-        if (reqIdx >= 0) {
-          db.requests[reqIdx] = { ...db.requests[reqIdx], ...formattedReq };
-        } else {
-          db.requests.unshift(formattedReq);
-          changed = true;
-        }
-
-        const tripId = `TRP-${(r.id || '').replace(/^TRN[_-]/, '')}`;
-        const existingTrip = db.trips.find((t: any) => cleanId(t.id) === cleanId(tripId) || cleanId(t.requestId) === cleanId(r.id));
-        if (!existingTrip) {
-          db.trips.unshift({
-            id: tripId,
-            requestId: r.id,
-            customerName: r.customerName || (r.pickup?.contact) || 'Khách hàng',
-            origin: r.origin,
-            destination: r.destination,
-            status: 'PLANNING',
-            deployment: { status: 'CONFIRMED', assignees: { coordinator: 'USER_006', specialist: 'USER_005' } },
-            plannedDepart: `${r.date || '2026-12-26'} 06:00`,
-            eta: `${r.date || '2026-12-26'} 22:00`,
-            mode: r.destination?.includes('Sapporo') || r.destination?.includes('Tokyo') ? 'AIR' : 'ROAD',
-            routes: [],
-            crew: {},
-            horses: r.horses || [],
-          });
-          changed = true;
-        }
-      });
-      if (changed) commit();
-    }
     void syncCoordinatorTrips();
   });
 
-  window.addEventListener('rts_demo_mode_change', (event: Event) => {
-    const e = event as CustomEvent<{ role: string; enabled: boolean }>;
-    if (e.detail?.role === 'coordinator') {
-      resetDemo(e.detail.enabled);
-      toast(e.detail.enabled ? 'Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.' : 'Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
-    }
+  window.addEventListener('rts_requests_updated', () => {
+    void syncCoordinatorTrips();
   });
 }
 

@@ -1,9 +1,9 @@
 // Chi tiết chuyến của Điều phối: Tổng quan • Tuyến đường (lập lộ trình) • Xe & nhân sự • Chuyến bay • Theo dõi hành trình
 import { Cell } from '../../../components/common/ui';
-import { DemoCard } from '../../../components/demo/Demo';
 import { custOf, reqOfTrip, tripHorses } from '../../../domain/coordinatorRules';
 import type { Any } from '../../../store/coordinatorStore';
 import { city, date, dt, human } from '../../../utils/format';
+import { PickupAccessCard } from '../../../components/relocation/PickupAccessCard';
 
 
 const COUNTRY_NAMES: Record<string, string> = {
@@ -80,6 +80,9 @@ export function OverviewTab({ t }: { t: Any }) {
                   Tĩnh không xe: Cao ≤ {r.pickup.access.maxHeightM || 4}m • Rộng ≤ {r.pickup.access.maxWidthM || 2.6}m • Tải ≤ {r.pickup.access.maxGrossT || 20} tấn
                 </div>
               ) : null}
+
+              {/* Thẻ điều phối tiếp cận điểm lấy ngựa */}
+              <PickupAccessCard t={t} />
             </div>
 
             <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 10, border: '1px solid #e2e8f0' }}>
@@ -117,7 +120,6 @@ export function OverviewTab({ t }: { t: Any }) {
             {cust.address ? <div style={{ fontSize: 12, color: '#64748b', marginTop: 4, lineHeight: 1.4 }}>Địa chỉ: {cust.address}</div> : null}
           </div>
         </div>
-        {t.demoFlow3 ? null : <DemoCard current={t.id} />}
       </div>
     </div>
   );

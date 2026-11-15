@@ -1,22 +1,18 @@
 import { downloadFile } from '../../../../../shared/api/downloadFile';
 import { RequestAssessmentPanel } from './RequestAssessmentPanel';
-import { getDemoMode } from '../../../../../shared/context/DemoModeContext';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
 import { Note } from '../../../components/Common/Common';
 import { Modal, ReasonModal, RevisionModal } from '../../../components/Modals';
-import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
 import { useManager } from '../../../hooks/useManager';
 import type { TransportRequest } from '../../../types';
 import {
   CANCELLABLE,
-  REVISION_FIELD_LABEL,
   ROLE_LABEL,
   cityLabel,
   ctRef,
   curVersion,
-  daysUntil,
   depositOf,
   fmtDate,
   fmtDateTime,
@@ -24,14 +20,13 @@ import {
   isAccepted,
   isSigned,
   moneyHeld,
-  shortLeadTime,
   timeLeft,
   versionState,
 } from '../../../hooks/managerRules';
 import { getUserFullName } from '../../../../../shared/utils/userNameResolver';
 import '../RequestDetailPage.css';
 
-type Dialog = '' | 'accept' | 'revise' | 'reject' | 'cancel' | 'cancel-ok' | 'cancel-no' | 'demo-cancel';
+type Dialog = '' | 'accept' | 'revise' | 'reject' | 'cancel' | 'cancel-ok' | 'cancel-no';
 
 const SEX_LABEL: Record<string, string> = {
   STALLION: 'Ngựa đực giống',
@@ -51,7 +46,6 @@ const REPRODUCTIVE_LABEL: Record<string, string> = {
 /** Mục 1: thông tin yêu cầu, hồ sơ (chỉ xem), quyết định của Manager, lịch sử */
 export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
   const { data, horses, customer, actions } = useManager();
-  const demo = getDemoMode('manager');
   const [dialog, setDialog] = useState<Dialog>('');
   const [selectedHorseId, setSelectedHorseId] = useState<string | null>(null);
   const close = () => setDialog('');
@@ -98,16 +92,6 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
 
   return (
     <>
-      {demo && r.status === 'PENDING_REVIEW' && shortLeadTime(r) && (
-        <Note tone="yellow" title={`Đơn gấp: còn ${Math.max(0, daysUntil(r.date))} ngày tới ngày vận chuyển`}>
-          Thời gian chuẩn bị ngắn hơn 7 ngày. Kiểm tra năng lực đội xe và thời hạn giấy tờ trước khi chấp thuận.
-        </Note>
-      )}
-      {demo && r.status === 'CHANGES_REQUESTED' && (
-        <Note tone="blue" title="Đang chờ khách hàng chỉnh sửa">
-          {r.feedback}<div className="mgr-hint">Mục cần sửa: {(r.revisionFields ?? []).map((f) => REVISION_FIELD_LABEL[f]).join(', ')}</div>
-        </Note>
-      )}
       {['REJECTED', 'CANCELLED'].includes(r.status) && r.reason && <Note tone="grey" title={r.status === 'REJECTED' ? 'Đã từ chối' : 'Đã hủy'}>{r.reason}</Note>}
       {r.status === 'CANCELLATION_REQUESTED' && r.cancellation && (
         <Note tone="red" title={`Khách hàng yêu cầu hủy • ${fmtDateTime(r.cancellation.at)}`}>
@@ -180,20 +164,11 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
         </div>
 
         <aside className="mgr-stack">
-          {!demo && ['PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED'].includes(r.status) && (
+          {['PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED'].includes(r.status) && (
             <RequestAssessmentPanel key={r.id} requestId={r.id} pending={r.status === 'PENDING_REVIEW'}
               accept={async key => (await actions.acceptRequest(r.id, key)).ok}
               changes={async (feedback, key) => (await actions.requestRevision(r.id, feedback, key)).ok}
               reject={r.status === 'PENDING_REVIEW' || r.status === 'CHANGES_REQUESTED' ? () => setDialog('reject') : undefined} />
-          )}
-          {demo && r.status === 'PENDING_REVIEW' && (
-            <section className="mgr-card mgr-rd__decision">
-              <h3 className="mgr-card__title">Quyết định của Manager</h3>
-              <p className="mgr-hint" style={{ marginTop: 0, marginBottom: 12 }}>Chấp thuận để mở bước soạn hợp đồng và giá bán.</p>
-              <button type="button" className="mgr-btn mgr-btn--solid" onClick={() => setDialog('accept')}>Chấp thuận yêu cầu</button>
-              <button type="button" className="mgr-btn" onClick={() => setDialog('revise')}>Yêu cầu khách chỉnh sửa</button>
-              <button type="button" className="mgr-btn mgr-btn--danger" onClick={() => setDialog('reject')}>Từ chối yêu cầu</button>
-            </section>
           )}
 
           <section className="mgr-card">
@@ -227,10 +202,6 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
             </ul>
           </section>
 
-          <DemoPanel buttons={[
-            { label: `Khách hàng gửi lại ${r.id} sau chỉnh sửa`, run: () => actions.demo.customerResubmit(r.id), hidden: r.status !== 'CHANGES_REQUESTED', primary: true },
-            { label: `Khách hàng yêu cầu hủy ${r.id}`, run: () => setDialog('demo-cancel'), hidden: !['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status) },
-          ]} />
         </aside>
       </div>
 
@@ -258,12 +229,6 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
         placeholder="VD: Đã đặt chỗ chuyến bay không hoàn được; đề nghị dời ngày thay vì hủy." onClose={close} onSubmit={async (x) => {
           const res = await actions.decideCancellation(r.id, false, x);
           return res.ok;
-        }} />
-      <ReasonModal open={dialog === 'demo-cancel'} title={`Demo: Khách hàng yêu cầu hủy ${r.id}`} okText="Gửi yêu cầu hủy" danger minLength={5}
-        label="Lý do hủy yêu cầu *" placeholder="VD: Kế hoạch thi đấu thay đổi, không còn nhu cầu vận chuyển." onClose={close} onSubmit={async (reason) => {
-          actions.demo.customerRequestCancel(r.id, reason);
-          close();
-          return true;
         }} />
 
       {viewingHorse && (

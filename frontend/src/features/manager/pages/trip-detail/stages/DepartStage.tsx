@@ -4,7 +4,6 @@ import { Icon } from '../../../components/ManagerLayout';
 import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
 import { Note } from '../../../components/Common/Common';
 import { Modal } from '../../../components/Modals';
-import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
 import { useManager } from '../../../hooks/useManager';
 import type { Trip } from '../../../types';
 import { fmtDateTime, readinessChecks } from '../../../hooks/managerRules';
@@ -45,8 +44,6 @@ export const DepartStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
         ) : <Note tone="green" title={`Đã duyệt khởi hành • ${fmtDateTime(t.departureApprovedAt)}`}>{t.status === 'READY_TO_DEPART' ? 'Chờ tài xế xác nhận xuất phát thực tế.' : 'Chuyến đã xuất phát.'}</Note>}
       </section>
       <aside className="mgr-stack">
-        <DemoPanel buttons={[{ label: 'Tài xế xác nhận khởi hành', run: () => actions.demo.driverDepart(t.id), primary: true, hidden: t.status !== 'READY_TO_DEPART' }]}
-          hint="Giả lập tài xế xác nhận xuất phát; chuyến chuyển sang Đang vận chuyển." />
         {['IN_TRANSIT', 'COMPLETED'].includes(t.status) && <Link className="mgr-btn mgr-btn--solid" to={`/manager/trips/${t.id}/progress`}>Xem tiến độ hành trình →</Link>}
       </aside>
       <Modal open={confirm} title={`Duyệt khởi hành ${t.id}`} okText="Duyệt khởi hành" onClose={() => setConfirm(false)} onOk={async () => { if ((await actions.approveDeparture(t.id)).ok) setConfirm(false); }}>

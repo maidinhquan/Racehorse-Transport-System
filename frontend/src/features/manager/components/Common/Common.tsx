@@ -101,6 +101,6 @@ export function openSampleFile(name: string) {
     }
     return;
   }
-  const html = `<title>${name}</title><body style="font-family:sans-serif;padding:40px;color:#334155"><h2>${name}</h2><p>Tệp mẫu trong dữ liệu demo CBN Transport. Không có tài liệu thật đính kèm.</p>`;
+  const html = `<title>${name}</title><body style="font-family:sans-serif;padding:40px;color:#334155"><h2>${name}</h2><p>Không có tài liệu đính kèm.</p>`;
   window.open(URL.createObjectURL(new Blob([html], { type: 'text/html' })), '_blank', 'noopener');
 }

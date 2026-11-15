@@ -8,7 +8,6 @@ import { Icon } from '../../../components/CustomerLayout';
 import { DocumentRows } from '../../../components/DocumentList/DocumentList';
 import { HorseForm } from '../../../components/HorseForm/HorseForm';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
-import { getDemoMode } from '../../../../../shared/context/DemoModeContext';
 import { apiMessage } from '../../../../../shared/api/apiError';
 import { AuthImage } from '../../../../../shared/components/AuthImage';
 
@@ -47,10 +46,9 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
   };
   useEffect(() => {
     let active = true;
-    if (getDemoMode('customer')) { setSelectable(horses.map(h => h.id)); return; }
     setSelectable(null);
     setConflicts({});
-    customerApi.getSelectableHorses(r.date, r.id, r.pickupAt)
+    customerApi.getSelectableHorses(r.date, r.pickupAt)
       .then(rows => {
         if (active) {
           setConflicts(Object.fromEntries(rows.filter(h => h.conflict).map(h => [h.id, h.conflict!.code])));

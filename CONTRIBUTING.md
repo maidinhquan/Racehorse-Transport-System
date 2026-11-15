@@ -1,112 +1,37 @@
-# Hướng dẫn đóng góp (Contributing Guidelines)
+# Hướng dẫn đóng góp cho dự án
 
 Chào mừng bạn đến với dự án **Hệ thống quản lý vận chuyển ngựa đua xuyên biên giới (Racehorse-Transport-System)**. Dưới đây là các quy chuẩn để đảm bảo sự đồng bộ khi làm việc nhóm.
 
 ---
 
-## 1. Frontend Coding Rules
+## 1. Quy chuẩn lập trình
 
-Toàn bộ code frontend phải nằm trong thư mục `frontend/src/`.
-
-### 1.1. Folder Structure (Cấu trúc thư mục chính)
-
-Cấu trúc chuẩn:
-```text
-src/
-├── app/        # Code cấu hình toàn bộ ứng dụng (Store, Router, v.v.)
-├── assets/     # Hình ảnh, icon, CSS và tài nguyên tĩnh
-├── features/   # Các nghiệp vụ chính của hệ thống
-├── shared/     # Code dùng chung cho nhiều feature (UI components, utils, v.v.)
-├── App.tsx
-└── main.tsx
-```
-
-**Quy tắc:** Không tự ý tạo thêm các folder cấp cao trong `src/` (như `pages/`, `services/`, `models/`,...). Nếu thực sự cần thêm, phải thống nhất với team.
-
-### 1.2. Feature Structure (Cấu trúc nghiệp vụ)
-
-Mỗi nghiệp vụ chính của hệ thống phải được tổ chức thành một feature riêng trong `src/features/`.
-Mỗi feature chỉ chứa code liên quan trực tiếp đến nghiệp vụ đó.
-
-Ví dụ các features hiện tại:
-- `auth/`
-- `horse-management/`
-- `transport-request/`
-- `document-management/`
-- `quarantine-customs/`
-- `route-planning/`
-- `trip-tracking/`
-- `incident-management/`
-- `payment/`
-- `dashboard/`
-
-*(Tuyệt đối không đặt code của nghiệp vụ này vào trong thư mục nghiệp vụ khác).*
-
-### 1.3. Structure Inside Each Feature (Cấu trúc trong mỗi feature)
-
-Cấu trúc tiêu chuẩn của một feature (Chỉ tạo khi cần, không tạo folder rỗng):
-```text
-feature-name/
-├── pages/       # Các màn hình hoàn chỉnh của feature.
-├── components/  # Các UI component chỉ dùng riêng trong feature này.
-├── api/         # Function dùng để gọi Backend API.
-├── hooks/       # Custom React Hooks của feature.
-├── types/       # Interface và type TypeScript.
-└── validation/  # Schema và logic validate form.
-```
+Dự án phân tách quy chuẩn kỹ thuật rõ ràng theo từng phần:
+* **Giao diện (Frontend):** Xem chi tiết tại [frontend/CODING_RULES.md](./frontend/CODING_RULES.md)
+* **Máy chủ (Backend):** Xem chi tiết tại [backend/CODING_RULES.md](./backend/CODING_RULES.md)
 
 ---
 
-## 2. Backend Coding Rules
+## 2. Quy trình làm việc với Git và GitHub
 
-Các quy chuẩn và luật khi viết code backend (ASP.NET Core) được lưu trữ tại file riêng biệt:
-👉 **[backend_coding_rules.md](./backend_coding_rules.md)**
+### 2.1. Quy tắc phân nhánh
 
----
-
-## 3. Quy trình làm việc với Git & GitHub
-
-### 3.1. Phân nhánh (Branching)
-
-- **`main`**: Nhánh chứa code ổn định, có thể deploy lên production. Tuyệt đối không commit trực tiếp vào nhánh này.
-- **`develop`**: Nhánh chứa code mới nhất đang trong quá trình phát triển (tích hợp các tính năng).
-- **Nhánh tính năng (Feature branches)**: Tạo từ nhánh `develop`.
+- **`main`**: Nhánh chứa mã nguồn ổn định, dùng để nộp bài, báo cáo hoặc triển khai. Tuyệt đối không đẩy mã nguồn trực tiếp vào nhánh này.
+- **`develop`**: Nhánh chứa mã nguồn mới nhất đang trong quá trình phát triển (nơi tích hợp các tính năng từ các thành viên).
+- **Nhánh tính năng**: Tạo từ nhánh `develop`.
   - Cú pháp: `feature/<tên-tính-năng-ngắn-gọn>`
-  - Ví dụ: `feature/login-page`, `feature/horse-crud`
-- **Nhánh sửa lỗi (Bugfix/Hotfix)**:
-  - Cú pháp: `bugfix/<tên-lỗi>` (nếu rẽ từ `develop`)
-  - Cú pháp: `hotfix/<tên-lỗi>` (nếu rẽ từ `main` để sửa lỗi gấp)
+  - Ví dụ: `feature/login-page`, `feature/horse-booking`
+- **Nhánh sửa lỗi**:
+  - Cú pháp: `bugfix/<tên-lỗi>` (nếu tách từ `develop` để sửa lỗi trong quá trình phát triển)
+  - Cú pháp: `hotfix/<tên-lỗi>` (nếu tách từ `main` để sửa lỗi khẩn cấp)
 
+### 2.2. Quy trình gửi và duyệt yêu cầu gộp mã (Pull Request)
 
+1. Mọi tính năng mới đều phải được đẩy lên nhánh riêng và tạo Pull Request (PR) gộp vào nhánh `develop`.
+2. PR cần được đặt tên rõ ràng, mô tả chi tiết những gì đã làm, kèm ảnh chụp màn hình kiểm thử (Swagger/Postman hoặc giao diện).
+3. Chờ ít nhất 1 thành viên khác (hoặc Trưởng nhóm) xem xét và chấp thuận (Approve) trước khi gộp (Merge).
+4. **Quy tắc gộp PR:**
+   - Ưu tiên chọn **"Create a merge commit"** (hoặc "Rebase and merge") khi gộp vào `develop` và `main` để giữ nguyên toàn bộ lịch sử commit và điểm đóng góp (contribution) của từng thành viên.
+   - Hạn chế dùng "Squash and merge" đối với các nhánh có nhiều người cùng tham gia đóng góp.
+5. Sau khi đợt phát triển hoặc Sprint hoàn tất và nhánh `develop` đã được kiểm thử ổn định, tạo PR từ `develop` vào `main`.
 
-### 3.2. Quy trình Pull Request (PR)
-
-1. Mọi code mới đều phải được đẩy lên một nhánh riêng và tạo Pull Request (PR) gộp vào nhánh `develop`.
-2. PR cần được đặt tên rõ ràng, mô tả chi tiết những gì đã làm.
-3. Chờ ít nhất 1 thành viên khác (hoặc Tech Lead) review và Approve (chấp thuận) trước khi Merge.
-4. Xóa nhánh feature sau khi đã merge thành công để dọn dẹp kho lưu trữ.
-## 4. Lỗi thường gặp khi chạy bằng Docker
-
-### Vite báo `Failed to resolve import "<tên gói>"`
-
-Nguyên nhân: `node_modules` của frontend nằm trong volume Docker riêng, nên có thể còn bản cũ sau khi kéo code mới có thêm thư viện.
-
-`compose.yaml` đã tự chạy `npm install` mỗi lần khởi động frontend, nên thường chỉ cần:
-
-```bash
-docker compose restart frontend
-```
-
-Nếu vẫn lỗi, cài thủ công rồi khởi động lại:
-
-```bash
-docker compose exec frontend npm install
-docker compose restart frontend
-```
-
-Nếu vẫn không được, xóa volume `node_modules` để cài lại từ đầu:
-
-```bash
-docker compose down -v
-docker compose up --build
-```

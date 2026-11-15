@@ -22,7 +22,6 @@ import {
 } from '../../../hooks/customerRules';
 import { Icon } from '../../../components/CustomerLayout';
 import { ContractBody } from '../../../components/ContractBody/ContractBody';
-import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
 import { getUserFullName } from '../../../../../shared/utils/userNameResolver';
 import { AcceptTermsModal, Modal, ReasonModal } from '../../../components/Modals';
 import { LockedCard, Note } from '../../../components/Common/Common';
@@ -49,7 +48,6 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
     return (
       <div className="cus-grid-main">
         <LockedCard icon="clock" title="Đang soạn hợp đồng" text="Logistics Manager đang soạn hợp đồng với giá chính thức. Hạn hoàn tất được ghi trong từng phiên bản hợp đồng." />
-        <DemoPanel request={r} />
       </div>
     );
   }
@@ -179,7 +177,6 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
               </ul>
             </div>
           )}
-          <DemoPanel request={r} />
         </div>
       </div>
 

@@ -22,7 +22,6 @@ import { apiMessage } from '../../../shared/api/apiError';
 import { getCurrentUser } from '../../auth/api/authApi';
 import {
   FILE_DOC_KEYS,
-  addHours,
   balanceDue,
   canAcceptTerms,
   canCancel,
@@ -30,28 +29,19 @@ import {
   canRequestContractChange,
   canSign,
   clockMs,
-  closureChecks,
-  contractItems,
-  ctRef,
   curVersion,
-  depositPayments,
   depositState,
-  docRecord,
   docsNeedingAction,
   emptyPlace,
   fmtDateTime,
   fmtMoney,
   horseDocItems,
   isActive,
-  isPast,
   isSupportedRoute,
   nowStamp,
   pickedHorses,
-  qrExpired,
   sharedDocItems,
-  sumItems,
   today,
-  tripTemplate,
   validateHorseForm,
   versionState,
   wizardErrors,
@@ -78,9 +68,7 @@ interface CustomerState {
   toast: { id: number; message: string } | null;
 }
 
-import { getDemoMode } from '../../../shared/context/DemoModeContext';
-import { mockHorses, mockNotifications, mockRequests } from '../data/mockData';
-import { getSharedRequests, saveSharedRequest, toCustomerRequest } from '../../../shared/utils/sharedRequests';
+import { getSharedRequests, saveSharedRequest,} from '../../../shared/utils/sharedRequests';
 import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
 import { getSharedNotificationsFor } from '../../../shared/utils/sharedNotifications';
 
@@ -142,18 +130,11 @@ const resolveCustomerNotifs = (listIn: CustomerNotification[]): CustomerNotifica
   }));
 };
 
-const initialDemo = getDemoMode('customer');
 let state: CustomerState = {
   profile: getInitialProfile(),
-  horses: initialDemo ? clone(mockHorses) : [],
-  requests: initialDemo
-    ? (() => {
-        const initialShared = getSharedRequests().map(toCustomerRequest);
-        const initialMock = clone(mockRequests);
-        return [...initialShared, ...initialMock.filter((m) => !initialShared.some((s) => cleanId(s.id) === cleanId(m.id)))];
-      })()
-    : readRequestDrafts(),
-  notifications: initialDemo ? resolveCustomerNotifs(clone(mockNotifications)) : [],
+  horses: [],
+  requests: readRequestDrafts(),
+  notifications: [],
   otp: null,
   loading: false,
   loaded: false,
@@ -162,7 +143,7 @@ let state: CustomerState = {
 const listeners = new Set<() => void>();
 const setState = (patch: Partial<CustomerState> | ((s: CustomerState) => Partial<CustomerState>)) => {
   state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) };
-  if (!getDemoMode('customer')) writeRequestDrafts(state.requests);
+  writeRequestDrafts(state.requests);
   for (const r of state.requests.filter(r => r.status === 'DRAFT')) {
     try { sessionStorage.setItem(`flow1-progress:${r.id}`, JSON.stringify({ horseCount: r.horseCount, wizardStep: r.wizardStep })); } catch { /* UI metadata is optional. */ }
   }
@@ -220,53 +201,7 @@ export function resetCustomerState() {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('rts_requests_updated', () => {
-    const isDemo = getDemoMode('customer');
-    if (isDemo) {
-      const shared = getSharedRequests().map(toCustomerRequest);
-      setState((s) => {
-        const newRequests = [...s.requests];
-        for (const req of shared) {
-          const idx = newRequests.findIndex((r) => cleanId(r.id) === cleanId(req.id));
-          if (idx >= 0) {
-            newRequests[idx] = { ...newRequests[idx], ...req };
-          } else {
-            newRequests.unshift(req);
-          }
-        }
-        return { requests: newRequests };
-      });
-    } else {
-      void syncRequestsOnly();
-    }
-  });
-
-  window.addEventListener('rts_demo_mode_change', (event: Event) => {
-    const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
-    if (customEvent.detail && customEvent.detail.role === 'customer') {
-      if (customEvent.detail.enabled) {
-        const shared = getSharedRequests().map(toCustomerRequest);
-        const mock = clone(mockRequests);
-        const merged = [...shared, ...mock.filter((m) => !shared.some((s) => cleanId(s.id) === cleanId(m.id)))];
-        setState({
-          horses: clone(mockHorses),
-          requests: merged,
-          notifications: clone(mockNotifications),
-          loading: false,
-          loaded: true,
-        });
-        toast('Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.');
-      } else {
-        setState({
-          horses: [],
-          requests: [],
-          notifications: [],
-          loading: false,
-          loaded: false,
-        });
-        void loadAll({ force: true });
-        toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
-      }
-    }
+    void syncRequestsOnly();
   });
 }
 const ok = (message: string, id?: string): ActionResult => { toast(message); return { ok: true, message, id }; };
@@ -281,8 +216,7 @@ const updateReq = (id: string, fn: (r: TransportRequest) => void) => {
       if (r.id !== id && cleanId(r.id) !== cleanId(id)) return r;
       const c = clone(r);
       fn(c);
-      if (!getDemoMode('customer') && c.status === 'CHANGES_REQUESTED') c.editingLocally = true;
-      if (getDemoMode('customer')) saveSharedRequest(c);
+      if (c.status === 'CHANGES_REQUESTED') c.editingLocally = true;
       return c;
     }),
   }));
@@ -308,8 +242,6 @@ const ACTOR: Record<ActorRole, string> = {
 };
 const log = (r: TransportRequest, role: ActorRole, action: string, detail?: string) =>
   r.history.push({ at: nowStamp(), actor: role === 'CUSTOMER' ? state.profile.name : ACTOR[role], role, action, detail });
-const notify = (title: string, body: string, link: string) =>
-  setState((s) => ({ notifications: [{ id: `N-${Date.now()}`, title, body, at: nowStamp(), read: false, link }, ...s.notifications] }));
 const nextId = (prefix: string, list: string[]) => {
   const numbers = list
     .filter((x) => typeof x === 'string' && (x.startsWith(`${prefix}-`) || x.startsWith(`${prefix}_`)))
@@ -330,26 +262,16 @@ async function syncRequestsOnly(): Promise<void> {
   if (inFlightSyncPromise) return inFlightSyncPromise;
   inFlightSyncPromise = (async () => {
     try {
-      const isDemo = getDemoMode('customer');
-      if (!isDemo) {
-        // Lấy luôn thông báo để các nhắc nhở từ Quản lý hiện ngay, không cần tải lại trang
-        const [requestsRes, notificationsRes] = await Promise.allSettled([customerApi.getRequests(), customerApi.getNotifications()]);
-        if (requestsRes.status === 'rejected') throw requestsRes.reason;
-        const fetched = requestsRes.value;
-        const freshNotifications = notificationsRes.status === 'fulfilled' && Array.isArray(notificationsRes.value) ? notificationsRes.value : null;
-        setState((prev) => ({
-          ...prev,
-          requests: mergeRequestDrafts(fetched, prev.requests),
-          ...(freshNotifications ? { notifications: resolveCustomerNotifs(freshNotifications) } : {}),
-        }));
-        return;
-      }
-      const rawRequests = await customerApi.getRequests();
-      const shared = getSharedRequests().map(toCustomerRequest);
-      const merged = [...shared, ...rawRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
-      const mock = clone(mockRequests);
-      const allDemoRequests = [...merged, ...mock.filter((m) => !merged.some((r) => cleanId(r.id) === cleanId(m.id)))];
-      setState((prev) => ({ ...prev, requests: allDemoRequests }));
+      // Lấy luôn thông báo để các nhắc nhở từ Quản lý hiện ngay, không cần tải lại trang
+      const [requestsRes, notificationsRes] = await Promise.allSettled([customerApi.getRequests(), customerApi.getNotifications()]);
+      if (requestsRes.status === 'rejected') throw requestsRes.reason;
+      const fetched = requestsRes.value;
+      const freshNotifications = notificationsRes.status === 'fulfilled' && Array.isArray(notificationsRes.value) ? notificationsRes.value : null;
+      setState((prev) => ({
+        ...prev,
+        requests: mergeRequestDrafts(fetched, prev.requests),
+        ...(freshNotifications ? { notifications: resolveCustomerNotifs(freshNotifications) } : {}),
+      }));
     } catch {
       // Ignore background sync errors
     } finally {
@@ -440,30 +362,12 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
       }
 
       const baseRequests = requestsRes.status === 'fulfilled' && requestsRes.value ? requestsRes.value : [];
-      const isDemo = getDemoMode('customer');
-      if (!isDemo) {
-        setState((prev) => ({
-          ...prev,
-          profile,
-          horses: horses || [],
-          requests: mergeRequestDrafts(baseRequests, prev.requests),
-          notifications: resolveCustomerNotifs(notifications || []),
-          loading: false,
-          loaded: true,
-        }));
-        return;
-      }
-
-      const shared = getSharedRequests().map(toCustomerRequest);
-      const merged = [...shared, ...baseRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
-      const mock = clone(mockRequests);
-      const allDemoRequests = [...merged, ...mock.filter((m) => !merged.some((r) => cleanId(r.id) === cleanId(m.id)))];
       setState((prev) => ({
         ...prev,
         profile,
-        horses: horses && horses.length > 0 ? horses : clone(mockHorses),
-        requests: allDemoRequests,
-        notifications: resolveCustomerNotifs(notifications && notifications.length > 0 ? notifications : clone(mockNotifications)),
+        horses: horses || [],
+        requests: mergeRequestDrafts(baseRequests, prev.requests),
+        notifications: resolveCustomerNotifs(notifications || []),
         loading: false,
         loaded: true,
       }));
@@ -507,7 +411,7 @@ const resizeHorses = (r: TransportRequest, count: number) => {
 
 const customerActions = {
   async loadRequest(id: string) {
-    if (getDemoMode('customer') || id.startsWith('LOCAL_')) return;
+    if (id.startsWith('LOCAL_')) return;
     if (findReq(id)?.editingLocally) return;
     try {
       const request = await customerApi.getRequest(id);
@@ -537,7 +441,7 @@ const customerActions = {
   // ----- Bước 1: thông tin chuyến -----
   async createDraft(input: TripInfoInput, _idempotencyKey?: string): Promise<ActionResult> {
     const err = validateTripInfo(input); if (err) return fail(err);
-    const id = getDemoMode('customer') ? nextId('TRN', state.requests.map(x => x.id)) : `LOCAL_${crypto.randomUUID()}`;
+    const id = `LOCAL_${crypto.randomUUID()}`;
     const now = nowStamp();
     const draftReq: TransportRequest = {
       id,
@@ -570,7 +474,6 @@ const customerActions = {
       payments: [],
     };
     setState(s => ({ requests: [draftReq, ...s.requests] }));
-    if (getDemoMode('customer')) saveSharedRequest(draftReq);
     notifySync('requests_updated');
     return ok(`Đã tạo bản nháp ${id}.`, id);
   },
@@ -674,35 +577,23 @@ const customerActions = {
     const errs = wizardErrors(r, state.horses);
     if (errs.length) return fail(`Chưa gửi được: ${errs[0][1]}`);
     
-    const isDemo = getDemoMode('customer');
-    if (!isDemo) {
-      try {
-        const apiRes = await customerApi.submitRequest(id, r);
-        if (!apiRes?.ok) {
-          return fail(apiRes?.message || 'Không thể gửi yêu cầu lên máy chủ.');
-        }
-        const saved = apiRes.request;
-        if (saved) {
-          setState(s => ({ requests: s.requests.map(x => (x.id === id || cleanId(x.id) === cleanId(id)) ? saved : x) }));
-        }
-        await loadAll({ force: true, silent: true });
-        try { sessionStorage.removeItem(`flow1-progress:${id}`); } catch {}
-        notifySync('requests_updated');
-        return ok(`Đã gửi ${saved?.id || id}. Logistics Manager sẽ xét duyệt yêu cầu.`, saved?.id || id);
-      } catch (error) {
-        return fail(apiMessage(error));
+    try {
+      const apiRes = await customerApi.submitRequest(id, r);
+      if (!apiRes?.ok) {
+        return fail(apiRes?.message || 'Không thể gửi yêu cầu lên máy chủ.');
       }
+      const saved = apiRes.request;
+      if (saved) {
+        setState(s => ({ requests: s.requests.map(x => (x.id === id || cleanId(x.id) === cleanId(id)) ? saved : x) }));
+      }
+      await loadAll({ force: true, silent: true });
+      try { sessionStorage.removeItem(`flow1-progress:${id}`); } catch {}
+      notifySync('requests_updated');
+      return ok(`Đã gửi ${saved?.id || id}. Logistics Manager sẽ xét duyệt yêu cầu.`, saved?.id || id);
+    } catch (error) {
+      return fail(apiMessage(error));
     }
-
-    updateReq(id, x => {
-      x.status = 'PENDING_REVIEW';
-      x.submittedAt = nowStamp();
-      log(x, 'CUSTOMER', 'Gửi yêu cầu vận chuyển', `${x.origin} → ${x.destination} • ${x.horseCount} ngựa`);
-    });
-    try { sessionStorage.removeItem(`flow1-progress:${id}`); } catch { /* Optional UI metadata. */ }
-    notify('Đã gửi yêu cầu', `Yêu cầu ${id} đang chờ Logistics Manager xét duyệt.`, `/customer/requests/${id}`);
-    notifySync('requests_updated');
-    return ok(`Đã gửi ${id}. Logistics Manager sẽ xét duyệt yêu cầu.`, id);
+  
   },
 
   async cancelRequest(id: string, reason: string): Promise<ActionResult> {
@@ -726,11 +617,6 @@ const customerActions = {
   // ----- Ngựa của tôi -----
   async createHorse(input: HorseInput): Promise<ActionResult> {
     const err = validateHorse(input); if (err) return fail(err);
-    if (getDemoMode('customer')) {
-      const id = nextId('HOR', state.horses.map(h => h.id));
-      setState(s => ({ horses: [{ ...input, id }, ...s.horses] }));
-      return ok(`Đã thêm ${input.name.trim()}.`, id);
-    }
     try {
       const result = await customerApi.createHorse(input);
       const horses = await customerApi.getHorses(); setState({ horses });
@@ -743,10 +629,6 @@ const customerActions = {
   async updateHorse(id: string, input: HorseInput): Promise<ActionResult> {
     const h = findHorse(id); if (!h) return fail('Không tìm thấy ngựa.');
     const err = validateHorse(input); if (err) return fail(err);
-    if (getDemoMode('customer')) {
-      setState(s => ({ horses: s.horses.map(item => item.id === id ? { ...item, ...input } : item) }));
-      return ok('Đã lưu hồ sơ ngựa.');
-    }
     try {
       await customerApi.updateHorse(id, input);
       setState({ horses: await customerApi.getHorses() });
@@ -758,79 +640,43 @@ const customerActions = {
   async uploadDoc(requestId: string, key: DocKey, scope: string, file: FileRef): Promise<ActionResult> {
     const r = findReq(requestId);
     if (!r || !isActive(r) || !FILE_DOC_KEYS.includes(key)) return fail('Không thể nộp giấy tờ cho yêu cầu này.');
-    if (!getDemoMode('customer')) {
-      if (key === 'health') {
-        if (!file.file) return fail('Chọn tệp từ máy trước khi tải lên.');
-        try {
-          const saved = await customerApi.uploadDocument(requestId, key, scope, file);
-          updateReq(requestId, x => {
-            const same = (s: string) => s === scope || cleanId(s) === cleanId(scope);
-            const answered = x.supplements.some(s => s.key === key && same(s.scope) && s.status === 'OPEN') || x.docs.some(d => d.key === key && same(d.scope) && d.status === 'ACTION_REQUIRED');
-            const doc: DocRecord = { key, scope, status: answered ? 'RESUBMITTED' : 'PENDING_REVIEW', file: saved?.file ?? file, updatedAt: nowStamp() };
-            const index = x.docs.findIndex(d => d.key === key && same(d.scope));
-            if (index < 0) x.docs.push(doc); else x.docs[index] = doc;
-            x.supplements.forEach(s => { if (s.key === key && same(s.scope) && s.status === 'OPEN') s.status = 'SUBMITTED'; });
-          });
-          shareSubmittedDoc(requestId, key, scope, saved?.file ?? file);
-          await syncRequestsOnly();
-          return ok('Đã gửi giấy tờ cho Transport Specialist kiểm duyệt.');
-        } catch (error) { return fail(apiMessage(error)); }
-      }
-      const fileTypes: Partial<Record<DocKey, string>> = { passport: 'passport', ownership: 'ownership', valueProof: 'value-proof', flu: 'flu' };
-      const fileType = fileTypes[key];
-      if (!fileType) return fail('Tài liệu này chưa hỗ trợ nộp trực tuyến. Vui lòng liên hệ chuyên viên phụ trách.');
+    if (key === 'health') {
       if (!file.file) return fail('Chọn tệp từ máy trước khi tải lên.');
       try {
-        await customerApi.uploadHorseFile(scope, fileType as 'passport' | 'ownership' | 'value-proof' | 'flu', file.file);
-        setState({ horses: await customerApi.getHorses() });
+        const saved = await customerApi.uploadDocument(requestId, key, scope, file);
         updateReq(requestId, x => {
           const same = (s: string) => s === scope || cleanId(s) === cleanId(scope);
           const answered = x.supplements.some(s => s.key === key && same(s.scope) && s.status === 'OPEN') || x.docs.some(d => d.key === key && same(d.scope) && d.status === 'ACTION_REQUIRED');
-          const doc: DocRecord = { key, scope, status: answered ? 'RESUBMITTED' : 'PENDING_REVIEW', file, updatedAt: nowStamp() };
+          const doc: DocRecord = { key, scope, status: answered ? 'RESUBMITTED' : 'PENDING_REVIEW', file: saved?.file ?? file, updatedAt: nowStamp() };
           const index = x.docs.findIndex(d => d.key === key && same(d.scope));
           if (index < 0) x.docs.push(doc); else x.docs[index] = doc;
           x.supplements.forEach(s => { if (s.key === key && same(s.scope) && s.status === 'OPEN') s.status = 'SUBMITTED'; });
         });
-        shareSubmittedDoc(requestId, key, scope, file);
+        shareSubmittedDoc(requestId, key, scope, saved?.file ?? file);
         await syncRequestsOnly();
-        return ok('Đã lưu tài liệu vào hồ sơ ngựa.');
+        return ok('Đã gửi giấy tờ cho Transport Specialist kiểm duyệt.');
       } catch (error) { return fail(apiMessage(error)); }
     }
-    updateReq(requestId, x => {
-      const stamp = nowStamp();
-      // Cập nhật docs (nguồn dữ liệu chính cho specialist nhịn)
-      const answered = x.supplements.some(s => s.key === key && (s.scope === scope || s.scope?.replace(/-/g, '_') === scope?.replace(/-/g, '_')) && s.status === 'OPEN') || x.docs.some(d => d.key === key && d.scope === scope && d.status === 'ACTION_REQUIRED');
-      const doc: DocRecord = { key, scope, status: answered ? 'RESUBMITTED' : 'SUBMITTED', file, updatedAt: stamp };
-      const index = x.docs.findIndex(d => d.key === key && d.scope === scope);
-      if (index < 0) x.docs.push(doc);
-      else x.docs[index] = { ...x.docs[index], ...doc, issue: undefined };
-      // Đồng bộ dossier nếu có (manager cũng thấy bản mới)
-      if (Array.isArray((x as any).dossier)) {
-        const DOC_KEYS: Record<string, string[]> = {
-          flu: ['tiêm', 'flu'], passport: ['hộ chiếu', 'passport'],
-          health: ['sức khỏe', 'health'], ownership: ['sở hữu', 'ownership'],
-        };
-        const aliases = DOC_KEYS[key] || [key];
-        ((x as any).dossier as any[]).forEach((d: any) => {
-          const nm = (d.name || '').toLowerCase();
-          if (aliases.some((a: string) => nm.includes(a)) && (d.scope === scope || d.scope?.replace(/-/g,'_') === scope?.replace(/-/g,'_'))) {
-            d.status = 'PENDING_REVIEW';
-            d.file = typeof file === 'object' ? (file as any).name : file;
-            d.note = undefined;
-          }
-        });
-      }
-      // Đảnh dấu supplement liên quan sang SUBMITTED
-      if (Array.isArray((x as any).supplements)) {
-        ((x as any).supplements as any[]).forEach((s: any) => {
-          if (s.key === key && (s.scope === scope || s.scope?.replace(/-/g,'_') === scope?.replace(/-/g,'_')) && s.status === 'OPEN') {
-            s.status = 'SUBMITTED';
-          }
-        });
-      }
-    });
-    notifySync('requests_updated');
-    return ok('Nộp lại thành công – chuyên viên sẽ kiểm duyệt bản mới.');
+    const fileTypes: Partial<Record<DocKey, string>> = { passport: 'passport', ownership: 'ownership', valueProof: 'value-proof', flu: 'flu' };
+    const fileType = fileTypes[key];
+    if (!fileType) return fail('Tài liệu này chưa hỗ trợ nộp trực tuyến. Vui lòng liên hệ chuyên viên phụ trách.');
+    if (!file.file) return fail('Chọn tệp từ máy trước khi tải lên.');
+    try {
+      await customerApi.uploadHorseFile(scope, fileType as 'passport' | 'ownership' | 'value-proof' | 'flu', file.file);
+      setState({ horses: await customerApi.getHorses() });
+      updateReq(requestId, x => {
+        const same = (s: string) => s === scope || cleanId(s) === cleanId(scope);
+        const answered = x.supplements.some(s => s.key === key && same(s.scope) && s.status === 'OPEN') || x.docs.some(d => d.key === key && same(d.scope) && d.status === 'ACTION_REQUIRED');
+        const doc: DocRecord = { key, scope, status: answered ? 'RESUBMITTED' : 'PENDING_REVIEW', file, updatedAt: nowStamp() };
+        const index = x.docs.findIndex(d => d.key === key && same(d.scope));
+        if (index < 0) x.docs.push(doc); else x.docs[index] = doc;
+        x.supplements.forEach(s => { if (s.key === key && same(s.scope) && s.status === 'OPEN') s.status = 'SUBMITTED'; });
+      });
+      shareSubmittedDoc(requestId, key, scope, file);
+      await syncRequestsOnly();
+      return ok('Đã lưu tài liệu vào hồ sơ ngựa.');
+    } catch (error) { return fail(apiMessage(error)); }
+  
   },
 
   // ----- Hợp đồng -----
@@ -922,291 +768,8 @@ const customerActions = {
   },
 };
 
-// ============================================================================
-// Nút demo: giả lập thao tác của nhân viên CBN Transport (không thuộc cổng khách hàng)
-// ============================================================================
-const demoActions = {
-  managerAccept(id: string): ActionResult {
-    const r = findReq(id);
-    if (r?.status !== 'PENDING_REVIEW') return fail('Yêu cầu không ở trạng thái chờ xét duyệt.');
-    updateReq(id, (x) => { x.status = 'CONTRACT_PREPARATION'; x.feedback = undefined; log(x, 'LOGISTICS_MANAGER', 'Chấp nhận yêu cầu', 'Bắt đầu soạn hợp đồng'); });
-    notify(`Yêu cầu ${id} đã được chấp nhận`, 'Manager đang soạn hợp đồng với giá chính thức.', `/customer/requests/${id}`);
-    return ok('Demo: Manager đã chấp nhận yêu cầu.');
-  },
-  managerRequestChanges(id: string, feedback: string, fields: RequestField[]): ActionResult {
-    const r = findReq(id);
-    if (r?.status !== 'PENDING_REVIEW') return fail('Yêu cầu không ở trạng thái chờ xét duyệt.');
-    if (feedback.trim().length < 5 || !fields.length) return fail('Nhập góp ý và chọn ít nhất một mục được sửa.');
-    updateReq(id, (x) => { x.status = 'CHANGES_REQUESTED'; x.feedback = feedback.trim(); x.revisionFields = fields; log(x, 'LOGISTICS_MANAGER', 'Yêu cầu chỉnh sửa', feedback.trim()); });
-    notify(`Cần chỉnh sửa ${id}`, feedback.trim(), `/customer/requests/${id}`);
-    return ok('Demo: Manager đã yêu cầu chỉnh sửa.');
-  },
-  managerReject(id: string, reason: string): ActionResult {
-    const r = findReq(id);
-    if (r?.status !== 'PENDING_REVIEW') return fail('Yêu cầu không ở trạng thái chờ xét duyệt.');
-    if (reason.trim().length < 5) return fail('Nhập lý do từ chối.');
-    updateReq(id, (x) => { x.status = 'REJECTED'; x.reason = reason.trim(); log(x, 'LOGISTICS_MANAGER', 'Từ chối yêu cầu', reason.trim()); });
-    notify(`Yêu cầu ${id} bị từ chối`, reason.trim(), `/customer/requests/${id}`);
-    return ok('Demo: Manager đã từ chối yêu cầu.');
-  },
-  issueContract(id: string): ActionResult {
-    const r = findReq(id);
-    if (r?.status !== 'CONTRACT_PREPARATION') return fail('Yêu cầu chưa ở bước soạn hợp đồng.');
-    updateReq(id, (x) => {
-      const items = contractItems(x), at = nowStamp();
-      x.versions.push({ v: 1, number: `CT-${x.id.slice(4)}`, issuedAt: at, validUntil: addHours(at, 24), items, total: sumItems(items), depositPct: 30, state: 'ISSUED' });
-      x.status = 'CONTRACT_READY';
-      log(x, 'LOGISTICS_MANAGER', 'Phát hành hợp đồng', `CT-${x.id.slice(4)} v1 • ${fmtMoney(sumItems(items))}`);
-    });
-    notify(`Hợp đồng cho ${id} đã sẵn sàng`, 'Xem và đồng ý điều khoản trong 24 giờ.', `/customer/requests/${id}/contract`);
-    return ok('Demo: Manager đã phát hành hợp đồng v1.');
-  },
-  reviseContract(id: string): ActionResult {
-    const r = findReq(id), v = r && curVersion(r);
-    if (!r || !v || !['CONTRACT_CHANGES_REQUESTED', 'CONTRACT_READY'].includes(r.status) || !['CHANGES_REQUESTED', 'EXPIRED'].includes(versionState(v)))
-      return fail('Chỉ phát hành bản sửa khi khách yêu cầu sửa hoặc phiên bản đã hết hạn.');
-    updateReq(id, (x) => {
-      const old = curVersion(x)!, at = nowStamp();
-      if (old.change) old.change.response = { at, text: `Đã phát hành phiên bản v${old.v + 1}.` };
-      old.state = 'SUPERSEDED';
-      if (old.change?.proposedDate) x.date = old.change.proposedDate;
-      if (old.change?.proposedNotes) x.careNotes = old.change.proposedNotes;
-      const items = contractItems(x).map((i) => (old.change?.commercial && i.desc.startsWith('Thủ tục') ? { ...i, amount: Math.round(i.amount * 0.8) } : i));
-      x.versions.push({ v: old.v + 1, number: old.number, issuedAt: at, validUntil: addHours(at, 24), items, total: sumItems(items), depositPct: old.depositPct, state: 'ISSUED',
-        note: old.change ? `Đã điều chỉnh theo đề nghị: ${old.change.text}` : 'Phiên bản gia hạn sau khi phiên bản trước hết hạn.' });
-      x.status = 'CONTRACT_READY';
-      log(x, 'LOGISTICS_MANAGER', 'Phát hành hợp đồng sửa đổi', `${old.number} v${old.v + 1}`);
-    });
-    notify(`Hợp đồng sửa đổi cho ${id}`, 'Phiên bản mới có hạn 24 giờ.', `/customer/requests/${id}/contract`);
-    return ok('Demo: Manager đã phát hành phiên bản mới (hạn mới 24 giờ).');
-  },
-  keepVersion(id: string): ActionResult {
-    const r = findReq(id), v = r && curVersion(r);
-    if (!r || !v || r.status !== 'CONTRACT_CHANGES_REQUESTED') return fail('Không có yêu cầu sửa hợp đồng đang chờ.');
-    updateReq(id, (x) => {
-      const cv = curVersion(x)!, at = nowStamp();
-      cv.change!.response = { at, text: 'Điều khoản hiện tại đã là mức tốt nhất; giữ nguyên phiên bản và cấp lại hạn 24 giờ.' };
-      cv.state = 'ISSUED';
-      (cv.deadlineHistory ??= []).push({ at, from: cv.validUntil, to: addHours(at, 24), by: 'Linh Pham', reason: 'Trả lời yêu cầu sửa – cấp lại hạn' });
-      cv.validUntil = addHours(at, 24);
-      x.status = 'CONTRACT_READY';
-      log(x, 'LOGISTICS_MANAGER', 'Trả lời yêu cầu sửa & giữ phiên bản', ctRef(cv));
-    });
-    return ok('Demo: Manager đã trả lời và giữ phiên bản hiện tại (cấp lại 24 giờ).');
-  },
-  extendDeadline(id: string): ActionResult {
-    const r = findReq(id), v = r && curVersion(r);
-    if (!r || !v || !['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status) || !['ISSUED', 'EXPIRED'].includes(versionState(v))) return fail('Không có hạn ký nào để gia hạn.');
-    updateReq(id, (x) => {
-      const cv = curVersion(x)!, at = nowStamp();
-      const to = addHours(isPast(cv.validUntil) ? at : cv.validUntil, 24);
-      (cv.deadlineHistory ??= []).push({ at, from: cv.validUntil, to, by: 'Linh Pham', reason: 'Gia hạn theo đề nghị của khách hàng' });
-      cv.validUntil = to;
-      log(x, 'LOGISTICS_MANAGER', 'Gia hạn hạn chung cọc / ký OTP', `${ctRef(cv)} → ${fmtDateTime(to)}`);
-    });
-    return ok('Demo: Manager đã gia hạn thêm 24 giờ.');
-  },
-  expireVersion(id: string): ActionResult {
-    const r = findReq(id), v = r && curVersion(r);
-    if (!r || !v || versionState(v) !== 'ISSUED') return fail('Phiên bản hiện tại không còn hiệu lực ký.');
-    updateReq(id, (x) => { const cv = curVersion(x)!; cv.validUntil = nowStamp(); log(x, 'SYSTEM', 'Phiên bản hợp đồng hết hạn', ctRef(cv)); });
-    return ok('Demo: Phiên bản hợp đồng đã hết hạn.');
-  },
-  sandboxDeposit(id: string, success: boolean): ActionResult {
-    const r = findReq(id);
-    const p = r && [...depositPayments(r)].reverse().find((x) => x.status === 'PROCESSING');
-    if (!r || !p) return fail('Không có giao dịch cọc đang chờ xác minh.');
-    if (qrExpired(p)) {
-      updateReq(id, (x) => { const t = x.payments.find((y) => y.id === p.id)!; t.status = 'FAILED'; t.reason = 'Mã QR đã hết hạn sau 5 phút.'; });
-      return fail('Mã QR đã hết hạn – Sandbox không thể xác nhận giao dịch này. Hãy thử lại.');
-    }
-    updateReq(id, (x) => {
-      const t = x.payments.find((y) => y.id === p.id)!;
-      if (success) {
-        t.status = 'SUCCESS'; t.confirmedAt = nowStamp(); x.status = 'DEPOSIT_VERIFIED';
-        log(x, 'SYSTEM', 'Sandbox xác minh tiền cọc', `${t.id} • ${fmtMoney(t.amount)}`);
-      } else {
-        t.status = 'FAILED'; t.reason = 'Ngân hàng từ chối giao dịch (Sandbox).';
-        log(x, 'SYSTEM', 'Thanh toán cọc thất bại', t.id);
-      }
-    });
-    if (success) {
-      const contractId = curVersion(r)?.contractId || r.versions?.[0]?.contractId;
-      if (contractId) {
-        void customerApi.mockDeposit(contractId);
-      }
-      notify(`Tiền cọc đã được xác minh • ${id}`, 'Bạn có thể xem lại và ký hợp đồng bằng OTP.', `/customer/requests/${id}/contract`);
-    }
-    return ok(success ? 'Sandbox: tiền cọc đã được xác minh. Có thể ký OTP.' : 'Sandbox: thanh toán thất bại. Không có khoản tiền nào bị trừ.');
-  },
-  approveCancellation(id: string): ActionResult {
-    const r = findReq(id);
-    if (r?.status !== 'CANCELLATION_REQUESTED') return fail('Không có yêu cầu hủy đang chờ.');
-    updateReq(id, (x) => {
-      x.status = 'CANCELLED'; x.reason = `Khách hàng hủy: ${x.cancelRequest?.reason ?? ''}`;
-      x.payments.filter((p) => p.status === 'PROCESSING').forEach((p) => { p.status = 'FAILED'; p.reason = 'Hủy cùng yêu cầu.'; });
-      const paidAmount = x.payments.filter((p) => p.type === 'DEPOSIT' && p.status === 'SUCCESS').reduce((s, p) => s + p.amount, 0);
-      if (paidAmount) x.refund = { amount: paidAmount, status: 'REQUESTED', at: nowStamp() };
-      log(x, 'LOGISTICS_MANAGER', 'Duyệt hủy', paidAmount ? `Hoàn ${fmtMoney(paidAmount)}` : 'Không có khoản phải hoàn');
-    });
-    return ok('Demo: Manager đã duyệt hủy.');
-  },
-  advanceRefund(id: string): ActionResult {
-    const r = findReq(id);
-    if (!r?.refund || r.refund.status === 'REFUNDED') return fail('Không có khoản hoàn tiền đang xử lý.');
-    updateReq(id, (x) => {
-      const f = x.refund!;
-      if (f.status === 'REQUESTED') { f.status = 'PROCESSING'; log(x, 'LOGISTICS_MANAGER', 'Bắt đầu xử lý hoàn tiền'); }
-      else { f.status = 'REFUNDED'; f.refundedAt = nowStamp(); f.reference = `RF-${Date.now().toString().slice(-6)}`; log(x, 'LOGISTICS_MANAGER', 'Đã hoàn tiền', f.reference); }
-    });
-    return ok('Demo: đã cập nhật trạng thái hoàn tiền.');
-  },
-  specialistApproveAll(id: string): ActionResult {
-    const r = findReq(id);
-    if (!r || !['ACTIVATED', 'SCHEDULED'].includes(r.status)) return fail('Chỉ duyệt giấy tờ sau khi yêu cầu được kích hoạt.');
-    const waiting = r.docs.filter((d) => d.status === 'PENDING_REVIEW' || d.status === 'RESUBMITTED' || d.status === 'SUBMITTED');
-    if (!waiting.length) return fail('Không có giấy tờ nào đang chờ duyệt.');
-    updateReq(id, (x) => {
-      x.docs.forEach((d) => { if (d.status === 'PENDING_REVIEW' || d.status === 'RESUBMITTED' || d.status === 'SUBMITTED') { d.status = 'APPROVED'; d.issue = undefined; } });
-      log(x, 'TRANSPORT_SPECIALIST', 'Duyệt giấy tờ', `${waiting.length} mục`);
-    });
-    notify(`Giấy tờ đã được duyệt • ${id}`, `${waiting.length} mục giấy tờ đã được chấp thuận.`, `/customer/requests/${id}/documents`);
-    return ok(`Demo: Specialist đã duyệt ${waiting.length} giấy tờ.`);
-  },
-  specialistRejectOne(id: string): ActionResult {
-    const r = findReq(id);
-    if (!r || !['ACTIVATED', 'SCHEDULED'].includes(r.status)) return fail('Chỉ kiểm duyệt giấy tờ sau khi yêu cầu được kích hoạt.');
-    const d = r.docs.find((x) => x.status === 'PENDING_REVIEW' && x.file) ?? r.docs.find((x) => x.status === 'APPROVED' && x.file);
-    if (!d) return fail('Chưa có tệp nào để từ chối.');
-    const issue = 'Tệp chưa đủ rõ nét hoặc thiếu trang xác nhận. Vui lòng cập nhật và nộp lại.';
-    updateReq(id, (x) => {
-      const t = docRecord(x, d.key, d.scope)!;
-      t.status = 'ACTION_REQUIRED'; t.issue = issue;
-      log(x, 'TRANSPORT_SPECIALIST', 'Từ chối giấy tờ', `${d.key} • ${issue}`);
-    });
-    notify(`Cần nộp lại giấy tờ • ${id}`, issue, `/customer/requests/${id}/documents`);
-    return ok('Demo: Specialist đã từ chối 1 giấy tờ kèm lý do.');
-  },
-  specialistAskSupplement(id: string, horseId: string, key: DocKey, reason: string): ActionResult {
-    const r = findReq(id);
-    if (!r || !['ACTIVATED', 'SCHEDULED'].includes(r.status)) return fail('Chỉ yêu cầu bổ sung sau khi yêu cầu được kích hoạt.');
-    if (reason.trim().length < 5) return fail('Nhập lý do yêu cầu bổ sung.');
-    updateReq(id, (x) => {
-      x.supplements.push({ id: nextId('SUP', x.supplements.map((s) => s.id)), key, scope: horseId || 'request', reason: reason.trim(), at: nowStamp(), by: 'Hoang Thu Ha', status: 'OPEN' });
-      const rec = docRecord(x, key, horseId || 'request');
-      if (rec) { rec.status = 'ACTION_REQUIRED'; rec.issue = reason.trim(); }
-      log(x, 'TRANSPORT_SPECIALIST', 'Yêu cầu bổ sung giấy tờ', reason.trim());
-    });
-    notify(`Specialist yêu cầu bổ sung • ${id}`, reason.trim(), `/customer/requests/${id}/documents`);
-    return ok('Demo: Specialist đã yêu cầu bổ sung giấy tờ.');
-  },
-  scheduleTrip(id: string): ActionResult {
-    const r = findReq(id);
-    if (r?.status !== 'ACTIVATED' || !r.trip) return fail('Chỉ lên lịch được yêu cầu đã kích hoạt.');
-    if (docsNeedingAction(r)) return fail('Còn giấy tờ cần nộp lại / bổ sung – chưa thể lên lịch.');
-    if (r.docs.some((d) => d.status === 'PENDING_REVIEW' || d.status === 'RESUBMITTED')) return fail('Còn giấy tờ chờ Specialist duyệt – hãy duyệt giấy tờ trước.');
-    updateReq(id, (x) => {
-      const t = x.trip!, tpl = tripTemplate(x);
-      t.stops = t.stops.length ? t.stops : tpl.stops;
-      t.status = 'READY_TO_DEPART'; t.routeApproved = true; t.plannedDepart = tpl.plannedDepart; t.eta = tpl.eta;
-      x.companyDocs.forEach((d) => { d.status = 'COMPLETED'; });
-      x.status = 'SCHEDULED';
-      log(x, 'LOGISTICS_MANAGER', 'Duyệt khởi hành', `${t.id} • ${fmtDateTime(t.plannedDepart)}`);
-    });
-    notify(`${id} đã lên lịch`, 'Tuyến và phương tiện đã được duyệt.', `/customer/requests/${id}/tracking`);
-    return ok('Demo: chuyến đã được lên lịch.');
-  },
-  crewDepart(id: string): ActionResult {
-    const r = findReq(id);
-    if (r?.status !== 'SCHEDULED' || r.trip?.status !== 'READY_TO_DEPART') return fail('Chuyến chưa sẵn sàng khởi hành.');
-    updateReq(id, (x) => {
-      const t = x.trip!;
-      t.status = 'IN_TRANSIT'; t.milestones.push({ type: 'DEPARTED', stopIndex: 0, at: nowStamp(), by: 'Pham Van Duc' });
-      x.status = 'IN_TRANSIT';
-      log(x, 'DRIVER_ESCORT', 'Xuất phát', t.stops[0]?.name);
-    });
-    notify(`${id} đang vận chuyển`, 'Tổ xe đã xác nhận xuất phát.', `/customer/tracking/${id}`);
-    return ok('Demo: tổ xe đã xác nhận xuất phát.');
-  },
-  crewNextMilestone(id: string): ActionResult {
-    const r = findReq(id), t = r?.trip;
-    if (!r || !t || t.status !== 'IN_TRANSIT') return fail('Chuyến không ở trạng thái đang vận chuyển.');
-    const m = t.milestones[t.milestones.length - 1];
-    if (m?.type === 'ARRIVED_DESTINATION') return fail('Đã đến điểm giao – tiếp theo là bàn giao.');
-    updateReq(id, (x) => {
-      const tt = x.trip!, lastM = tt.milestones[tt.milestones.length - 1], at = nowStamp();
-      if (lastM && lastM.type === 'ARRIVED_STOP') tt.milestones.push({ type: 'LEFT_STOP', stopIndex: lastM.stopIndex, at, by: 'Pham Van Duc' });
-      else {
-        const nextIdx = (lastM?.stopIndex ?? 0) + 1, isLast = nextIdx >= tt.stops.length - 1;
-        tt.milestones.push({ type: isLast ? 'ARRIVED_DESTINATION' : 'ARRIVED_STOP', stopIndex: Math.min(nextIdx, tt.stops.length - 1), at, by: 'Pham Van Duc' });
-      }
-      const nm = tt.milestones[tt.milestones.length - 1];
-      log(x, 'DRIVER_ESCORT', 'Xác nhận mốc hành trình', `${nm.type} • ${tt.stops[nm.stopIndex]?.name ?? ''}`);
-    });
-    return ok('Demo: tổ xe đã xác nhận mốc tiếp theo.');
-  },
-  crewHandover(id: string): ActionResult {
-    const r = findReq(id), t = r?.trip;
-    if (!r || !t || !t.milestones.some((m) => m.type === 'ARRIVED_DESTINATION')) return fail('Chuyến chưa đến điểm giao.');
-    if (t.handover) return fail('Đã bàn giao.');
-    updateReq(id, (x) => {
-      const at = nowStamp(), tt = x.trip!;
-      tt.handover = {
-        completedAt: at, receiverName: x.delivery.contact || state.profile.name, receiverId: 'CCCD ***1234',
-        horses: pickedHorses(x).map((hid) => ({ horseId: hid, microchipOk: true, condition: 'NORMAL' as const })),
-        photos: pickedHorses(x).map((hid) => `handover-${hid.toLowerCase()}.jpg`),
-      };
-      tt.status = 'COMPLETED';
-      x.status = 'DELIVERED';
-      x.acceptance = { status: 'PENDING', openedAt: at, dueAt: addHours(at, 24) };
-      log(x, 'DRIVER_ESCORT', 'Hoàn tất bàn giao có xác minh', `Người nhận: ${tt.handover.receiverName}`);
-    });
-    notify(`Đã bàn giao • ${id}`, 'Vui lòng nghiệm thu và thanh toán số dư trong 24 giờ.', `/customer/requests/${id}/handover`);
-    return ok('Demo: tổ xe đã hoàn tất bàn giao.');
-  },
-  sandboxBalance(id: string, success: boolean): ActionResult {
-    const r = findReq(id);
-    const p = r?.payments.find((x) => x.type === 'BALANCE' && x.status === 'PROCESSING');
-    if (!r || !p) return fail('Không có giao dịch VNPay đang chờ.');
-    updateReq(id, (x) => {
-      const t = x.payments.find((y) => y.id === p.id)!;
-      if (success) { t.status = 'SUCCESS'; t.confirmedAt = nowStamp(); log(x, 'SYSTEM', 'VNPay xác minh thanh toán số dư', t.id); }
-      else { t.status = 'FAILED'; t.reason = 'VNPay từ chối giao dịch (Sandbox).'; log(x, 'SYSTEM', 'Thanh toán số dư thất bại', t.id); }
-    });
-    return ok(success ? 'VNPay: đã xác minh thanh toán số dư.' : 'VNPay: thanh toán thất bại, không có khoản tiền nào bị trừ.');
-  },
-  resolveComplaint(id: string, complaintId: string): ActionResult {
-    updateReq(id, (x) => {
-      const c = x.complaints.find((y) => y.id === complaintId);
-      if (!c) return;
-      c.status = 'RESOLVED'; c.response = 'CBN Transport đã kiểm tra và phản hồi bằng văn bản. Hạn nghiệm thu được cấp lại 24 giờ.';
-      if (x.acceptance) x.acceptance.dueAt = addHours(nowStamp(), 24);
-      log(x, 'LOGISTICS_MANAGER', 'Giải quyết khiếu nại', complaintId);
-    });
-    return ok('Demo: Manager đã giải quyết khiếu nại (hạn mới 24 giờ).');
-  },
-  endAcceptanceWindow(id: string): ActionResult {
-    const r = findReq(id);
-    if (!r?.acceptance) return fail('Chưa mở hạn nghiệm thu.');
-    updateReq(id, (x) => { x.acceptance!.dueAt = nowStamp(); log(x, 'SYSTEM', 'Hết hạn chung 24 giờ nghiệm thu / thanh toán'); });
-    return ok('Demo: đã chuyển tới thời điểm hết hạn 24 giờ.');
-  },
-  closeRequest(id: string): ActionResult {
-    const r = findReq(id);
-    if (r?.status !== 'DELIVERED') return fail('Chỉ đóng được yêu cầu đã giao.');
-    const missing = closureChecks(r).filter(([, done]) => !done);
-    if (missing.length) return fail(`Chưa đủ điều kiện đóng: ${missing[0][0]}.`);
-    updateReq(id, (x) => {
-      x.status = 'CLOSED'; x.closedAt = nowStamp();
-      (x.versions || []).forEach((v) => { if (v.state === 'EFFECTIVE') v.state = 'FULFILLED'; });
-      log(x, 'LOGISTICS_MANAGER', 'Đóng yêu cầu', 'Đủ mọi điều kiện đóng');
-    });
-    return ok('Demo: yêu cầu đã được đóng và chuyển sang Lịch sử.');
-  },
-};
-
-export type CustomerActions = typeof customerActions & { demo: typeof demoActions };
-const actions: CustomerActions = { ...customerActions, demo: demoActions };
+export type CustomerActions = typeof customerActions;
+const actions: CustomerActions = customerActions;
 
 /** Số mục khách hàng cần xử lý trong một yêu cầu (dùng cho huy hiệu menu) */
 export function needsCustomerAction(r: TransportRequest) {

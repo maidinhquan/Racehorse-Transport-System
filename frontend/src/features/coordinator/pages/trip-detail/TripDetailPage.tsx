@@ -2,12 +2,10 @@
 import { useEffect } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { Icon, Pill } from '../../components/common/ui';
-import { EmptyPlanPanel } from '../../components/demo/Demo';
 import { CoordinatorLayout } from '../../components/layout/CoordinatorLayout';
 import { deployed, planGaps, reqOfTrip, trip } from '../../domain/coordinatorRules';
 import { go, syncCoordinatorTrips, useCoordinatorStore } from '../../store/coordinatorStore';
 import { cityLabel, dt, human } from '../../utils/format';
-import { EMPTY_PLAN_ID } from '../../workflows/coordinatorActions';
 import { ResourcesTab } from './tabs/ResourcesTab';
 import { RouteTab } from './tabs/RouteTab';
 
@@ -34,7 +32,6 @@ export function TripDetailPage() {
         <p className="subtitle">{r.id} • {cityLabel(r.origin)} → {cityLabel(r.destination)} • {t.mode === 'AIR' ? 'Hàng không' : (t.mode ? human(t.mode) : 'Chưa chọn phương thức')} • khởi hành {dt(t.plannedDepart)}</p></div>
         {deployed(t) && t.status === 'PLANNING' ? (gaps.length ? <Pill v="NOT_READY" label={`${gaps.length} việc còn mở`} /> : <Pill v="READY" label="Hoàn tất lập kế hoạch" />) : null}</div>
       {dep === 'CONFIRMED' ? null : <div className="note yellow"><Icon name="info" /><div><b>{dep === 'ON_HOLD' ? 'Tạm dừng triển khai' : 'Đang chờ xác nhận triển khai'}</b>{dep === 'ON_HOLD' ? `Lý do: ${String(t.deployment.holdReason || '—').replace(/\.$/, '')}. Các phiên bản tuyến và phân công hiện có chỉ được xem cho đến khi Quản lý tiếp tục triển khai.` : 'Lập tuyến và phân công chính thức bắt đầu sau khi quản lý xác nhận triển khai.'}</div></div>}
-      {t.id === EMPTY_PLAN_ID ? <EmptyPlanPanel /> : null}
       <div className="rtabs" style={{ display: 'flex', alignItems: 'center' }}>
         <div style={{ display: 'flex', gap: 22, flex: 1 }}>
           {tabs.map((k) => <button type="button" key={k} className={k === on ? 'on' : ''} onClick={() => go(`f/trip/${t.id}/${k}`)}>{TAB_TITLES[k]}</button>)}

@@ -4,7 +4,6 @@ import { ManagerLayout } from '../../components/ManagerLayout';
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
 import { BackLink, LockedCard, openSampleFile } from '../../components/Common/Common';
 import { ReasonModal } from '../../components/Modals';
-import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useManager } from '../../hooks/useManager';
 import { COMPLAINT_TYPE_LABEL, TRIP_STATUS_LABEL, fmtDateTime, fmtMoney, horseName } from '../../hooks/managerRules';
 
@@ -99,7 +98,6 @@ export const ComplaintDetailPage: React.FC = () => {
             <h3 className="mgr-card__title">Lịch sử</h3>
             <ul className="mgr-timeline">{history.map(([at, label], k) => <li key={`${at}-${k}`} className={k === 0 ? 'now' : 'done'}><b>{label}</b><span>{fmtDateTime(at)}</span></li>)}</ul>
           </section>
-          <DemoPanel buttons={[{ label: 'Khách hàng đồng ý phương án giải quyết', run: () => actions.demo.customerConfirmResolution(c.id), primary: true, hidden: c.status !== 'PROPOSED' }]} />
         </aside>
       </div>
       <ReasonModal open={recording} title={`Ghi nhận kết quả • ${c.id}`} okText="Đánh dấu đã giải quyết" minLength={10} label="Kết quả đã thống nhất & bằng chứng *"

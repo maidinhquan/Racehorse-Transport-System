@@ -25,13 +25,9 @@ import type {
   TripStatus,
 } from '../types';
 
-// ============================================================================
-// Đồng hồ demo: bắt đầu 04/10/2026 11:30 (giờ VN) rồi chạy theo thời gian thực
-// ============================================================================
-const DEMO_CLOCK_START = Date.UTC(2026, 9, 4, 4, 30);
-const CLOCK_T0 = Date.now();
+// Đồng hồ: theo thời gian thực (múi giờ VN khi hiển thị)
 const VN_OFFSET = 7 * 3600000;
-export const clockMs = () => DEMO_CLOCK_START + (Date.now() - CLOCK_T0);
+export const clockMs = () => Date.now();
 const msToStamp = (ms: number) => new Date(ms + VN_OFFSET).toISOString().slice(0, 16).replace('T', ' ');
 export const nowStamp = () => msToStamp(clockMs());
 export const today = () => nowStamp().slice(0, 10);

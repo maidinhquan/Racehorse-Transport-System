@@ -19,6 +19,9 @@ import type {
 import { documentName, documentStage, itemStatus, reviewDay, reviewMode, reviewResult, reviewStatus } from './labels';
 import './RequestReview.css';
 
+const isHiddenChecklistDoc = (documentType: string) =>
+  documentType === 'HEALTH_CERTIFICATE' || documentType === 'VACCINATION';
+
 // ============================================================================
 // SVG Icons
 // ============================================================================
@@ -200,14 +203,17 @@ export function ReviewInbox({ role, button }: { role: Reviewer; button: string }
     };
   }, [role]);
 
-  async function run(action: () => Promise<void>) {
+  async function run(action: () => Promise<void>): Promise<string | null> {
     setBusy(true);
     setError('');
     setNotice('');
     try {
       await action();
+      return null;
     } catch (err) {
-      setError(apiMessage(err));
+      const msg = apiMessage(err);
+      setError(msg);
+      return msg;
     } finally {
       setBusy(false);
     }
@@ -464,14 +470,21 @@ export function ReviewInbox({ role, button }: { role: Reviewer; button: string }
             review={selected}
             button={button}
             busy={busy}
-            submit={(action) =>
-              run(async () => {
+            submit={async (action) => {
+              setBusy(true);
+              setNotice('');
+              try {
                 const done = await action();
                 await completed(done);
                 notifySync();
                 setNotice(`Đã gửi đánh giá hồ sơ yêu cầu ${done.requestId} thành công.`);
-              })
-            }
+                return null;
+              } catch (err) {
+                return apiMessage(err);
+              } finally {
+                setBusy(false);
+              }
+            }}
             download={(action) => run(action)}
           />
         )
@@ -480,7 +493,7 @@ export function ReviewInbox({ role, button }: { role: Reviewer; button: string }
   );
 }
 
-type Submit = (action: () => Promise<ReviewDetail>) => Promise<void>;
+type Submit = (action: () => Promise<ReviewDetail>) => Promise<string | null>;
 interface FormProps {
   review: ReviewDetail;
   button: string;
@@ -870,11 +883,13 @@ function SpecialistForm({
   const [viewing, setViewing] = useState<ChecklistSource | null>(null);
   const [statuses, setStatuses] = useState<Record<string, ItemStatus>>({});
   const [result, setResult] = useState<SpecialistResult | ''>('');
+  const [formError, setFormError] = useState('');
   const sources = option.checklist ?? [];
+  const visibleSources = sources.filter((s) => !isHiddenChecklistDoc(s.documentType));
   const title = option.isOriginal ? 'Phương án theo lịch khách yêu cầu' : 'Phương án theo lịch đề xuất';
 
   const groupedByHorse: Record<string, { horseName: string; items: ChecklistSource[] }> = {};
-  for (const s of sources) {
+  for (const s of visibleSources) {
     if (!groupedByHorse[s.horseId]) {
       groupedByHorse[s.horseId] = { horseName: s.horseName, items: [] };
     }
@@ -883,10 +898,26 @@ function SpecialistForm({
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!result || !option.checklistVersion) return;
+    if (!result || !option.checklistVersion) {
+      setFormError(
+        !option.checklistVersion
+          ? 'Chưa tải được danh sách giấy tờ. Bấm Tải lại rồi gửi đánh giá.'
+          : 'Chọn kết luận hồ sơ trước khi gửi.'
+      );
+      return;
+    }
     const form = new FormData(event.currentTarget);
     const items: ChecklistAssessment[] = sources.map((source) => {
       const id = source.checklistItemId;
+      if (isHiddenChecklistDoc(source.documentType)) {
+        return {
+          checklistItemId: id,
+          status: source.usable ? 'VERIFIED' : 'NEEDS_FOLLOW_UP',
+          reason: source.usable ? null : 'Bổ sung trước khởi hành',
+          requiredByDate: source.usable ? null : option.expectedTransportDate,
+          estimatedProcessingDays: null,
+        };
+      }
       return {
         checklistItemId: id,
         status: statuses[id],
@@ -895,6 +926,7 @@ function SpecialistForm({
         estimatedProcessingDays: null,
       };
     });
+    setFormError('');
     void submit(() =>
       requestReviewApi.specialist(review.reviewId, option.scheduleOptionId, {
         requestRevision: review.requestRevision,
@@ -903,7 +935,9 @@ function SpecialistForm({
         note: String(form.get('note') || ''),
         items,
       })
-    );
+    ).then((msg) => {
+      if (msg) setFormError(msg);
+    });
   };
 
   return (
@@ -931,7 +965,7 @@ function SpecialistForm({
           </span>
         </div>
       ) : (
-        <form onSubmit={onSubmit} className="rr-stack">
+        <form onSubmit={onSubmit} onChange={() => setFormError('')} className="rr-stack">
           {Object.entries(groupedByHorse).map(([horseId, group]) => (
             <div key={horseId} className="rr-card rr-horse-card">
               <div className="rr-horse-card__head">
@@ -985,8 +1019,9 @@ function SpecialistForm({
 
                       <div className="rr-grid-2">
                         <div className="rr-field">
-                          <label>Trạng thái thẩm định <span className="required">*</span></label>
+                          <label htmlFor={`${id}-status`}>Trạng thái thẩm định <span className="required">*</span></label>
                           <select
+                            id={`${id}-status`}
                             className="rr-select"
                             required
                             value={statuses[id] ?? ''}
@@ -1066,8 +1101,9 @@ function SpecialistForm({
             </div>
             <div className="rr-grid-2">
               <div className="rr-field">
-                <label>Kết luận hồ sơ <span className="required">*</span></label>
+                <label htmlFor="specialist-overall-result">Kết luận hồ sơ <span className="required">*</span></label>
                 <select
+                  id="specialist-overall-result"
                   className="rr-select"
                   required
                   value={result}
@@ -1098,6 +1134,12 @@ function SpecialistForm({
             </div>
 
             <div className="rr-form-actions">
+              {formError && (
+                <div className="rr-note rr-note--error" role="alert" style={{ marginBottom: 12, width: '100%' }}>
+                  <IconAlert />
+                  <span>{formError}</span>
+                </div>
+              )}
               <button
                 type="submit"
                 className="rr-btn rr-btn--primary"

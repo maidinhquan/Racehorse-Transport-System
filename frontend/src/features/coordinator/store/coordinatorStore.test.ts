@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '../../../shared/api/apiClient';
-import { db, resetDemo, syncCoordinatorTrips } from './coordinatorStore';
+import { db, resetCoordinatorState, syncCoordinatorTrips } from './coordinatorStore';
 import { reqOfTrip, tripHorses } from '../domain/coordinatorRules';
 
 vi.mock('../../../shared/api/apiClient', () => ({ apiClient: { get: vi.fn().mockResolvedValue({ data: { data: [] } }) } }));
-vi.mock('../../../shared/context/DemoModeContext', () => ({ getDemoMode: () => false }));
 
 const summary = { tripId: 'TRIP_004', requestId: 'REQUEST_005', status: 'PLANNING', mode: 'ROAD', plannedDepart: '2026-12-09 06:00', eta: '2026-11-03 07:00' };
 const context = {
@@ -15,7 +14,7 @@ const context = {
   deliveryDeadline: '2027-02-11 18:00',
 };
 beforeEach(() => {
-  resetDemo(false);
+  resetCoordinatorState();
   vi.mocked(apiClient.get).mockImplementation(async (url) => ({ data: { data: url === '/coordinator/trips' ? [summary] : context } }));
 });
 

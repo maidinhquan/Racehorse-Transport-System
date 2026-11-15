@@ -7,11 +7,11 @@ import { IncidentLocationPicker } from '../../components/IncidentLocationPicker/
 import { PhotoPicker } from '../../components/PhotoPicker/PhotoPicker';
 import { Modal } from '../../components/Modals/Modal';
 import { useDriver } from '../../hooks/useDriver';
-import { mockTrips } from '../../data/mockData';
+import { driverApi } from '../../api/driverApi';
 import { INCIDENT_TYPE_LABEL, SEVERITY_LABEL, defaultSegmentRatio, fmtDateTime, incidentWhere, nowStamp, segmentPickable } from '../../hooks/driverRules';
 import { apiClient } from '../../../../shared/api/apiClient';
 import { notifySync } from '../../../../shared/utils/syncChannel';
-import type { HorseHealthIssue, Incident, IncidentSeverity, IncidentType, Trip } from '../../types';
+import type { HorseHealthIssue, Incident, IncidentSeverity, IncidentType, Photo, Trip } from '../../types';
 import './IncidentsPage.css';
 
 const TYPES = Object.keys(INCIDENT_TYPE_LABEL) as IncidentType[];
@@ -29,64 +29,344 @@ export const HEALTH_ISSUE_LABEL: Record<string, string> = {
   HORSE_SHOCK: 'Ngựa sốc (Sốc nhiệt / Hạ huyết áp)',
 };
 
-const AVAILABLE_VET_STATIONS = [
+export interface VetStationInfo {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  country: string;
+  province?: string;
+  region: 'NORTH' | 'CENTRAL' | 'SOUTH' | 'INTERNATIONAL' | 'OTHER';
+  near?: string;
+  lat?: number;
+  lng?: number;
+  distanceKm?: number;
+  isSuggested?: boolean;
+}
+
+export const AVAILABLE_VET_STATIONS: VetStationInfo[] = [
+  // --- Miền Nam ---
   {
-    id: 'VS-JP-MIHO',
+    id: 'FACILITY_VN_NLU',
+    name: 'Bệnh viện Thú y – Trường Đại học Nông Lâm TP.HCM',
+    address: 'Khu phố 6, P. Linh Trung, TP. Thủ Đức, TP. Hồ Chí Minh',
+    phone: '028 3896 6780',
+    country: 'VN',
+    province: 'TP.HCM',
+    region: 'SOUTH',
+    near: 'TP. Thủ Đức, TP.HCM, Bình Dương, Đồng Nai',
+    lat: 10.87,
+    lng: 106.79,
+  },
+  {
+    id: 'FACILITY_VN_RAHO6',
+    name: 'Cơ quan Thú y Vùng VI – Cục Thú y (Tân Sơn Nhất)',
+    address: '521/1 Hoàng Văn Thụ, Phường 4, Q. Tân Bình, TP. Hồ Chí Minh',
+    phone: '028 3844 4024',
+    country: 'VN',
+    province: 'TP.HCM',
+    region: 'SOUTH',
+    near: 'Sân bay Quốc tế Tân Sơn Nhất (SGN), Tân Bình',
+    lat: 10.7981,
+    lng: 106.6578,
+  },
+  {
+    id: 'FACILITY_VN_HCMC_CLINIC',
+    name: 'Trạm Chẩn đoán, Xét nghiệm & Điều trị Động vật TP.HCM',
+    address: '151 Lý Thường Kiệt, Phường 7, Quận 11, TP. Hồ Chí Minh',
+    phone: '028 3855 2408',
+    country: 'VN',
+    province: 'TP.HCM',
+    region: 'SOUTH',
+    near: 'Trung tâm Quận 5, Quận 10, Quận 11, TP.HCM',
+    lat: 10.7612,
+    lng: 106.6589,
+  },
+  {
+    id: 'FACILITY_003',
+    name: 'Trạm Tiếp nhận & Cấp cứu Thú y Củ Chi',
+    address: 'Khu tiếp nhận ngựa Củ Chi, H. Củ Chi, TP. Hồ Chí Minh',
+    phone: '0918 776 655',
+    country: 'VN',
+    province: 'TP.HCM',
+    region: 'SOUTH',
+    near: 'Củ Chi, Tây Ninh, Bình Dương, Hóc Môn',
+    lat: 10.97,
+    lng: 106.5,
+  },
+  {
+    id: 'FACILITY_VN_BDG_VET',
+    name: 'Chi cục Chăn nuôi, Thú y & Thủy sản Tỉnh Bình Dương',
+    address: 'Đại lộ Bình Dương, P. Phú Hòa, TP. Thủ Dầu Một, Bình Dương',
+    phone: '0274 3822 556',
+    country: 'VN',
+    province: 'Bình Dương',
+    region: 'SOUTH',
+    near: 'TP. Thủ Dầu Một, Thuận An, Dĩ An, Bến Cát',
+    lat: 10.9805,
+    lng: 106.6519,
+  },
+  {
+    id: 'FACILITY_VN_DNAI_VET',
+    name: 'Chi cục Chăn nuôi và Thú y Tỉnh Đồng Nai',
+    address: 'Nguyễn Ái Quốc, P. Trảng Dài, TP. Biên Hòa, Đồng Nai',
+    phone: '0251 3822 411',
+    country: 'VN',
+    province: 'Đồng Nai',
+    region: 'SOUTH',
+    near: 'TP. Biên Hòa, Long Thành, Trảng Bom, Cao tốc Dầu Giây',
+    lat: 10.9625,
+    lng: 106.8431,
+  },
+  {
+    id: 'FACILITY_VN_MOCBAI',
+    name: 'Trạm Kiểm dịch Động vật Cửa khẩu Quốc tế Mộc Bài',
+    address: 'Khu kinh tế Cửa khẩu Mộc Bài, Xã Lợi Thuận, H. Bến Cầu, Tây Ninh',
+    phone: '0276 3876 123',
+    country: 'VN',
+    province: 'Tây Ninh',
+    region: 'SOUTH',
+    near: 'Cửa khẩu Mộc Bài (Tây Ninh) – Bavet (Campuchia), Gò Dầu',
+    lat: 11.0822,
+    lng: 106.1783,
+  },
+  {
+    id: 'FACILITY_VN_CTU',
+    name: 'Bệnh viện Thú y – Trường ĐH Cần Thơ',
+    address: 'Khu II, Đường 3/2, P. Xuân Khánh, Q. Ninh Kiều, TP. Cần Thơ',
+    phone: '0292 3832 641',
+    country: 'VN',
+    province: 'Cần Thơ',
+    region: 'SOUTH',
+    near: 'Cần Thơ, Hậu Giang, Vĩnh Long, Sóc Trăng, ĐBSCL',
+    lat: 10.0305,
+    lng: 105.7689,
+  },
+
+  // --- Miền Trung ---
+  {
+    id: 'FACILITY_VN_HUAF',
+    name: 'Bệnh viện Thú y – Trường ĐH Nông Lâm Huế',
+    address: '102 Phùng Hưng, P. Thuận Thành, TP. Huế, Thừa Thiên Huế',
+    phone: '0234 3522 535',
+    country: 'VN',
+    province: 'Thừa Thiên Huế',
+    region: 'CENTRAL',
+    near: 'Thừa Thiên Huế, Quảng Trị, Quảng Bình',
+    lat: 16.4712,
+    lng: 107.575,
+  },
+  {
+    id: 'FACILITY_004',
+    name: 'Trung tâm Thú y Vùng IV – TP. Đà Nẵng',
+    address: 'Số 88 Bùi Thị Xuân, Q. Sơn Trà, TP. Đà Nẵng',
+    phone: '0902 223 344',
+    country: 'VN',
+    province: 'Đà Nẵng',
+    region: 'CENTRAL',
+    near: 'Đà Nẵng, Quảng Nam, Sân bay Đà Nẵng',
+    lat: 16.05,
+    lng: 108.2,
+  },
+  {
+    id: 'FACILITY_VN_QN_VET',
+    name: 'Chi cục Chăn nuôi và Thú y Tỉnh Quảng Nam',
+    address: 'Đường Hùng Vương, TP. Tam Kỳ, Tỉnh Quảng Nam',
+    phone: '0235 3852 467',
+    country: 'VN',
+    province: 'Quảng Nam',
+    region: 'CENTRAL',
+    near: 'Tam Kỳ, Hội An, Quảng Ngãi',
+    lat: 15.5689,
+    lng: 108.4811,
+  },
+  {
+    id: 'FACILITY_VN_BD_VET',
+    name: 'Chi cục Chăn nuôi và Thú y Tỉnh Bình Định',
+    address: 'Đường Tây Sơn, TP. Quy Nhơn, Tỉnh Bình Định',
+    phone: '0256 3846 543',
+    country: 'VN',
+    province: 'Bình Định',
+    region: 'CENTRAL',
+    near: 'Quy Nhơn, Phú Yên, Gia Lai',
+    lat: 13.782,
+    lng: 109.2195,
+  },
+  {
+    id: 'FACILITY_VN_KH_VET',
+    name: 'Chi cục Chăn nuôi và Thú y Tỉnh Khánh Hòa',
+    address: '04 Hoàng Diệu, P. Vĩnh Nguyên, TP. Nha Trang, Khánh Hòa',
+    phone: '0258 3881 321',
+    country: 'VN',
+    province: 'Khánh Hòa',
+    region: 'CENTRAL',
+    near: 'Nha Trang, Cam Ranh, Ninh Thuận, Đắk Lắk',
+    lat: 12.2285,
+    lng: 109.1967,
+  },
+
+  // --- Miền Bắc ---
+  {
+    id: 'FACILITY_VN_VNUA',
+    name: 'Bệnh viện Thú y – Học viện Nông nghiệp Việt Nam (VNUA)',
+    address: 'Ngô Xuân Quảng, TT. Trâu Quỳ, H. Gia Lâm, Hà Nội',
+    phone: '024 3876 9621',
+    country: 'VN',
+    province: 'Hà Nội',
+    region: 'NORTH',
+    near: 'Hà Nội, Sóc Sơn, Bắc Ninh, Hưng Yên',
+    lat: 21.0055,
+    lng: 105.9325,
+  },
+  {
+    id: 'FACILITY_VN_NCVD',
+    name: 'Trung tâm Chẩn đoán Thú y Trung ương – Cục Thú y',
+    address: 'Số 521 Hoàng Hoa Thám, P. Vĩnh Phúc, Q. Ba Đình, Hà Nội',
+    phone: '024 3832 9494',
+    country: 'VN',
+    province: 'Hà Nội',
+    region: 'NORTH',
+    near: 'Hà Nội, Sân bay Nội Bài, Vĩnh Phúc',
+    lat: 21.0427,
+    lng: 105.8142,
+  },
+  {
+    id: 'FACILITY_VN_TUAF',
+    name: 'Bệnh viện Thú y – Trường ĐH Nông Lâm Thái Nguyên',
+    address: 'Xã Quyết Thắng, TP. Thái Nguyên, Tỉnh Thái Nguyên',
+    phone: '0208 3855 564',
+    country: 'VN',
+    province: 'Thái Nguyên',
+    region: 'NORTH',
+    near: 'Thái Nguyên, Bắc Kạn, Tuyên Quang, Cao Bằng',
+    lat: 21.5833,
+    lng: 105.8167,
+  },
+  {
+    id: 'FACILITY_VN_HUU_NGHI',
+    name: 'Trạm Kiểm dịch Động vật Cửa khẩu Quốc tế Hữu Nghị',
+    address: 'Cửa khẩu Quốc tế Hữu Nghị, TT. Đồng Đăng, H. Cao Lộc, Lạng Sơn',
+    phone: '0205 3851 234',
+    country: 'VN',
+    province: 'Lạng Sơn',
+    region: 'NORTH',
+    near: 'Cửa khẩu Hữu Nghị, TP. Lạng Sơn, Bắc Giang',
+    lat: 21.9842,
+    lng: 106.7125,
+  },
+  {
+    id: 'FACILITY_VN_MONG_CAI',
+    name: 'Trạm Kiểm dịch Động vật Cửa khẩu Quốc tế Móng Cái',
+    address: 'P. Trần Phú, TP. Móng Cái, Quảng Ninh',
+    phone: '0203 3881 245',
+    country: 'VN',
+    province: 'Quảng Ninh',
+    region: 'NORTH',
+    near: 'TP. Móng Cái, Hạ Long, Cẩm Phả, Hải Phòng',
+    lat: 21.5283,
+    lng: 107.9692,
+  },
+
+  // --- Quốc tế ---
+  {
+    id: 'FACILITY_002',
+    name: 'Trạm Thú y Tiếp nhận Sân bay Narita',
+    address: 'Khu tiếp nhận động vật Narita, Chiba, Japan',
+    phone: '+81 90 1111 2222',
+    country: 'JP',
+    province: 'Chiba',
+    region: 'INTERNATIONAL',
+    near: 'Sân bay Quốc tế Narita (NRT), Chiba, Tokyo',
+    lat: 35.772,
+    lng: 140.3929,
+  },
+  {
+    id: 'FACILITY_JP_MIHO',
     name: 'JRA Miho Training Center Equine Hospital (Bệnh viện Thú y Miho – JRA)',
     address: '2500-2 Mikoma, Miho-mura, Inashiki-gun, Ibaraki 300-0493, Japan',
     phone: '+81 29 885 2111',
     country: 'JP',
+    province: 'Ibaraki',
+    region: 'INTERNATIONAL',
     near: 'Sân bay Quốc tế Narita (NRT), Tokyo',
+    lat: 36.0028,
+    lng: 140.3541,
   },
   {
-    id: 'VS-JP-RITTO',
+    id: 'FACILITY_JP_RITTO',
     name: 'JRA Ritto Training Center Equine Hospital (Bệnh viện Thú y Ritto – JRA)',
     address: '1028 Mikogawa, Ritto-shi, Shiga 520-3085, Japan',
     phone: '+81 77 558 1111',
     country: 'JP',
+    province: 'Shiga',
+    region: 'INTERNATIONAL',
     near: 'Sân bay Quốc tế Kansai (KIX), Osaka, Kyoto',
+    lat: 35.0167,
+    lng: 135.9833,
   },
   {
-    id: 'VS-JP-SHADAI',
+    id: 'FACILITY_JP_SHADAI',
     name: 'Shadai Horse Clinic (Bệnh viện Thú y Ngựa Shadai – Hokkaido)',
     address: '100-12 Uenae, Tomakomai-shi, Hokkaido 059-1365, Japan',
     phone: '+81 144 58 2211',
     country: 'JP',
+    province: 'Hokkaido',
+    region: 'INTERNATIONAL',
     near: 'Sân bay New Chitose (CTS), Trại ngựa đua Hokkaido',
+    lat: 42.75,
+    lng: 141.7167,
   },
   {
-    id: 'VS-VN-VNUA',
-    name: 'Bệnh viện Thú y – Học viện Nông nghiệp Việt Nam (VNUA)',
-    address: 'Ngô Xuân Quảng, TT. Trâu Quỳ, H. Gia Lâm, Hà Nội',
-    phone: '+84 24 3876 9621',
-    country: 'VN',
-    near: 'Hà Nội, Sân bay Nội Bài, Sóc Sơn',
-  },
-  {
-    id: 'VS-VN-NLU',
-    name: 'Bệnh viện Thú y – Trường Đại học Nông Lâm TP.HCM',
-    address: 'Khu phố 6, P. Linh Trung, TP. Thủ Đức, TP. Hồ Chí Minh',
-    phone: '+84 28 3896 6780',
-    country: 'VN',
-    near: 'TP. Hồ Chí Minh, Bình Dương, Đồng Nai',
-  },
-  {
-    id: 'VS-VN-MOCBAI',
-    name: 'Trạm Kiểm dịch Động vật Cửa khẩu Quốc tế Mộc Bài',
-    address: 'Khu kinh tế Cửa khẩu Mộc Bài, Xã Lợi Thuận, H. Bến Cầu, Tây Ninh',
-    phone: '+84 276 3876 123',
-    country: 'VN',
-    near: 'Cửa khẩu Mộc Bài (Tây Ninh) – Bavet (Campuchia)',
-  },
-  {
-    id: 'VS-TH-KASETSART',
+    id: 'FACILITY_TH_KASETSART',
     name: 'Kasetsart University Large Animal Teaching Hospital',
     address: '1 Malaiman Road, Kamphaeng Saen, Nakhon Pathom 73140, Thailand',
     phone: '+66 34 351 901',
     country: 'TH',
+    province: 'Nakhon Pathom',
+    region: 'INTERNATIONAL',
     near: 'Bangkok, Sân bay Suvarnabhumi (BKK)',
+    lat: 14.0167,
+    lng: 99.9833,
   },
 ];
+
+/** Tự động nhận diện Tỉnh/Thành phố của chuyến đi hiện tại để ưu tiên đề xuất trạm thú y */
+export const detectCurrentProvince = (trip?: Trip | null): string => {
+  if (!trip) return 'TP.HCM';
+
+  // 1. Kiểm tra qua các điểm dừng (stops)
+  if (trip.stops && trip.stops.length > 0) {
+    for (const stop of trip.stops) {
+      const name = (stop.name || '').toLowerCase();
+      if (name.includes('hồ chí minh') || name.includes('tp.hcm') || name.includes('hcm') || name.includes('tân sơn nhất')) return 'TP.HCM';
+      if (name.includes('hà nội') || name.includes('nội bài')) return 'Hà Nội';
+      if (name.includes('đà nẵng')) return 'Đà Nẵng';
+      if (name.includes('bình dương')) return 'Bình Dương';
+      if (name.includes('đồng nai')) return 'Đồng Nai';
+      if (name.includes('huế')) return 'Thừa Thiên Huế';
+      if (name.includes('tây ninh') || name.includes('mộc bài')) return 'Tây Ninh';
+      if (name.includes('cần thơ')) return 'Cần Thơ';
+      if (name.includes('nha trang') || name.includes('khánh hòa')) return 'Khánh Hòa';
+    }
+  }
+
+  // 2. Kiểm tra origin, destination, pickup hoặc delivery
+  const fullText = `${trip.origin || ''} ${trip.destination || ''} ${trip.pickup?.name || ''} ${trip.pickup?.address || ''} ${trip.delivery?.name || ''} ${trip.delivery?.address || ''}`.toLowerCase();
+  if (fullText.includes('hồ chí minh') || fullText.includes('tp.hcm') || fullText.includes('hcm') || fullText.includes('củ chi') || fullText.includes('tân sơn nhất')) return 'TP.HCM';
+  if (fullText.includes('hà nội') || fullText.includes('nội bài') || fullText.includes('sóc sơn')) return 'Hà Nội';
+  if (fullText.includes('đà nẵng') || fullText.includes('hải vân')) return 'Đà Nẵng';
+  if (fullText.includes('bình dương') || fullText.includes('thủ dầu một')) return 'Bình Dương';
+  if (fullText.includes('đồng nai') || fullText.includes('biên hòa')) return 'Đồng Nai';
+  if (fullText.includes('huế')) return 'Thừa Thiên Huế';
+  if (fullText.includes('tây ninh') || fullText.includes('mộc bài')) return 'Tây Ninh';
+  if (fullText.includes('cần thơ')) return 'Cần Thơ';
+  if (fullText.includes('nha trang') || fullText.includes('khánh hòa')) return 'Khánh Hòa';
+  if (fullText.includes('thái nguyên')) return 'Thái Nguyên';
+  if (fullText.includes('lạng sơn')) return 'Lạng Sơn';
+  if (fullText.includes('quảng ninh') || fullText.includes('móng cái')) return 'Quảng Ninh';
+
+  return 'TP.HCM';
+};
 
 const PLAN_TYPE_LABEL: Record<string, string> = {
   NO_CHANGE: 'Khắc phục tại chỗ, giữ nguyên kế hoạch',
@@ -96,6 +376,7 @@ const PLAN_TYPE_LABEL: Record<string, string> = {
   ROUTE_ADJUST: 'Điều chỉnh lộ trình trong tuyến pháp lý đã duyệt',
   COORDINATOR_APPLIED: 'Phương án xử lý được Điều phối viên phê duyệt',
   VET_TRANSFER: 'Chuyển viện khẩn cấp đến cơ sở y tế chuyên khoa',
+  PICKUP_RELOCATE: 'Dắt bộ ra điểm hẹn mới',
 };
 
 /** Form báo cáo sự cố cho chuyến đang hoạt động */
@@ -111,8 +392,8 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
   }, [me]);
 
   const allowedTypes = React.useMemo(() => {
-    return TYPES;
-  }, []);
+    return isVet ? (['HORSE_HEALTH'] as IncidentType[]) : TYPES.filter((t) => t !== 'HORSE_HEALTH');
+  }, [isVet]);
 
   const tripHorseIds = trip.horses || [];
 
@@ -130,6 +411,12 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
 
+  // Cho loại sự cố tiếp cận điểm đón (PICKUP_ACCESS_BLOCKED)
+  const [actionProposal, setActionProposal] = useState<'RELOCATE' | 'WAIT_COORDINATOR'>('RELOCATE');
+  const [proposedPlaceName, setProposedPlaceName] = useState('');
+  const [blockedPhotos, setBlockedPhotos] = useState<Photo[]>([]);
+  const [relocationPhotos, setRelocationPhotos] = useState<Photo[]>([]);
+
   const selectedHorse = horses.find((h) => h.id === selectedHorseId);
 
   const isHorseIssue = isVet || type === 'HORSE_HEALTH';
@@ -142,12 +429,62 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
       if (!immediateCare.trim()) { setError('Vui lòng nhập biện pháp sơ cứu khẩn cấp đã tiến hành.'); return; }
       if (description.trim().length < 5) { setError('Vui lòng mô tả triệu chứng lâm sàng quan sát được.'); return; }
       if (!safe) { setError('Xác nhận đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa.'); return; }
+    } else if (type === 'PICKUP_ACCESS_BLOCKED') {
+      if (!severity) { setError('Vui lòng chọn mức độ sự cố.'); return; }
+      if (description.trim().length < 5) { setError('Vui lòng mô tả chi tiết lý do không thể tiếp cận (ít nhất 5 ký tự).'); return; }
+      if (blockedPhotos.length === 0) {
+        setError('Vui lòng tải lên ít nhất 1 ảnh chụp vị trí bị cản trở không thể vào.');
+        return;
+      }
+      if (actionProposal === 'RELOCATE') {
+        if (!proposedPlaceName.trim()) {
+          setError('Vui lòng nhập tên hoặc mô tả chỗ dời địa điểm đề xuất.');
+          return;
+        }
+        if (relocationPhotos.length === 0) {
+          setError('Vui lòng tải lên ít nhất 1 ảnh chụp chỗ dời địa điểm đề xuất.');
+          return;
+        }
+      }
     } else {
       if (!type || !severity) { setError('Chọn loại và mức độ sự cố.'); return; }
       if (description.trim().length < 5) { setError('Vui lòng mô tả sự việc ít nhất 5 ký tự.'); return; }
+      if (!safe) { setError(isHorseIssue ? 'Xác nhận đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa.' : 'Xác nhận đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định.'); return; }
     }
 
     setSending(true);
+    const blockedImg = blockedPhotos[0]?.url || blockedPhotos[0]?.name || undefined;
+    const relocationImg = relocationPhotos[0]?.url || relocationPhotos[0]?.name || undefined;
+    const customPhotos = type === 'PICKUP_ACCESS_BLOCKED'
+      ? [...blockedPhotos.map((p) => p.url || p.name), ...relocationPhotos.map((p) => p.url || p.name)]
+      : undefined;
+
+    if (type === 'PICKUP_ACCESS_BLOCKED') {
+      const cleanKey = trip.id.replace(/-/g, '_');
+      try {
+        localStorage.setItem(`rts_driver_pickup_status_${cleanKey}`, 'BLOCKED');
+        localStorage.setItem(`rts_driver_pickup_status_${trip.id}`, 'BLOCKED');
+        localStorage.setItem(`rts_pickup_evidence_${cleanKey}`, JSON.stringify({
+          blockedImageUrl: blockedImg,
+          relocationImageUrl: relocationImg,
+          proposedPlaceName: actionProposal === 'RELOCATE' ? proposedPlaceName.trim() : undefined,
+          reportedAt: new Date().toISOString(),
+        }));
+      } catch {}
+      try {
+        await driverApi.reportPickupAccessBlocked(trip.id, {
+          reason: description.trim(),
+          latitude: trip.stops[0]?.lat || 10.7769,
+          longitude: trip.stops[0]?.lng || 106.7009,
+          blockedImageUrl: blockedImg,
+          relocationImageUrl: relocationImg,
+          imageUrl: blockedImg,
+          proposedRelocationPlaceName: actionProposal === 'RELOCATE' ? proposedPlaceName.trim() : undefined,
+          notes: locationDetail || undefined,
+        });
+      } catch {}
+    }
+
     const horseName = selectedHorse ? selectedHorse.name : selectedHorseId;
     const r = await actions.reportIncident(trip.id, {
       type: isHorseIssue ? 'HORSE_HEALTH' : (type as IncidentType),
@@ -161,6 +498,10 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
       horseName: isHorseIssue ? horseName : undefined,
       healthIssueType: isHorseIssue ? healthIssue : undefined,
       immediateCare: isHorseIssue ? immediateCare.trim() : undefined,
+      proposedRelocationPlaceName: actionProposal === 'RELOCATE' ? proposedPlaceName.trim() : undefined,
+      blockedImageUrl: blockedImg,
+      relocationImageUrl: relocationImg,
+      customPhotos,
     });
     setSending(false);
     if (!r.ok) { setError(r.message); return; }
@@ -172,6 +513,9 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
     setImmediateCare('');
     setSafe(false);
     setPickedCoords(null);
+    setProposedPlaceName('');
+    setBlockedPhotos([]);
+    setRelocationPhotos([]);
     setRatio(defaultSegmentRatio(trip));
   };
 
@@ -182,7 +526,9 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
         <Icon name="alert" />
         <div>
           <b>An toàn trước tiên</b>
-          Đảm bảo an toàn cho người và ngựa, bắt đầu sơ cứu rồi mới báo cáo. Cứu hộ khẩn cấp không bao giờ phải chờ phê duyệt.
+          {isVet
+            ? 'Đảm bảo an toàn cho người và ngựa, bắt đầu sơ cứu rồi mới báo cáo. Cứu hộ khẩn cấp không bao giờ phải chờ phê duyệt.'
+            : 'Đảm bảo xe đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định trước khi báo cáo sự cố.'}
         </div>
       </div>
       <div className="drv-note drv-note--blue" style={{ marginTop: 0, marginBottom: 14 }}>
@@ -332,20 +678,118 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
 
       {!isHorseIssue && (
         <div className="drv-field">
-          <label htmlFor="inc-desc">Chuyện gì đã xảy ra *</label>
-          <textarea id="inc-desc" className="drv-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Mô tả tình huống, tình trạng xe và những gì bạn đã làm" />
+          <label htmlFor="inc-desc">
+            {type === 'PICKUP_ACCESS_BLOCKED' ? 'Chi tiết lý do cản trở đường vào *' : 'Chuyện gì đã xảy ra *'}
+          </label>
+          <textarea
+            id="inc-desc"
+            className="drv-textarea"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={
+              type === 'PICKUP_ACCESS_BLOCKED'
+                ? 'VD: Đường ngõ hẹp xe 10 tấn không vào được, cổng trang trại khóa không có người mở, cầu yếu...'
+                : 'Mô tả tình huống, tình trạng xe và những gì bạn đã làm'
+            }
+          />
         </div>
       )}
 
-      <div className="drv-field" style={{ marginTop: 10 }}>
-        <label>Ảnh hiện trường</label>
-        <PhotoPicker photos={incidentPhotos} onAdd={actions.addIncidentPhoto} onRemove={actions.removeIncidentPhoto} />
-      </div>
+      {type === 'PICKUP_ACCESS_BLOCKED' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
+          {/* Lựa chọn phương án thực địa */}
+          <div className="drv-field">
+            <label style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
+              Phương án đề xuất của tài xế:
+            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="pickup-action-prop-form"
+                  checked={actionProposal === 'RELOCATE'}
+                  onChange={() => setActionProposal('RELOCATE')}
+                />
+                <span>
+                  <b>Đề xuất dời địa điểm hẹn đón</b> (Dắt bộ ra chỗ xe đỗ chờ ngoài đường lớn)
+                </span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="pickup-action-prop-form"
+                  checked={actionProposal === 'WAIT_COORDINATOR'}
+                  onChange={() => setActionProposal('WAIT_COORDINATOR')}
+                />
+                <span>
+                  <b>Chờ Điều phối viên khảo sát điểm hẹn đón mới</b>
+                </span>
+              </label>
+            </div>
+          </div>
 
-      <label className="drv-check" style={{ marginTop: 10 }}>
-        <input type="checkbox" checked={safe} onChange={(e) => setSafe(e.target.checked)} />
-        {isHorseIssue ? 'Đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa' : 'Người và ngựa đã an toàn hoặc đã bắt đầu sơ cứu'}
-      </label>
+          {/* Nhập tên chỗ dời địa điểm nếu tài xế chọn dời */}
+          {actionProposal === 'RELOCATE' && (
+            <div className="drv-field">
+              <label htmlFor="proposed-reloc-place-inc" style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                Tên / Vị trí chỗ dời địa điểm đề xuất *
+              </label>
+              <input
+                id="proposed-reloc-place-inc"
+                type="text"
+                className="drv-input"
+                value={proposedPlaceName}
+                onChange={(e) => setProposedPlaceName(e.target.value)}
+                placeholder="VD: Cây xăng Petrolimex đầu ngõ 15, Bãi đất trống ngã ba liên xã..."
+              />
+            </div>
+          )}
+
+          {/* 1. Phần upload hình ảnh KHÔNG THỂ VÀO */}
+          <div className="drv-field" style={{ background: '#fff1f2', border: '1px solid #fecdd3', padding: '10px 12px', borderRadius: 8 }}>
+            <label style={{ fontWeight: 700, display: 'block', marginBottom: 4, color: '#9f1239' }}>
+              1. Ảnh chụp vị trí không thể vào (vật cản / đường hẹp / cấm tải / cổng khóa) *
+            </label>
+            <small style={{ color: '#be123c', display: 'block', marginBottom: 6 }}>
+              Chụp cận cảnh biển cấm, đoạn đường hẹp hoặc chướng ngại vật khiến xe tải lớn không vào được.
+            </small>
+            <PhotoPicker
+              photos={blockedPhotos}
+              onAdd={(photo) => setBlockedPhotos((prev) => [...prev, photo])}
+              onRemove={(idx) => setBlockedPhotos((prev) => prev.filter((_, i) => i !== idx))}
+            />
+          </div>
+
+          {/* 2. Phần upload hình ảnh CHỌN CHỖ DỜI ĐỊA ĐIỂM (khi chọn dời địa điểm) */}
+          {actionProposal === 'RELOCATE' && (
+            <div className="drv-field" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '10px 12px', borderRadius: 8 }}>
+              <label style={{ fontWeight: 700, display: 'block', marginBottom: 4, color: '#166534' }}>
+                2. Ảnh chụp chỗ dời địa điểm đề xuất (bãi đỗ chờ / điểm hẹn dắt ngựa ra) *
+              </label>
+              <small style={{ color: '#15803d', display: 'block', marginBottom: 6 }}>
+                Chụp vị trí xe đang đỗ an toàn ngoài đường lớn để Điều phối viên và Khách hàng nhận diện điểm đón mới.
+              </small>
+              <PhotoPicker
+                photos={relocationPhotos}
+                onAdd={(photo) => setRelocationPhotos((prev) => [...prev, photo])}
+                onRemove={(idx) => setRelocationPhotos((prev) => prev.filter((_, i) => i !== idx))}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="drv-field" style={{ marginTop: 10 }}>
+          <label>Ảnh hiện trường</label>
+          <PhotoPicker photos={incidentPhotos} onAdd={actions.addIncidentPhoto} onRemove={actions.removeIncidentPhoto} />
+        </div>
+      )}
+
+      {type !== 'PICKUP_ACCESS_BLOCKED' && (
+        <label className="drv-check" style={{ marginTop: 10 }}>
+          <input type="checkbox" checked={safe} onChange={(e) => setSafe(e.target.checked)} />
+          {isHorseIssue ? 'Đã bắt đầu sơ cứu và đảm bảo an toàn cho ngựa' : 'Đã dừng ở vị trí an toàn hoặc chỗ đỗ ổn định'}
+        </label>
+      )}
       {error && <p className="drv-error" role="alert">{error}</p>}
       <button
         type="button"
@@ -364,14 +808,15 @@ export const IncidentsPage: React.FC = () => {
   const { tripId } = useParams<{ tripId?: string }>();
   const navigate = useNavigate();
   const { activeTrips, myTrips, incidents, actions, me, horses } = useDriver();
-  const trip = activeTrips.find((t) => t.id === tripId) ?? activeTrips[0] ?? myTrips[0] ?? mockTrips[0];
+  const trip = activeTrips.find((t) => t.id === tripId) ?? activeTrips[0] ?? myTrips[0];
 
   const isTripMatch = (incTripId?: string, currentTripId?: string, incId?: string, incAt?: string) => {
-    // Sự cố mới tạo trong phiên hoặc vừa gửi: luôn hiển thị
-    if (incId && (incId.startsWith('INC-') || incId.startsWith('TEMP-'))) return true;
+    // Sự cố mới tạo trong phiên hoặc vừa gửi: luôn hiển thị (hỗ trợ cả INC- và INC_)
+    if (incId && (incId.startsWith('INC-') || incId.startsWith('INC_') || incId.startsWith('TEMP-'))) return true;
     if (incAt) {
-      const diffMs = Date.now() - new Date(incAt).getTime();
-      if (!isNaN(diffMs) && diffMs >= 0 && diffMs < 2 * 60 * 60 * 1000) return true;
+      const parsedAt = new Date(incAt.replace(' ', 'T')).getTime();
+      const diffMs = Date.now() - parsedAt;
+      if (!isNaN(diffMs) && diffMs >= 0 && diffMs < 24 * 60 * 60 * 1000) return true;
     }
     if (!incTripId || !currentTripId) return true;
     const a = incTripId.trim().toUpperCase().replace(/[-_]/g, '');
@@ -410,8 +855,20 @@ export const IncidentsPage: React.FC = () => {
 
   const actorRoleLabel = isVetUser ? 'Bác sĩ thú y' : 'Tài xế';
 
-  // Hiển thị toàn bộ sự cố thuộc chuyến xe để Tài xế & Bác sĩ thú y cùng phối hợp xử lý
-  const roleFilteredList = list;
+  // Phân quyền độc lập: Bác sĩ chỉ xem sự cố y tế của ngựa; Tài xế chỉ xem sự cố kỹ thuật xe cộ / giao thông
+  const roleFilteredList = React.useMemo(() => {
+    return list.filter((i) => {
+      const isHorseHealth =
+        i.type === 'HORSE_HEALTH' ||
+        (i as any).reporterRole === 'VETERINARIAN' ||
+        Boolean(i.horseId) ||
+        Boolean(i.healthIssueType);
+      if (isVetUser) {
+        return isHorseHealth;
+      }
+      return !isHorseHealth;
+    });
+  }, [list, isVetUser]);
 
   // Sắp xếp sự cố mới nhất lên trên đầu
   const sortedList = sortIncidentsNewestFirst(roleFilteredList);
@@ -426,10 +883,59 @@ export const IncidentsPage: React.FC = () => {
   const [resolving, setResolving] = useState(false);
 
   const [referralIncident, setReferralIncident] = useState<Incident | null>(null);
+  const [stations, setStations] = useState<VetStationInfo[]>(AVAILABLE_VET_STATIONS);
   const [selectedStationId, setSelectedStationId] = useState(AVAILABLE_VET_STATIONS[0].id);
   const [customStationName, setCustomStationName] = useState('');
   const [referralReason, setReferralReason] = useState('');
   const [referring, setReferring] = useState(false);
+
+  const currentProvince = React.useMemo(() => detectCurrentProvince(trip), [trip]);
+
+  // Tải danh mục trạm thú y trực tiếp từ backend hoặc fallback danh sách chuẩn
+  React.useEffect(() => {
+    let active = true;
+    driverApi.getVetFacilities({ tripId: trip?.id, province: currentProvince }).then((data) => {
+      if (active && Array.isArray(data) && data.length > 0) {
+        const mapped: VetStationInfo[] = data.map((d: any) => ({
+          id: d.facilityId || d.id,
+          name: d.name,
+          address: d.address || '',
+          phone: d.contactPhone || d.phone || '',
+          country: d.countryCode || d.country || 'VN',
+          province: d.stateProvince || d.province || '',
+          region: d.region || 'OTHER',
+          near: d.city || '',
+          lat: d.latitude,
+          lng: d.longitude,
+          distanceKm: d.distanceKm,
+          isSuggested: d.isSuggested,
+        }));
+        setStations(mapped);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [trip?.id, currentProvince]);
+
+  const handleOpenReferralModal = (inc: Incident) => {
+    setReferralIncident(inc);
+    setReferralReason('');
+
+    // Tự động tìm và chọn trạm thú y đề xuất gần nhất với tỉnh hiện tại
+    const suggested = stations.find((st) => {
+      if (st.isSuggested) return true;
+      const p = (st.province || '').toLowerCase();
+      const cp = currentProvince.toLowerCase();
+      return p.includes(cp) || cp.includes(p) || (st.near && st.near.toLowerCase().includes(cp));
+    });
+
+    if (suggested) {
+      setSelectedStationId(suggested.id);
+    } else if (stations.length > 0) {
+      setSelectedStationId(stations[0].id);
+    }
+  };
 
   // Local storage flags tracking
   const [resolvedMap, setResolvedMap] = useState<Record<string, boolean>>({});
@@ -506,12 +1012,12 @@ export const IncidentsPage: React.FC = () => {
       });
       window.dispatchEvent(
         new CustomEvent('rts_incident_scene_ready', {
-          detail: { id: incId, at: nowStamp(), role: actorRole, by: actorRoleLabel },
+          detail: { id: incId, at: nowStamp(), updatedAt: nowStamp(), role: actorRole, by: actorRoleLabel },
         })
       );
       window.dispatchEvent(
         new CustomEvent('rts_incident_scene_ready', {
-          detail: { id: cleanIncId, at: nowStamp(), role: actorRole, by: actorRoleLabel },
+          detail: { id: cleanIncId, at: nowStamp(), updatedAt: nowStamp(), role: actorRole, by: actorRoleLabel },
         })
       );
       try {
@@ -562,14 +1068,15 @@ export const IncidentsPage: React.FC = () => {
     }
 
     if (typeof window !== 'undefined') {
+      const now = nowStamp();
       window.dispatchEvent(
         new CustomEvent('rts_vet_status_changed', {
-          detail: { id: incId, status: 'STABILIZED', note: noteText },
+          detail: { id: incId, status: 'STABILIZED', note: noteText, at: now, updatedAt: now },
         })
       );
       window.dispatchEvent(
         new CustomEvent('rts_vet_status_changed', {
-          detail: { id: cleanIncId, status: 'STABILIZED', note: noteText },
+          detail: { id: cleanIncId, status: 'STABILIZED', note: noteText, at: now, updatedAt: now },
         })
       );
       notifySync('requests_updated');
@@ -594,7 +1101,7 @@ export const IncidentsPage: React.FC = () => {
     if (selectedStationId === 'OTHER') {
       stationName = customStationName.trim() || 'Cơ sở thú y địa phương gần nhất';
     } else {
-      const st = AVAILABLE_VET_STATIONS.find((s) => s.id === selectedStationId);
+      const st = stations.find((s) => s.id === selectedStationId);
       stationName = st?.name || selectedStationId;
       stationAddress = st?.address || '';
       stationPhone = st?.phone || '';
@@ -633,14 +1140,15 @@ export const IncidentsPage: React.FC = () => {
     }
 
     if (typeof window !== 'undefined') {
+      const now = nowStamp();
       window.dispatchEvent(
         new CustomEvent('rts_vet_status_changed', {
-          detail: { id: incId, status: 'REFERRAL_REQUESTED', station: stationName, reason },
+          detail: { id: incId, status: 'REFERRAL_REQUESTED', station: stationName, reason, at: now, updatedAt: now },
         })
       );
       window.dispatchEvent(
         new CustomEvent('rts_vet_status_changed', {
-          detail: { id: cleanIncId, status: 'REFERRAL_REQUESTED', station: stationName, reason },
+          detail: { id: cleanIncId, status: 'REFERRAL_REQUESTED', station: stationName, reason, at: now, updatedAt: now },
         })
       );
       notifySync('requests_updated');
@@ -675,11 +1183,14 @@ export const IncidentsPage: React.FC = () => {
               </select>
             )}
           </div>
+
           <div className="drv-grid2">
             <ReportForm key={trip.id} trip={trip} />
             <div className="drv-card">
               <div className="between" style={{ marginBottom: 12 }}>
-                <h3 className="drv-card__title" style={{ margin: 0 }}>Lịch sử sự cố của chuyến ({sortedList.length})</h3>
+                <h3 className="drv-card__title" style={{ margin: 0 }}>
+                  {isVetUser ? 'Lịch sử sự cố sức khỏe ngựa' : 'Lịch sử sự cố vận hành'} ({sortedList.length})
+                </h3>
                 <span className="drv-hint" style={{ margin: 0 }}>Mới nhất lên đầu</span>
               </div>
               {sortedList.length ? sortedList.map((i) => {
@@ -844,10 +1355,7 @@ export const IncidentsPage: React.FC = () => {
                                 className="drv-btn drv-btn--danger-solid drv-btn--sm"
                                 disabled={!isCoordAccepted}
                                 title={!isCoordAccepted ? 'Chờ Điều phối viên tiếp nhận sự cố' : undefined}
-                                onClick={() => {
-                                  setReferralIncident(i);
-                                  setReferralReason('');
-                                }}
+                                onClick={() => handleOpenReferralModal(i)}
                               >
                                 Không thể xử lý tại chỗ
                               </button>
@@ -869,7 +1377,11 @@ export const IncidentsPage: React.FC = () => {
                           <div className="drv-note drv-note--green" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               <Icon name="check" />
-                              <b>Điều phối đã phê duyệt phương án xử lý</b>
+                              <b>
+                                {i.resolutionType === 'NO_CHANGE'
+                                  ? 'Điều phối chỉ đạo: Khắc phục tại chỗ (Không điều chuyển)'
+                                  : 'Điều phối đã phê duyệt phương án xử lý'}
+                              </b>
                             </div>
                             <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
                               {i.approvedPlan || 'Đã có phương án xử lý cụ thể từ Điều phối viên.'}
@@ -926,7 +1438,11 @@ export const IncidentsPage: React.FC = () => {
                     )}
                   </div>
                 );
-              }) : <p className="drv-hint">Chưa có sự cố nào được báo.</p>}
+              }) : (
+                <p className="drv-hint">
+                  {isVetUser ? 'Chưa có sự cố sức khỏe ngựa nào được ghi nhận.' : 'Chưa có sự cố vận hành nào được ghi nhận.'}
+                </p>
+              )}
             </div>
           </div>
         </>
@@ -983,21 +1499,123 @@ export const IncidentsPage: React.FC = () => {
             </div>
 
             <div className="drv-field">
-              <label htmlFor="ref-station">Chọn Cơ sở y tế / Bệnh viện thú y đề xuất *</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <label htmlFor="ref-station" style={{ fontWeight: 600 }}>
+                  Chọn Cơ sở y tế / Bệnh viện thú y đề xuất *
+                </label>
+                {currentProvince && (
+                  <span style={{ fontSize: 12, color: 'var(--text-secondary, #475569)' }}>
+                    Khu vực hiện tại: <b>{currentProvince}</b>
+                  </span>
+                )}
+              </div>
               <select
                 id="ref-station"
                 className="drv-select"
                 value={selectedStationId}
                 onChange={(e) => setSelectedStationId(e.target.value)}
               >
-                {AVAILABLE_VET_STATIONS.map((st) => (
-                  <option key={st.id} value={st.id}>
-                    {st.name} ({st.address})
-                  </option>
-                ))}
+                {/* 1. Gợi ý gần vị trí hiện tại */}
+                {(() => {
+                  const suggested = stations.filter((st) => {
+                    if (st.isSuggested) return true;
+                    const p = (st.province || '').toLowerCase();
+                    const cp = currentProvince.toLowerCase();
+                    return p.includes(cp) || cp.includes(p) || (st.near && st.near.toLowerCase().includes(cp));
+                  });
+
+                  if (suggested.length === 0) return null;
+                  return (
+                    <optgroup label={`Gợi ý gần nhất theo vị trí xe (Tỉnh: ${currentProvince})`}>
+                      {suggested.map((st) => (
+                        <option key={`sug-${st.id}`} value={st.id}>
+                          {st.name} — {st.address}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })()}
+
+                {/* 2. Miền Nam */}
+                <optgroup label="Cơ sở thú y Miền Nam">
+                  {stations
+                    .filter((st) => st.region === 'SOUTH')
+                    .map((st) => (
+                      <option key={st.id} value={st.id}>
+                        {st.name} — {st.address}
+                      </option>
+                    ))}
+                </optgroup>
+
+                {/* 3. Miền Trung */}
+                <optgroup label="Cơ sở thú y Miền Trung">
+                  {stations
+                    .filter((st) => st.region === 'CENTRAL')
+                    .map((st) => (
+                      <option key={st.id} value={st.id}>
+                        {st.name} — {st.address}
+                      </option>
+                    ))}
+                </optgroup>
+
+                {/* 4. Miền Bắc */}
+                <optgroup label="Cơ sở thú y Miền Bắc">
+                  {stations
+                    .filter((st) => st.region === 'NORTH')
+                    .map((st) => (
+                      <option key={st.id} value={st.id}>
+                        {st.name} — {st.address}
+                      </option>
+                    ))}
+                </optgroup>
+
+                {/* 5. Quốc tế */}
+                <optgroup label="Cơ sở thú y Quốc tế">
+                  {stations
+                    .filter((st) => st.region === 'INTERNATIONAL')
+                    .map((st) => (
+                      <option key={st.id} value={st.id}>
+                        {st.name} — {st.address}
+                      </option>
+                    ))}
+                </optgroup>
+
                 <option value="OTHER">Cơ sở thú y khác (tự nhập tên)</option>
               </select>
             </div>
+
+            {/* Thẻ tóm tắt thông tin cơ sở được chọn */}
+            {selectedStationId !== 'OTHER' && (() => {
+              const selectedStation = stations.find((s) => s.id === selectedStationId);
+              if (!selectedStation) return null;
+              return (
+                <div style={{
+                  padding: '10px 12px',
+                  background: 'var(--bg-page, #f8fafc)',
+                  border: '1px solid var(--border-color, #e2e8f0)',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  lineHeight: 1.5
+                }}>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary, #0f172a)', marginBottom: 2 }}>
+                    {selectedStation.name}
+                  </div>
+                  <div style={{ color: 'var(--text-secondary, #475569)' }}>
+                    Địa chỉ: {selectedStation.address}
+                  </div>
+                  <div style={{ color: 'var(--text-secondary, #475569)', marginTop: 2, display: 'flex', gap: 16 }}>
+                    <span>
+                      Đường dây nóng cấp cứu: <b style={{ color: 'var(--text-primary, #0f172a)' }}>{selectedStation.phone || 'Chưa có'}</b>
+                    </span>
+                    {selectedStation.distanceKm !== undefined && (
+                      <span>
+                        Khoảng cách: <b>{selectedStation.distanceKm} km</b>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {selectedStationId === 'OTHER' && (
               <div className="drv-field">
@@ -1028,61 +1646,114 @@ export const IncidentsPage: React.FC = () => {
       )}
 
       {/* Modal hiển thị chi tiết phương án xử lý cho tài xế / bác sĩ */}
-      {viewingPlanIncident && (
-        <Modal
-          open={!!viewingPlanIncident}
-          title={`Phương án xử lý sự cố • ${viewingPlanIncident.id}`}
-          okText={
-            (acknowledgedIncidents[viewingPlanIncident.id] || (viewingPlanIncident as any).isSceneReady || (viewingPlanIncident as any).acknowledged)
-              ? `${actorRoleLabel} đã xác nhận`
-              : `${actorRoleLabel} xác nhận tiếp nhận`
-          }
-          okDisabled={Boolean(acknowledgedIncidents[viewingPlanIncident.id] || (viewingPlanIncident as any).isSceneReady || (viewingPlanIncident as any).acknowledged || acking)}
-          onOk={() => handleAcknowledgePlan(viewingPlanIncident.id)}
-          onClose={() => setViewingPlanIncident(null)}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ padding: 10, background: 'var(--bg-page, #f3f4f6)', borderRadius: 8, border: '1px solid var(--border-color, #e5e7eb)' }}>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', marginBottom: 2 }}>Hướng xử lý của Điều phối:</div>
-              <b style={{ fontSize: 14, color: 'var(--text-primary, #111827)' }}>
-                {PLAN_TYPE_LABEL[viewingPlanIncident.resolutionType || ''] || viewingPlanIncident.resolutionType || 'Phương án khắc phục sự cố'}
-              </b>
-            </div>
+      {viewingPlanIncident && (() => {
+        const hasRealPlan = Boolean(viewingPlanIncident.approvedPlan || viewingPlanIncident.resolutionNotes);
+        const isNoChange = viewingPlanIncident.resolutionType === 'NO_CHANGE';
+        const isEscalated = (viewingPlanIncident.status as string) === 'ESCALATED' || viewingPlanIncident.resolutionType === 'ESCALATED_TO_MANAGER';
+        const isAcked = Boolean(
+          acknowledgedIncidents[viewingPlanIncident.id] ||
+          (viewingPlanIncident as any).isSceneReady ||
+          (viewingPlanIncident as any).acknowledged
+        );
 
-            <div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', marginBottom: 4, fontWeight: 600 }}>
-                Chỉ dẫn cụ thể cho {actorRoleLabel.toLowerCase()} tại hiện trường:
-              </div>
-              <div style={{ fontSize: 13, lineHeight: 1.6, padding: 12, background: 'var(--bg-surface, #fff)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 8, whiteSpace: 'pre-wrap' }}>
-                {viewingPlanIncident.approvedPlan || 'Thực hiện các bước khắc phục theo chỉ dẫn của Điều phối viên.'}
-              </div>
-            </div>
+        const rawNotes = viewingPlanIncident.resolutionNotes || '';
+        const noteItems = rawNotes.split(' | ').filter((p) => Boolean(p.trim()) && !p.startsWith('Chỉ dẫn hiện trường:'));
 
-            {viewingPlanIncident.resolutionNotes && viewingPlanIncident.resolutionNotes !== viewingPlanIncident.approvedPlan && (
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', marginBottom: 4, fontWeight: 600 }}>
-                  Thông tin điều động hỗ trợ (Phương tiện / Nhân sự / Lộ trình):
+        return (
+          <Modal
+            open={!!viewingPlanIncident}
+            title={hasRealPlan ? `Phương án xử lý sự cố • ${viewingPlanIncident.id}` : `Trạng thái xử lý sự cố • ${viewingPlanIncident.id}`}
+            okText={
+              !hasRealPlan
+                ? undefined
+                : isAcked
+                ? `${actorRoleLabel} đã xác nhận`
+                : `${actorRoleLabel} xác nhận tiếp nhận`
+            }
+            okDisabled={Boolean(!hasRealPlan || isAcked || acking)}
+            onOk={hasRealPlan ? () => handleAcknowledgePlan(viewingPlanIncident.id) : undefined}
+            onClose={() => setViewingPlanIncident(null)}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {isEscalated ? (
+                <div className="drv-note drv-note--blue">
+                  <Icon name="info" />
+                  <div>
+                    <b>Chuyển Quản lý xử lý cấp cao:</b> Điều phối viên đã từ chối hỗ trợ tại chỗ và chuyển sự cố lên Quản lý vận hành. Vui lòng giữ an toàn và chờ chỉ đạo từ Quản lý.
+                  </div>
                 </div>
-                <div style={{ fontSize: 13, lineHeight: 1.6, padding: 12, background: 'var(--bg-page, #f8fafc)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 8, whiteSpace: 'pre-wrap' }}>
-                  {viewingPlanIncident.resolutionNotes}
+              ) : isNoChange ? (
+                <div className="drv-note drv-note--green">
+                  <Icon name="check" />
+                  <div>
+                    <b>Quyết định của Điều phối: Khắc phục tại chỗ (Không điều chuyển)</b>
+                    <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.5 }}>
+                      Giữ nguyên phương tiện và tổ xe hiện tại. Không điều chuyển xe hay nhân sự mới. Tổ xe tự thực hiện kiểm tra an toàn và xử lý tại hiện trường.
+                    </p>
+                  </div>
+                </div>
+              ) : hasRealPlan ? (
+                <div style={{ padding: 10, background: 'var(--bg-page, #f3f4f6)', borderRadius: 8, border: '1px solid var(--border-color, #e5e7eb)' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', marginBottom: 2 }}>Hướng xử lý của Điều phối:</div>
+                  <b style={{ fontSize: 14, color: 'var(--text-primary, #111827)' }}>
+                    {PLAN_TYPE_LABEL[viewingPlanIncident.resolutionType || ''] || viewingPlanIncident.resolutionType || 'Phương án khắc phục sự cố'}
+                  </b>
+                </div>
+              ) : (
+                <div className="drv-note drv-note--blue">
+                  <Icon name="info" />
+                  <div>
+                    <b>Điều phối viên đang kiểm tra &amp; lập phương án:</b>
+                    <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.5 }}>
+                      Sự cố đã được ghi nhận. Điều phối viên đang khảo sát hiện trường và liên hệ nguồn lực hỗ trợ. Vui lòng duy trì an toàn cho người và ngựa tại vị trí hiện tại.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {hasRealPlan && (
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', marginBottom: 4, fontWeight: 600 }}>
+                    Chỉ dẫn cụ thể cho {actorRoleLabel.toLowerCase()} tại hiện trường:
+                  </div>
+                  <div style={{ fontSize: 13, lineHeight: 1.6, padding: 12, background: 'var(--bg-surface, #fff)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 8, whiteSpace: 'pre-wrap' }}>
+                    {viewingPlanIncident.approvedPlan || 'Thực hiện các bước khắc phục theo chỉ dẫn của Điều phối viên.'}
+                  </div>
+                </div>
+              )}
+
+              {noteItems.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', marginBottom: 6, fontWeight: 600 }}>
+                    Chi tiết điều động &amp; hỗ trợ từ Điều phối:
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 10, background: 'var(--bg-page, #f8fafc)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 8 }}>
+                    {noteItems.map((item, idx) => (
+                      <div key={idx} style={{ fontSize: 13, lineHeight: 1.5 }}>
+                        • {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="drv-note drv-note--blue" style={{ marginTop: 4 }}>
+                <Icon name="info" />
+                <div>
+                  <b>Lưu ý {actorRoleLabel}:</b>{' '}
+                  {!hasRealPlan ? (
+                    `Vui lòng chờ thông báo phương án cụ thể từ Điều phối viên qua hệ thống.`
+                  ) : isAcked ? (
+                    `Bạn (${actorRoleLabel}) đã xác nhận tiếp nhận phương án. Đang phối hợp cùng Điều phối viên để xử lý sự cố.`
+                  ) : (
+                    <>Luôn ưu tiên an toàn cho người và ngựa. Bấm nút <i>“{actorRoleLabel} xác nhận tiếp nhận”</i> bên dưới để thông báo cho Điều phối viên biết bạn đã nắm rõ phương án.</>
+                  )}
                 </div>
               </div>
-            )}
-
-            <div className="drv-note drv-note--blue" style={{ marginTop: 4 }}>
-              <Icon name="info" />
-              <div>
-                <b>Lưu ý {actorRoleLabel}:</b>{' '}
-                {(acknowledgedIncidents[viewingPlanIncident.id] || (viewingPlanIncident as any).isSceneReady || (viewingPlanIncident as any).acknowledged) ? (
-                  `Bạn (${actorRoleLabel}) đã xác nhận tiếp nhận phương án. Đang phối hợp cùng Điều phối viên để xử lý sự cố.`
-                ) : (
-                  <>Luôn ưu tiên an toàn cho người và ngựa. Bấm nút <i>“{actorRoleLabel} xác nhận tiếp nhận”</i> bên dưới để thông báo cho Điều phối viên biết bạn đã nắm rõ phương án.</>
-                )}
-              </div>
             </div>
-          </div>
-        </Modal>
-      )}
+          </Modal>
+        );
+      })()}
     </DriverLayout>
   );
 };

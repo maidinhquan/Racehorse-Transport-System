@@ -48,7 +48,8 @@ export const DELAY_LABEL: Record<DelayStatus, string> = {
 };
 export const INCIDENT_TYPE_LABEL: Record<IncidentType, string> = {
   VEHICLE_BREAKDOWN: 'Hỏng xe', BORDER_DELAY: 'Chậm tại cửa khẩu', BAD_WEATHER: 'Thời tiết xấu', TRAFFIC_ACCIDENT: 'Tai nạn giao thông',
-  HORSE_HEALTH: 'Sức khoẻ ngựa', CUSTOMS_HOLD: 'Hải quan tạm giữ', ROAD_CLOSURE: 'Đường bị chặn', OTHER: 'Khác',
+  HORSE_HEALTH: 'Sức khoẻ ngựa', CUSTOMS_HOLD: 'Hải quan tạm giữ', ROAD_CLOSURE: 'Đường bị chặn',
+  PICKUP_ACCESS_BLOCKED: 'Không thể tiếp cận điểm lấy ngựa', OTHER: 'Khác',
 };
 export const SEVERITY_LABEL: Record<IncidentSeverity, string> = { LOW: 'Thấp', MEDIUM: 'Trung bình', HIGH: 'Cao', CRITICAL: 'Nghiêm trọng' };
 export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = { NEW: 'Mới', IN_PROGRESS: 'Đang xử lý', RESOLVED: 'Đã khắc phục', CLOSED: 'Đã đóng' };
@@ -101,10 +102,6 @@ export const minutesBetween = (a: string, b: string) => (stampMs(b) - stampMs(a)
 // Quy tắc nghiệp vụ
 // ============================================================================
 export const isActiveTrip = (t: Trip) => t.status !== 'COMPLETED';
-
-/** Một nhân sự chỉ có MỘT chuyến đang hoạt động – nhưng vẫn hỗ trợ danh sách */
-export const tripsOf = (trips: Trip[], userId: string) =>
-  trips.filter((t) => Object.values(t.crew).includes(userId));
 
 export const myPosition = (t: Trip, userId: string) => {
   const slot = (Object.keys(t.crew) as CrewSlot[]).find((k) => t.crew[k] === userId);

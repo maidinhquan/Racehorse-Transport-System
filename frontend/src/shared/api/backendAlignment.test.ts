@@ -81,10 +81,10 @@ describe('backend DTO alignment', () => {
     expect(v).toMatchObject({ v: 3, state: 'ISSUED', validUntil: '2027-01-01 19:00' });
     expect(v.snapshot?.horses[0]).toMatchObject({ microchip: '981000000000001', passportNo: 'P001' });
   });
-  it('sends the schedule and excludes the request being edited from horse reservations', async () => {
+  it('sends the transport and delivery dates when listing selectable horses', async () => {
     request.mockResolvedValueOnce(reply([]));
-    await customerApi.getSelectableHorses('2027-01-04', 'REQUEST_001', '2027-01-01');
-    expect(request.mock.calls[0][0]?.params).toEqual({ expectedTransportDate: '2027-01-01', expectedDeliveryDate: '2027-01-04', excludeRequestId: 'REQUEST_001' });
+    await customerApi.getSelectableHorses('2027-01-04', '2027-01-01');
+    expect(request.mock.calls[0][0]?.params).toEqual({ expectedTransportDate: '2027-01-01', expectedDeliveryDate: '2027-01-04' });
   });
   it('shows field validation errors from both axios and wrapped errors', () => {
     const errors = { file: ['The File field is required.'] };

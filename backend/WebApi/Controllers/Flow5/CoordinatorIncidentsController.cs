@@ -151,13 +151,13 @@ public class CoordinatorIncidentsController : BaseApiController
     }
 
     /// <summary>
-    /// F5-J27: Coordinator ghi kết quả và đóng sự cố (RESOLVED)
+    /// F5-J27: Coordinator ghi nhận kết quả xử lý (RESOLVED); Chuyên viên đóng sau
     /// </summary>
     [HttpPost("{incidentId}/resolve")]
     public async Task<IActionResult> ResolveIncident([FromRoute] string incidentId, [FromBody] IncidentResolutionInputDto dto)
     {
         var result = await _incidentService.ResolveIncidentAsync(incidentId, dto, CurrentUserId);
-        return Success(result, "Sự cố đã được giải quyết và đóng lại thành công");
+        return Success(result, "Đã ghi nhận kết quả xử lý sự cố");
     }
 
     /// <summary>

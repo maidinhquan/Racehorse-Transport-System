@@ -12,31 +12,16 @@ import type {
   SpecTrip,
   TripDocument,
 } from '../types';
-import {
-  mockAudit,
-  mockBookings,
-  mockCustomerDocs,
-  mockDocTypes,
-  mockDocuments,
-  mockPackages,
-  mockRegulations,
-  mockRequests,
-  mockTrips,
-} from '../data/mockData';
-import { getDemoMode } from '../../../shared/context/DemoModeContext';
-
-const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 /**
- * GET có fallback về mock data CHỈ KHI demo mode đang bật.
- * Khi demo tắt và API lỗi, trả về emptyFallback (mảng rỗng).
+ * GET dữ liệu từ API. Khi lỗi trả về emptyFallback (mảng rỗng).
  */
-async function getOr<T>(url: string, mockFallback: T, emptyFallback: T = [] as unknown as T): Promise<T> {
+async function getOr<T>(url: string, emptyFallback: T = [] as unknown as T): Promise<T> {
   try {
     const res = await apiClient.get<ApiResponse<T>>(url);
-    return res.data?.data ?? (getDemoMode('specialist') ? clone(mockFallback) : emptyFallback);
+    return res.data?.data ?? emptyFallback;
   } catch {
-    return getDemoMode('specialist') ? clone(mockFallback) : emptyFallback;
+    return emptyFallback;
   }
 }
 
@@ -61,42 +46,16 @@ export const specialistApi = {
       // Thử tiếp endpoint bàn giao Flow 1
     }
 
-    try {
-      const res = await apiClient.get<any[]>('/operations/flow1/trips');
-      if (Array.isArray(res.data) && res.data.length > 0) {
-        return res.data.map((t) => ({
-          id: `TRP-${(t.tripId || '').replace(/^TRIP[_-]/, '')}`,
-          requestId: t.requestId || '',
-          customerName: 'Khách hàng',
-          origin: 'Ho Chi Minh City',
-          destination: 'Tokyo',
-          originCountry: 'VN' as const,
-          destCountry: 'JP' as const,
-          mode: 'AIR' as const,
-          status: (t.status || 'PLANNING') as any,
-          deployment: 'CONFIRMED' as const,
-          plannedDepart: '2026-12-26 06:00',
-          eta: '2026-12-26 22:00',
-          horses: [{ id: 'HOR-1029', name: 'Thunderbolt', microchip: '985112004571029', passportNo: 'VN-EQ-2020-1029' }],
-          checkpoints: [],
-          specialistId: t.specialistId,
-          coordinatorId: t.coordinatorId,
-        })) as SpecTrip[];
-      }
-    } catch {
-      // bỏ qua lỗi handoff
-    }
-
-    return getDemoMode('specialist') ? clone(mockTrips) : [];
+    return [];
   },
-  getCustomerDocs: () => getOr<CustomerDoc[]>(SPECIALIST_ENDPOINTS.CUSTOMER_DOCS, mockCustomerDocs),
-  getDocuments: () => getOr<TripDocument[]>(SPECIALIST_ENDPOINTS.DOCUMENTS, mockDocuments),
-  getRequests: () => getOr<DocRequest[]>(SPECIALIST_ENDPOINTS.DOC_REQUESTS, mockRequests),
-  getBookings: () => getOr<QuarantineBooking[]>(SPECIALIST_ENDPOINTS.QUARANTINE_BOOKINGS, mockBookings),
-  getDocTypes: () => getOr<DocType[]>(SPECIALIST_ENDPOINTS.DOC_TYPES, mockDocTypes),
-  getRegulations: () => getOr<Regulation[]>(SPECIALIST_ENDPOINTS.REGULATIONS, mockRegulations),
-  getPackages: () => getOr<RegPackage[]>(SPECIALIST_ENDPOINTS.REQUIREMENT_SETS, mockPackages),
-  getAudit: () => getOr<AuditEntry[]>(SPECIALIST_ENDPOINTS.AUDIT, mockAudit),
+  getCustomerDocs: () => getOr<CustomerDoc[]>(SPECIALIST_ENDPOINTS.CUSTOMER_DOCS, []),
+  getDocuments: () => getOr<TripDocument[]>(SPECIALIST_ENDPOINTS.DOCUMENTS, []),
+  getRequests: () => getOr<DocRequest[]>(SPECIALIST_ENDPOINTS.DOC_REQUESTS, []),
+  getBookings: () => getOr<QuarantineBooking[]>(SPECIALIST_ENDPOINTS.QUARANTINE_BOOKINGS, []),
+  getDocTypes: () => getOr<DocType[]>(SPECIALIST_ENDPOINTS.DOC_TYPES, []),
+  getRegulations: () => getOr<Regulation[]>(SPECIALIST_ENDPOINTS.REGULATIONS, []),
+  getPackages: () => getOr<RegPackage[]>(SPECIALIST_ENDPOINTS.REQUIREMENT_SETS, []),
+  getAudit: () => getOr<AuditEntry[]>(SPECIALIST_ENDPOINTS.AUDIT, []),
 
   applyRequirementSet: (tripId: string, pkgId: string) => send('put', SPECIALIST_ENDPOINTS.APPLY_REQUIREMENT_SET(tripId), { pkgId }),
   confirmDocsReady: (tripId: string) => send('post', SPECIALIST_ENDPOINTS.DOCS_READY(tripId)),

@@ -5,7 +5,6 @@ import { requestReviewApi } from '../../../../../shared/api/requestReviewApi';
 import type { CustomerReview } from '../../../../../shared/api/requestReviewApi';
 import { reviewDay, reviewMode } from '../../../../../shared/components/RequestReview/labels';
 import { useCustomer } from '../../../hooks/useCustomer';
-import { getDemoMode } from '../../../../../shared/context/DemoModeContext';
 import { Link } from 'react-router-dom';
 
 export function ReviewResponse({ requestId }: { requestId: string }) {
@@ -13,10 +12,8 @@ export function ReviewResponse({ requestId }: { requestId: string }) {
   const [proposal, setProposal] = useState<CustomerReview | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const demo = getDemoMode('customer');
 
   useEffect(() => {
-    if (demo) return;
     let current = true;
     const refresh = () => requestReviewApi.customer(requestId)
       .then(({ proposal }) => { if (current) setProposal(proposal); })
@@ -25,7 +22,7 @@ export function ReviewResponse({ requestId }: { requestId: string }) {
     const timer = setInterval(refresh, 15000);
     const stopSync = onSync(() => void refresh());
     return () => { current = false; clearInterval(timer); stopSync(); };
-  }, [requestId, demo]);
+  }, [requestId]);
 
   async function respond(decision: 'ACCEPTED' | 'REJECTED') {
     if (proposal?.action !== 'CONFIRM_SCHEDULE') return;
@@ -54,9 +51,9 @@ export function ReviewResponse({ requestId }: { requestId: string }) {
         title={expired ? 'Đã hết hạn phản hồi' : busy ? 'Đang gửi phản hồi' : undefined}
         onClick={() => void respond('REJECTED')}>Từ chối lịch đề xuất</button>
     </>}
-    {(demo || proposal === null || (proposal?.action === 'SUPPLEMENT_DOCUMENTS' && !expired)) &&
+    {(proposal === null || (proposal?.action === 'SUPPLEMENT_DOCUMENTS' && !expired)) &&
       <Link to={`/customer/requests/${requestId}/edit`} className="cus-btn cus-btn--block cus-btn--solid">Sửa và gửi lại</Link>}
     {proposal?.action === 'SUPPLEMENT_DOCUMENTS' && expired && <p>Đã hết hạn chỉnh sửa.</p>}
-    {!demo && proposal === undefined && !error && <p>Đang tải yêu cầu phản hồi…</p>}
+    {proposal === undefined && !error && <p>Đang tải yêu cầu phản hồi…</p>}
   </>;
 }

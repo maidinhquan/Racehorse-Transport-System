@@ -1,7 +1,6 @@
 // Giám sát hành trình: chuyến đang chạy / chờ xuất phát và chuyến đang lập kế hoạch được giao cho Điều phối
 import { useEffect, type MouseEvent } from 'react';
 import { Empty, Icon, Pill, PillT } from '../../components/common/ui';
-import { EmptyPlanLaunch } from '../../components/demo/Demo';
 import { CoordinatorLayout } from '../../components/layout/CoordinatorLayout';
 import { agoText, coordTrips, deployed, healthFlag, horse, hoursSince, lastMilestone, legHolds, livePos, planPill, planState, reqOfTrip, resourceGaps, resourcePill, routePill, STALE_H, tripHorses, tripStops } from '../../domain/coordinatorRules';
 import type { Any } from '../../store/coordinatorStore';
@@ -71,7 +70,6 @@ export function MonitorPage() {
   const stat = (l: string, v: number, bad = false) => <div className="dr-stat" style={{ cursor: 'default' }}><span>{l}</span><b className={bad && v ? 't-bad' : ''}>{v}</b></div>;
   return (
     <CoordinatorLayout title="Giám sát hành trình">
-      <EmptyPlanLaunch />
       <div className="head"><div><h2 className="page-title">Giám sát hành trình</h2><p className="subtitle">Cập nhật lúc {dt(nowStamp())}</p></div></div>
       <div className="dr-stats" style={{ gridTemplateColumns: 'repeat(5,minmax(0,1fr))' }}>
         {stat('Đang chạy / chờ xuất phát', live.length)}{stat('Đang lập kế hoạch', planning.length)}{stat('Trễ so với ETA ban đầu', late, true)}{stat(`Quá ${STALE_H} giờ chưa cập nhật`, stale, true)}{stat('Sự cố đang mở', openInc, true)}

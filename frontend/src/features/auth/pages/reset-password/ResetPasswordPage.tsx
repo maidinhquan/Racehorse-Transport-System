@@ -14,9 +14,6 @@ function ResetPasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const isDemo =
-    searchParams.get("demo") === "true";
-
   const resetToken =
     searchParams.get("token") ?? "";
 
@@ -94,16 +91,6 @@ function ResetPasswordPage() {
     setIsLoading(true);
 
     try {
-      if (isDemo) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, 700)
-        );
-
-        setIsSuccess(true);
-        setRedirectSeconds(5);
-        return;
-      }
-
       if (!resetToken) {
         setErrorMessage(
           "Liên kết đặt lại mật khẩu không hợp lệ."

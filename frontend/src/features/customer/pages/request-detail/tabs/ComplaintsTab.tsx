@@ -1,71 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import type { TransportRequest } from '../../../types';
 import { useCustomer } from '../../../hooks/useCustomer';
-import { canComplain, fmtDateTime } from '../../../hooks/customerRules';
-import { ComplaintModal } from '../../../components/Modals';
-import { TripStatusBadge, type BadgeTone } from '../../../components/TripStatusBadge/TripStatusBadge';
-import { getDemoMode } from '../../../../../shared/context/DemoModeContext';
+import { fmtDateTime } from '../../../hooks/customerRules';
+import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
 import { generateUuidV4 } from '../../../../../shared/utils/uuid';
 import { flow6Api } from '../../../../aftercare/api/flow6Api';
 import type * as T6 from '../../../../aftercare/types/flow6.types';
-
-const STATUS: Record<string, [string, BadgeTone]> = {
-  NEW: ['Mới gửi', 'warn'],
-  PROPOSED: ['Chờ xác nhận', 'warn'],
-  ESCALATED: ['Chuyển cấp', 'bad'],
-  OPEN: ['Mới gửi', 'warn'],
-  IN_PROGRESS: ['Đang xử lý', 'info'],
-  RESOLVED: ['Đã giải quyết', 'ok'],
-  CLOSED: ['Đã đóng', 'muted'],
-};
-
-/** Tab Khiếu nại (CHẾ ĐỘ MOCK của teammate) */
-const MockComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="cus-card">
-      <h3 className="cus-card__title">
-        Khiếu nại của yêu cầu
-        {canComplain(r) && (
-          <button type="button" className="cus-btn cus-btn--solid cus-btn--sm" onClick={() => setOpen(true)}>
-            Gửi khiếu nại
-          </button>
-        )}
-      </h3>
-      {(r.complaints || []).length === 0 ? (
-        <p className="cus-empty">
-          {canComplain(r)
-            ? 'Bạn có thể gửi khiếu nại trong hạn chung 24 giờ kể từ khi bàn giao.'
-            : 'Chưa có khiếu nại nào.'}
-        </p>
-      ) : (
-        <ul className="cus-complaint-list">
-          {[...(r.complaints || [])].reverse().map((c) => (
-            <li key={c.id}>
-              <div className="cus-complaint-item__body">
-                <div className="cus-complaint-item__header">
-                  <span className="cus-complaint-item__id">{c.id}</span>
-                  <span className="cus-complaint-item__subject">{c.title}</span>
-                </div>
-                <div className="cus-complaint-item__meta">
-                  Gửi lúc: {fmtDateTime(c.createdAt)}
-                </div>
-                <div className="cus-complaint-item__desc">{c.description}</div>
-                {c.response && (
-                  <div className="cus-complaint-item__resolution">
-                    <b>Phản hồi:</b> {c.response}
-                  </div>
-                )}
-              </div>
-              <TripStatusBadge label={STATUS[c.status]?.[0] || c.status} tone={STATUS[c.status]?.[1] || 'muted'} />
-            </li>
-          ))}
-        </ul>
-      )}
-      <ComplaintModal open={open} requestId={r.id} onClose={() => setOpen(false)} />
-    </div>
-  );
-};
 
 /** Tab Khiếu nại & Hỗ trợ (CHẾ ĐỘ BACKEND FLOW 6 THỰC TẾ) */
 const RealComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
@@ -242,10 +182,6 @@ const RealComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r
 };
 
 export const ComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
-  const isDemo = getDemoMode('customer');
-  if (isDemo) {
-    return <MockComplaintsTab request={r} />;
-  }
   return <RealComplaintsTab request={r} />;
 };
 

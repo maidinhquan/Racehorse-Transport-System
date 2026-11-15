@@ -1,7 +1,7 @@
 // ============================================================================
 // FLOW 5 – Xử lý sự cố trong chuyến (vai trò Điều phối)
 // Báo sự cố → Điều phối tiếp nhận & lập phương án → Manager duyệt (nếu thuộc diện) → thực hiện & xác nhận
-// → Điều phối cho phép tiếp tục chặng → Driver/Escort báo kết quả → Điều phối kiểm tra & đóng sự cố.
+// → Điều phối ghi nhận kết quả → Chuyên viên đóng sự cố.
 // ============================================================================
 import { Chk, Field, Inp, Note, Sel, Txt } from '../components/common/ui';
 import { DateTimeInput } from '../components/forms/DateTime';
@@ -10,6 +10,7 @@ import type { Any } from '../store/coordinatorStore';
 import { audit, cleanId, commit, db, go, me, nextId, notify, nowStamp, openModal, toast } from '../store/coordinatorStore';
 import { apiClient } from '../../../shared/api/apiClient';
 import { notifySync } from '../../../shared/utils/syncChannel';
+import { updateSharedIncidentStatus } from '../../../shared/utils/sharedIncidents';
 import { dt, human, incTypeVi } from '../utils/format';
 
 function syncIncidentToLocal(id: string, patch: Record<string, Any>) {
@@ -39,15 +40,49 @@ export const F5_TYPES: Record<string, string> = {
 };
 export const F5_PLAN: Record<string, string> = {
   NO_CHANGE: 'Khắc phục tại chỗ, giữ nguyên kế hoạch',
-  VEHICLE_SWAP: 'Thay xe',
-  CREW_SWAP: 'Thay nhân sự',
-  VEHICLE_AND_CREW_SWAP: 'Thay cả xe và nhân sự',
+  PICKUP_RELOCATE: 'Đổi điểm hẹn đón ngoại vi (Dưới 500m • Không phát sinh phí)',
+  VEHICLE_SWAP: 'Nhóm 1: Điều xe chuyên dụng dự phòng của công ty',
+  CREW_SWAP: 'Nhóm 2: Sự cố về nhân sự (Xe hoạt động tốt)',
+  VEHICLE_AND_CREW_SWAP: 'Nhóm 3: Tai nạn nghiêm trọng (Đổi cả xe và người)',
   ROUTE_ADJUST: 'Điều chỉnh lộ trình trong tuyến pháp lý đã duyệt',
+};
+
+export const F5_SCENARIOS: Record<string, { title: string; desc: string; group: string }> = {
+  '1.1_STANDARD': {
+    group: 'VEHICLE_SWAP',
+    title: 'Điều xe chuyên dụng dự phòng của công ty',
+    desc: 'Điều xe chuyên dụng dự phòng từ bãi xe công ty ra hiện trường kèm tài xế bàn giao xe. Tổ xe cũ nhận xe dự phòng để tiếp tục hành trình.',
+  },
+  '1.2_CRITICAL': {
+    group: 'VEHICLE_SWAP',
+    title: 'Điều xe chuyên dụng dự phòng của công ty + Kéo xe cứu hộ',
+    desc: 'Điều xe chuyên dụng dự phòng của công ty ra tiếp nhận ngựa để tổ xe chạy tiếp; đồng thời điều xe cứu hộ kéo xe hỏng về garage công ty.',
+  },
+  '2.1_QUICK_SWAP': {
+    group: 'CREW_SWAP',
+    title: 'Kịch bản 2.1: Phụ lái lên thay lái chính (Quick Swap)',
+    desc: 'Tài xế chính mất khả năng lái. Phụ lái đủ điều kiện đổi lên ghế lái chính đi tiếp. Điều xe cấp cứu/taxi đưa tài xế cũ đi viện.',
+  },
+  '2.2_INTERNAL_SUPPORT': {
+    group: 'CREW_SWAP',
+    title: 'Kịch bản 2.2: Thay tài xế từ xa bằng xe công ty (Internal Support)',
+    desc: 'Điều xe con nội bộ công ty (Company Car) + nhân viên hậu cần chở tài xế mới ra hiện trường, đồng thời chở tài xế bị ốm quay về hoặc đi khám.',
+  },
+  '2.3_EXTERNAL_SUPPORT': {
+    group: 'CREW_SWAP',
+    title: 'Kịch bản 2.3: Thay tài xế từ xa bằng Taxi / Grab ngoài (External Support)',
+    desc: 'Tài xế mới tự bắt Taxi/Grab ra nhận xe, tài xế cũ bắt Taxi về. Toàn bộ chi phí được hạch toán vào chi phí nội bộ.',
+  },
+  '3.1_FULL_REPLACEMENT': {
+    group: 'VEHICLE_AND_CREW_SWAP',
+    title: 'Kịch bản 3.1: Tai nạn giao thông - Thay mới toàn bộ (Full Replacement)',
+    desc: 'Xe và tài xế đều gặp nạn. Gọi xe cấp cứu người, điều tổ xe mới hoàn toàn (xe mới + tài xế mới) + Specialist làm việc với cảnh sát và bảo hiểm.',
+  },
 };
 export const F5_ST: Record<string, [string, string]> = {
   REPORTED: ['NEW', 'Mới báo – chờ tiếp nhận'], PLANNING: ['IN_PROGRESS', 'Đang lập phương án'], PENDING_APPROVAL: ['PENDING_APPROVAL', 'Chờ phê duyệt'],
   CHANGES_REQUESTED: ['FAILED', 'Yêu cầu chỉnh sửa'], EXECUTING: ['IN_PROGRESS', 'Đang thực hiện phương án'], CONTINUE_ALLOWED: ['APPROVED', 'Đã cho tiếp tục chặng'],
-  RESULT_REPORTED: ['PENDING', 'Chờ Điều phối kiểm tra'], ESCALATED: ['ESCALATED', 'Chờ quyết định'], HALTED: ['ON_HOLD', 'Chuyến dừng theo quyết định'], CLOSED: ['CLOSED', 'Đã đóng'],
+  RESULT_REPORTED: ['PENDING', 'Chờ Điều phối kiểm tra'], RESOLVED: ['APPROVED', 'Đã xử lý, chờ Chuyên viên đóng'], ESCALATED: ['ESCALATED', 'Chờ quyết định'], HALTED: ['ON_HOLD', 'Chuyến dừng theo quyết định'], CLOSED: ['CLOSED', 'Đã đóng'],
 };
 export const f5Pill = (i: Any): [string, string] => (F5_ST[i.status] ? F5_ST[i.status] : [i.status, human(i.status)]);
 export const F5_DONE = ['CLOSED', 'HALTED'];
@@ -66,7 +101,9 @@ export const curPlan = (i: Any) => (Array.isArray(i?.plans) && i.plans.length ? 
 export const resSig = (p: Any) => JSON.stringify([p.vehicleId || '', p.newCrew ? Object.entries(p.newCrew).sort() : [p.crewRole || '', p.crewId || '']]);
 
 export function f5Status(i: Any) {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem(`rts_incident_status_${cleanId(i.id)}`) === 'CLOSED') i.status = 'CLOSED';
   if (F5_DONE.includes(i.status)) return i.status;
+  if (i.status === 'RESOLVED') return i.status;
   const p = curPlan(i);
 
   // Sự cố đã có phương án duyệt/áp dụng từ hệ thống hoặc đang thực thi thì luôn coi là đã tiếp nhận và ở trạng thái EXECUTING
@@ -245,7 +282,11 @@ function f5Apply(i: Any, p: Any) {
     f5Log(i, `Đổi xe ${vehicle(t.vehicleId) ? vehicle(t.vehicleId).plate : '—'} → ${vehicle(p.vehicleId)?.plate || p.vehicleId}`);
     t.vehicleId = p.vehicleId;
   }
-  if (p.newCrew && typeof p.newCrew === 'object') {
+  if (p.kind === 'CREW_SWAP' && p.scenario === '2.1_QUICK_SWAP' && t.crew?.CO_DRIVER) {
+    const promoted = t.crew.CO_DRIVER;
+    t.crew = { ...t.crew, MAIN_DRIVER: promoted };
+    f5Log(i, `[Đổi lái chính] Phụ lái ${emp(promoted)?.name} được chuyển lên ghế lái chính tiếp tục hành trình.`);
+  } else if (p.newCrew && typeof p.newCrew === 'object') {
     Object.entries(p.newCrew).forEach(([role, crewId]) => {
       if (crewId && emp(crewId as string)) {
         t.crew = { ...(t.crew || {}), [role]: crewId };
@@ -318,14 +359,22 @@ export function f5Ack(id: string) {
 }
 
 export function f5Plan(id: string) {
-  const i = find(id), t = trip(i.tripId), p = curPlan(i) || {}, n = tripHorses(t).length;
+  const i = find(id);
+  if (!i) return;
+  const rawAck = typeof localStorage !== 'undefined'
+    ? (localStorage.getItem(`rts_driver_ack_${cleanId(i.id)}`) || localStorage.getItem(`rts_driver_ack_${i.id}`) || localStorage.getItem(`rts_ack_${cleanId(i.id)}`) || localStorage.getItem(`rts_ack_${i.id}`))
+    : null;
+  const isAcked = Boolean(i.isSceneReady || i.sceneReady || rawAck);
+  if (isAcked && i.status === 'EXECUTING') {
+    toast('Tài xế đã tiếp nhận phương án, không thể chỉnh sửa trong khi đang thực hiện.');
+    return;
+  }
+  const t = trip(i.tripId), p = curPlan(i) || {}, n = tripHorses(t).length;
   const currentVeh = vehicle(t.vehicleId);
-  const curMD = t.crew?.MAIN_DRIVER ? emp(t.crew.MAIN_DRIVER) : null;
   const curCD = t.crew?.CO_DRIVER ? emp(t.crew.CO_DRIVER) : null;
-  const curVet = t.crew?.VETERINARIAN ? emp(t.crew.VETERINARIAN) : null;
 
   const vOpts: Array<[string, string]> = [
-    ['', `— Giữ xe hiện tại (${currentVeh?.plate || 'Chưa có xe'}) —`],
+    ['', `— Chọn xe chuyên dụng dự phòng của công ty (Xe hiện tại: ${currentVeh?.plate || 'Chưa gán'}) —`],
     ...db.vehicles.filter((v: Any) => v.id !== t.vehicleId && v.status === 'READY' && v.stalls >= n && !vehicleConflict(v, t))
       .map((v: Any) => [v.id, `${v.plate} • ${v.model} • ${v.stalls} ô • ${v.base}`] as [string, string]),
   ];
@@ -342,42 +391,132 @@ export function f5Plan(id: string) {
       .map((e: Any) => [e.id, `${e.name} • ${human(e.position)}`] as [string, string]),
   ];
 
+  const reliefDriverOpts: Array<[string, string]> = [
+    ['', '— Chọn tài xế giao xe dự phòng —'],
+    ...db.employees.filter((e: Any) => isDriver(e) && !isStaffAssignedToTrip(e, t) && !crewConflict(e, t))
+      .map((e: Any) => [e.id, `${e.name} • ${human(e.position)}`] as [string, string]),
+  ];
+
+  const specialistOpts: Array<[string, string]> = [
+    ['', '— Chọn Specialist pháp lý & bảo hiểm hỗ trợ —'],
+    ...db.employees.filter((e: Any) => e.role === 'SPECIALIST' || e.position === 'SPECIALIST')
+      .map((e: Any) => [e.id, `${e.name} • Chuyên viên Pháp lý & Hải quan`] as [string, string]),
+  ];
+
   const vetOpts: Array<[string, string]> = [
     ['', '— Chọn người thay thế —'],
     ...selectableStaff().filter((e: Any) => (isVet(e) || e.position === 'VETERINARIAN') && !isStaffAssignedToTrip(e, t) && !crewConflict(e, t) && (!e.certExpiry || e.certExpiry >= t.eta.slice(0, 10)))
       .map((e: Any) => [e.id, `${e.name} • Thú y (Hạn chứng chỉ: ${e.certExpiry || '—'})`] as [string, string]),
   ];
 
-  const guess = p.kind && F5_PLAN[p.kind] ? p.kind : (/BREAKDOWN|ACCIDENT/.test(i.type) ? 'VEHICLE_SWAP' : /ROAD|BORDER|WEATHER/.test(i.type) ? 'ROUTE_ADJUST' : i.type === 'HORSE_HEALTH' ? 'CREW_SWAP' : 'NO_CHANGE');
+  const crewSwapScenarios: Array<[string, string]> = [
+    ['2.1_QUICK_SWAP', 'Kịch bản 2.1: Phụ lái lên thay lái chính (Quick Swap) + đưa tài xế cũ đi viện'],
+    ['2.2_INTERNAL_SUPPORT', 'Kịch bản 2.2: Thay tài xế từ xa bằng xe con công ty (Company Car), chở tài xế ốm về'],
+    ['2.3_EXTERNAL_SUPPORT', 'Kịch bản 2.3: Thay tài xế từ xa bằng Taxi / Grab ngoài (Ghi nhận chi phí nội bộ)'],
+  ];
+
+  const combinedScenarios: Array<[string, string]> = [
+    ['3.1_FULL_REPLACEMENT', 'Kịch bản 3.1: Tai nạn giao thông - Thay mới toàn bộ (Full Replacement: Xe mới + Tổ xe mới + Cứu thương + Specialist)'],
+  ];
+
+  const isPickupAccessBlocked = /PICKUP_ACCESS|PICKUP_BLOCKED/.test(String(i.type || i.category || ''));
+  const guess = p.kind && F5_PLAN[p.kind] ? p.kind : (isPickupAccessBlocked ? 'PICKUP_RELOCATE' : /BREAKDOWN|ACCIDENT/.test(i.type) ? 'VEHICLE_SWAP' : /ROAD|BORDER|WEATHER/.test(i.type) ? 'ROUTE_ADJUST' : 'NO_CHANGE');
   const vets = i.type === 'HORSE_HEALTH' ? nearestVets(t) : [];
 
+  const cleanTripKey = (t?.id || i.tripId || '').replace(/-/g, '_');
+  let cachedEv: any = null;
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(`rts_pickup_evidence_${cleanTripKey}`) : null;
+    if (raw) cachedEv = JSON.parse(raw);
+  } catch {}
+  const rawImg = i?.imageUrl || '';
+  const imgParts = rawImg.includes('||') ? rawImg.split('||') : [rawImg];
+  const blockedImg = i?.blockedImageUrl || cachedEv?.blockedImageUrl || (imgParts[0]?.trim() || null);
+  const relocationImg = i?.relocationImageUrl || cachedEv?.relocationImageUrl || (imgParts.length > 1 ? imgParts[1]?.trim() : null);
+  const descMatch = i?.description?.match(/Vị trí dời đề xuất:\s*([^.]+)/i);
+  const extractedPlace = descMatch ? descMatch[1].trim() : undefined;
+  const isMockPlace = (val?: string | null) => !val || val.toLowerCase().includes('ngã ba đường liên xã');
+  const proposedPlace =
+    (!isMockPlace((i as any)?.proposedRelocationPlaceName) ? (i as any)?.proposedRelocationPlaceName : undefined) ||
+    (!isMockPlace(cachedEv?.proposedPlaceName) ? cachedEv?.proposedPlaceName : undefined) ||
+    (!isMockPlace((i as any)?.relocationMeetingPointName) ? (i as any)?.relocationMeetingPointName : undefined) ||
+    (!isMockPlace(extractedPlace) ? extractedPlace : undefined) ||
+    (!isMockPlace(t?.relocationMeetingPointName) ? t?.relocationMeetingPointName : undefined);
+
   openModal({
-    title: `${curPlan(i) && curPlan(i).status !== 'DRAFT' ? 'Sửa phương án → tạo phiên bản mới' : 'Phương án xử lý'} • ${i.id}`,
+    title: `${curPlan(i) && curPlan(i).status !== 'DRAFT' ? 'Sửa phương án → tạo phiên bản mới' : 'Lập phương án xử lý (Command Center)'} • ${i.id}`,
     ok: 'Lưu phương án',
     wide: true,
     init: {
       k: guess,
+      scenario: p.scenario || (guess === 'VEHICLE_SWAP' ? '1.1_STANDARD' : guess === 'CREW_SWAP' ? '2.1_QUICK_SWAP' : guess === 'VEHICLE_AND_CREW_SWAP' ? '3.1_FULL_REPLACEMENT' : ''),
       desc: p.desc || '',
       reason: p.reason || '',
+      meetingPointName: p.meetingPointName || '',
       veh: p.vehicleId || '',
+      reliefDriverId: p.reliefDriverId || '',
+      needTowing: p.needTowing ?? (p.scenario === '1.2_CRITICAL' || !!p.towingPartner || (Number(p.towingCost) > 0)),
+      towingPartner: p.towingPartner || 'Đội Cứu hộ Giao thông 116',
+      towingPhone: p.towingPhone || '1900 116 116',
+      towingCost: p.towingCost || 250,
+
       changeMainDriver: !!(p.newCrew?.MAIN_DRIVER || (p.crewRole === 'MAIN_DRIVER' && p.crewId)),
       mainDriverId: p.newCrew?.MAIN_DRIVER || (p.crewRole === 'MAIN_DRIVER' ? p.crewId : '') || '',
       changeCoDriver: !!(p.newCrew?.CO_DRIVER || (p.crewRole === 'CO_DRIVER' && p.crewId)),
       coDriverId: p.newCrew?.CO_DRIVER || (p.crewRole === 'CO_DRIVER' ? p.crewId : '') || '',
       changeVet: !!(p.newCrew?.VETERINARIAN || (p.crewRole === 'VETERINARIAN' && p.crewId)),
       vetId: p.newCrew?.VETERINARIAN || (p.crewRole === 'VETERINARIAN' ? p.crewId : '') || '',
+      companyCarPlate: p.companyCarPlate || '51H-992.88 (Xe hậu cần công ty)',
+      taxiVendor: p.taxiVendor || 'Taxi Mai Linh / Grab Business',
+      taxiCost: p.taxiCost || 45,
+      medicalTransport: p.medicalTransport || 'Xe cấp cứu y tế 115 / Taxi y tế',
+
+      ambulancePartner: p.ambulancePartner || 'Cấp cứu 115 Bệnh viện Đa khoa địa phương',
+      ambulancePhone: p.ambulancePhone || '115',
+      specialistId: p.specialistId || '',
+
       legal: p.legalRoute !== false,
       eta: p.etaTo || t.eta,
       cost: String(p.cost || 0),
       payer: p.payer || 'COMPANY',
     },
     body: (f) => {
+      const activeScenario = F5_SCENARIOS[f.v.scenario];
       return (
         <>
           <p className="subtitle" style={{ marginTop: 0 }}>{legOf(t, i.leg)} • ETA đã xác nhận {dt(t.eta)}</p>
-          <Field label="Hướng xử lý *">
-            <Sel name="k" options={Object.entries(F5_PLAN)} />
+          <Field label="Nhóm phương án xử lý *">
+            <Sel
+              name="k"
+              options={
+                isPickupAccessBlocked
+                  ? [
+                      ['PICKUP_RELOCATE', F5_PLAN.PICKUP_RELOCATE],
+                      ['NO_CHANGE', F5_PLAN.NO_CHANGE],
+                    ]
+                  : Object.entries(F5_PLAN)
+              }
+              onChange={(e: any) => {
+                const newK = e.target.value;
+                if (newK === 'VEHICLE_SWAP') f.set('scenario', '1.1_STANDARD');
+                else if (newK === 'CREW_SWAP') f.set('scenario', '2.1_QUICK_SWAP');
+                else if (newK === 'VEHICLE_AND_CREW_SWAP') f.set('scenario', '3.1_FULL_REPLACEMENT');
+                else f.set('scenario', '');
+              }}
+            />
           </Field>
+
+          {activeScenario && (
+            <div style={{ margin: '8px 0 14px', padding: '10px 14px', background: 'var(--bg-page, #f8fafc)', borderRadius: 8, border: '1px solid var(--border-color, #e2e8f0)' }}>
+              <div style={{ fontWeight: 600, color: 'var(--accent-primary, #1e40af)', fontSize: 13 }}>
+                {activeScenario.title}
+              </div>
+              <p style={{ margin: '4px 0 0', fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-secondary, #475569)' }}>
+                {activeScenario.desc}
+              </p>
+            </div>
+          )}
+
           {vets.length ? (
             <Note tone="grey" icon="info" title="Cơ sở thú y gần vị trí hiện tại">
               {vets.map((v: Any, idx: number) => (
@@ -385,84 +524,194 @@ export function f5Plan(id: string) {
               ))}
             </Note>
           ) : null}
-          <Field label="Nội dung phương án *">
-            <Txt name="desc" placeholder="Việc cần làm, ai làm, khi nào" />
-          </Field>
-          <Field label="Lý do *">
-            <Inp name="reason" placeholder="Lý do thực hiện phương án" />
-          </Field>
 
-          {/* KHỐI 1: XE - Chỉ hiển thị khi chọn Thay xe hoặc Thay cả xe và nhân sự */}
-          {(f.v.k === 'VEHICLE_SWAP' || f.v.k === 'VEHICLE_AND_CREW_SWAP') && (
-            <div style={{ marginTop: 14, padding: 12, border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 8, background: 'var(--bg-surface, #fff)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <b style={{ fontSize: 14, color: 'var(--text-primary, #111827)' }}>
-                  1. Phương tiện vận chuyển (Xe điều động / thay thế)
-                </b>
-                <span className="muted" style={{ fontSize: 12 }}>Đã khóa xe đang trong chuyến / bận</span>
-              </div>
-              <Field label="Xe điều động / thay thế *" hint="Chọn xe sẵn sàng để điều đến hiện trường thay thế xe gặp sự cố">
-                <Sel name="veh" options={vOpts} />
+          {/* ========================================================= */}
+          {/* PHƯƠNG ÁN: ĐỔI ĐIỂM HẸN ĐÓN NGOẠI VI (DƯỚI 500M)         */}
+          {/* ========================================================= */}
+          {f.v.k === 'PICKUP_RELOCATE' && (
+            <div style={{ marginTop: 14, padding: 14, border: '1px solid #bbf7d0', borderRadius: 8, background: '#f0fdf4' }}>
+              <b style={{ fontSize: 14, color: '#166534', display: 'block', marginBottom: 6 }}>
+                Phương án: Đổi điểm hẹn đón ngoại vi (Dưới 500m • Không phát sinh phí)
+              </b>
+              <p style={{ margin: '0 0 10px', fontSize: 12.5, color: '#15803d', lineHeight: 1.5 }}>
+                Đoạn đường vào trang trại bị giới hạn kích thước xe, xe tải chuyên dụng đang dừng chờ ở đường lớn bên ngoài. Hướng dẫn tài xế và khách hẹn dắt bộ ngựa ra điểm tập kết an toàn.
+              </p>
+
+              {proposedPlace && (
+                <div style={{ marginBottom: 10, padding: '6px 10px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 6, fontSize: 12.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span><b style={{ color: '#065f46' }}>Vị trí tài xế đề xuất:</b> {proposedPlace}</span>
+                  <button type="button" onClick={() => f.set('meetingPointName', proposedPlace)} style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 8px', fontSize: 11, cursor: 'pointer' }}>
+                    Sử dụng đề xuất này
+                  </button>
+                </div>
+              )}
+
+              <Field label="Tên điểm hẹn đón ngoại vi thay thế *">
+                <Inp
+                  name="meetingPointName"
+                  placeholder={
+                    proposedPlace
+                      ? `Để trống sẽ dùng đề xuất "${proposedPlace}", hoặc nhập tên thay thế...`
+                      : 'VD: Cây xăng đầu ngõ 15, Bãi đất trống ngoài đường lớn...'
+                  }
+                />
               </Field>
+
+              {(blockedImg || relocationImg) && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginTop: 8, marginBottom: 10 }}>
+                  {blockedImg && (
+                    <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: 6, padding: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#9f1239', display: 'block', marginBottom: 4 }}>
+                        1. Ảnh vị trí không thể vào (Tài xế báo):
+                      </span>
+                      <img src={blockedImg} alt="Vị trí không thể vào" style={{ width: '100%', height: 95, objectFit: 'cover', borderRadius: 4 }} />
+                    </div>
+                  )}
+                  {relocationImg && (
+                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#166534', display: 'block', marginBottom: 4 }}>
+                        2. Ảnh chỗ dời đề xuất:
+                      </span>
+                      <img src={relocationImg} alt="Chỗ dời đề xuất" style={{ width: '100%', height: 95, objectFit: 'cover', borderRadius: 4 }} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 16, fontSize: 13, marginTop: 8 }}>
+                <div>Cự ly ước tính: <b>{t?.relocationDistanceMeters || 320} mét</b> (&lt; 500m)</div>
+                <div>Chi phí phát sinh: <b style={{ color: '#16a34a' }}>0 VNĐ (CBN Transport hỗ trợ miễn phí)</b></div>
+              </div>
             </div>
           )}
 
-          {/* KHỐI 2: NHÂN SỰ TÁCH 3 VAI TRÒ - Chỉ hiển thị khi chọn Thay nhân sự hoặc Thay cả xe và nhân sự */}
-          {(f.v.k === 'CREW_SWAP' || f.v.k === 'VEHICLE_AND_CREW_SWAP') && (
-            <div style={{ marginTop: 14, padding: 12, border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 8, background: 'var(--bg-surface, #fff)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <b style={{ fontSize: 14, color: 'var(--text-primary, #111827)' }}>
-                  2. Nhân sự tổ xe (3 vị trí riêng biệt)
-                </b>
-                <span className="muted" style={{ fontSize: 12 }}>Tích chọn từng vị trí để mở khóa phân công thay thế</span>
+          {/* ========================================================= */}
+          {/* NHÓM 1: ĐIỀU XE DỰ PHÒNG CÔNG TY (VEHICLE_SWAP)           */}
+          {/* ========================================================= */}
+          {f.v.k === 'VEHICLE_SWAP' && (
+            <div style={{ marginTop: 14, padding: 14, border: '1px solid #bfdbfe', borderRadius: 8, background: '#f0f9ff' }}>
+              <b style={{ fontSize: 14, color: '#1e3a8a', display: 'block', marginBottom: 4 }}>
+                1. Phương án: Điều xe chuyên dụng dự phòng của công ty
+              </b>
+              <p style={{ margin: '0 0 12px', fontSize: 13, color: '#2563eb', lineHeight: 1.5 }}>
+                Sử dụng xe chuyên dụng dự phòng của công ty. Tổ xe hiện tại nhận xe dự phòng để tiếp tục hành trình.
+              </p>
+              <div className="form-grid">
+                <Field label="Xe chuyên dụng dự phòng của công ty *">
+                  <Sel name="veh" options={vOpts} />
+                </Field>
+                <Field label="Tài xế giao xe dự phòng ra hiện trường *">
+                  <Sel name="reliefDriverId" options={reliefDriverOpts} />
+                </Field>
               </div>
 
-              {/* Vị trí 1: Tài xế chính */}
-              <div style={{ marginBottom: 12, padding: 10, background: 'var(--bg-page, #f9fafb)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 6 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <div>
-                    <b>Tài xế chính:</b> <span className="muted">{curMD ? curMD.name : 'Chưa phân công'}</span>
+              <div style={{ marginTop: 12 }}>
+                <Chk name="needTowing">Cần cứu hộ kéo xe cũ về garage (Xe hỏng nặng không thể tự di chuyển)</Chk>
+              </div>
+
+              {f.v.needTowing && (
+                <div style={{ marginTop: 10, padding: 12, background: '#fff', borderRadius: 6, border: '1px solid #fed7aa' }}>
+                  <b style={{ fontSize: 13, color: '#c2410c', display: 'block', marginBottom: 8 }}>Thông tin xe cứu hộ kéo xe hỏng</b>
+                  <div className="form-grid">
+                    <Field label="Đơn vị cứu hộ xe *"><Inp name="towingPartner" placeholder="Tên đơn vị xe kéo" /></Field>
+                    <Field label="Số điện thoại cứu hộ *"><Inp name="towingPhone" placeholder="SĐT liên hệ" /></Field>
                   </div>
-                  <Chk name="changeMainDriver">Thay tài xế chính / Cử tài xế lái xe cứu viện</Chk>
+                  <Field label="Chi phí cứu hộ xe kéo (USD) *"><Inp name="towingCost" type="number" min="0" /></Field>
                 </div>
-                {f.v.changeMainDriver && (
-                  <Field label="Chọn tài xế chính mới *" hint="Chỉ hiển thị tài xế sẵn sàng và không có lịch chuyến nào đang chạy">
+              )}
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* NHÓM 2: SỰ CỐ VỀ NHÂN SỰ (CREW_SWAP) - Xe hoạt động tốt    */}
+          {/* ========================================================= */}
+          {f.v.k === 'CREW_SWAP' && (
+            <div style={{ marginTop: 14, padding: 14, border: '1px solid #e2e8f0', borderRadius: 8, background: 'var(--bg-surface, #fff)' }}>
+              <b style={{ fontSize: 14, color: 'var(--text-primary, #111827)', display: 'block', marginBottom: 10 }}>
+                2. Kịch bản điều chuyển Nhân sự (Nhóm 2: Xe hoạt động tốt)
+              </b>
+              <Field label="Chọn kịch bản thực tế *">
+                <Sel name="scenario" options={crewSwapScenarios} />
+              </Field>
+
+              {f.v.scenario === '2.1_QUICK_SWAP' && (
+                <div style={{ marginTop: 10, padding: 12, background: '#f0fdf4', borderRadius: 6, border: '1px solid #bbf7d0' }}>
+                  <div style={{ color: '#166534', fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
+                    ✓ Phụ lái ({curCD ? curCD.name : 'Chưa phân công'}) được chỉ định lên ghế lái chính tiếp tục chuyến đi.
+                  </div>
+                  <p style={{ margin: '0 0 10px', fontSize: 12.5, color: '#15803d' }}>
+                    Tài xế phụ có đủ bằng cấp và chứng từ biên giới, ngay lập tức vận chuyển bầy ngựa tiếp tục lộ trình để kịp giờ bay/hải quan.
+                  </p>
+                  <Field label="Phương án đưa Tài xế chính (ốm) đi bệnh viện *">
+                    <Inp name="medicalTransport" placeholder="VD: Gọi xe cấp cứu 115 / Taxi y tế đưa vào BV Đa khoa gần nhất" />
+                  </Field>
+                </div>
+              )}
+
+              {f.v.scenario === '2.2_INTERNAL_SUPPORT' && (
+                <div style={{ marginTop: 10, padding: 12, background: '#faf5ff', borderRadius: 6, border: '1px solid #e9d5ff' }}>
+                  <b style={{ color: '#6b21a8', fontSize: 13, display: 'block', marginBottom: 8 }}>Cử tài xế mới bằng phương tiện công ty</b>
+                  <Field label="Tài xế mới thay thế *">
                     <Sel name="mainDriverId" options={mainDriverOpts} />
                   </Field>
-                )}
-              </div>
-
-              {/* Vị trí 2: Phụ lái / Áp tải */}
-              <div style={{ marginBottom: 12, padding: 10, background: 'var(--bg-page, #f9fafb)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 6 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <div>
-                    <b>Phụ lái / Áp tải:</b> <span className="muted">{curCD ? curCD.name : 'Chưa phân công'}</span>
-                  </div>
-                  <Chk name="changeCoDriver">Thay phụ lái / Áp tải đi kèm</Chk>
-                </div>
-                {f.v.changeCoDriver && (
-                  <Field label="Chọn phụ lái / áp tải mới *" hint="Chỉ hiển thị nhân sự sẵn sàng và không có lịch chuyến nào đang chạy">
-                    <Sel name="coDriverId" options={coDriverOpts} />
+                  <Field label="Xe con nội bộ công ty chở tài xế ra *">
+                    <Inp name="companyCarPlate" placeholder="Biển số xe con nội bộ (VD: 51H-992.88)" />
                   </Field>
-                )}
-              </div>
-
-              {/* Vị trí 3: Áp tải chăm sóc ngựa */}
-              <div style={{ padding: 10, background: 'var(--bg-page, #f9fafb)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 6 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <div>
-                    <b>Áp tải chăm sóc ngựa / Thú y:</b> <span className="muted">{curVet ? curVet.name : 'Chưa phân công'}</span>
-                  </div>
-                  <Chk name="changeVet">Cử bác sĩ thú y / áp tải mới hỗ trợ</Chk>
+                  <p className="hint" style={{ margin: '4px 0 0' }}>Xe con nội bộ chở tài xế mới ra tiếp quản, sau đó chở tài xế ốm về trạm/bệnh viện.</p>
                 </div>
-                {f.v.changeVet && (
-                  <Field label="Chọn người chăm sóc ngựa / bác sĩ thú y mới *" hint="Chỉ hiển thị bác sĩ thú y có chứng chỉ hợp lệ và đang sẵn sàng">
-                    <Sel name="vetId" options={vetOpts} />
+              )}
+
+              {f.v.scenario === '2.3_EXTERNAL_SUPPORT' && (
+                <div style={{ marginTop: 10, padding: 12, background: '#fffbeb', borderRadius: 6, border: '1px solid #fde68a' }}>
+                  <b style={{ color: '#92400e', fontSize: 13, display: 'block', marginBottom: 8 }}>Cử tài xế mới bằng dịch vụ Taxi / Grab ngoài</b>
+                  <Field label="Tài xế mới thay thế *">
+                    <Sel name="mainDriverId" options={mainDriverOpts} />
                   </Field>
-                )}
-              </div>
+                  <div className="form-grid">
+                    <Field label="Hãng xe / Dịch vụ *"><Inp name="taxiVendor" placeholder="Taxi Mai Linh / Grab / Vinasun" /></Field>
+                    <Field label="Cước phí Taxi dự kiến (USD) *"><Inp name="taxiCost" type="number" min="0" /></Field>
+                  </div>
+                  <p className="hint" style={{ margin: '4px 0 0' }}>Chi phí Taxi được hạch toán trực tiếp vào chi phí sự cố nội bộ.</p>
+                </div>
+              )}
             </div>
           )}
+
+          {/* ========================================================= */}
+          {/* NHÓM 3: SỰ CỐ NGHIÊM TRỌNG (VEHICLE_AND_CREW_SWAP)          */}
+          {/* ========================================================= */}
+          {f.v.k === 'VEHICLE_AND_CREW_SWAP' && (
+            <div style={{ marginTop: 14, padding: 14, border: '1px solid #fecaca', borderRadius: 8, background: '#fef2f2' }}>
+              <b style={{ fontSize: 14, color: '#991b1b', display: 'block', marginBottom: 10 }}>
+                3. Kịch bản tai nạn nghiêm trọng (Nhóm 3: Đổi cả xe lẫn người)
+              </b>
+              <Field label="Kịch bản thực tế *">
+                <Sel name="scenario" options={combinedScenarios} />
+              </Field>
+              <div className="form-grid" style={{ marginTop: 8 }}>
+                <Field label="Xe mới điều động thay thế *"><Sel name="veh" options={vOpts} /></Field>
+                <Field label="Tài xế chính mới *"><Sel name="mainDriverId" options={mainDriverOpts} /></Field>
+              </div>
+              <div className="form-grid" style={{ marginTop: 8 }}>
+                <Field label="Phụ lái mới *"><Sel name="coDriverId" options={coDriverOpts} /></Field>
+                <Field label="Bác sĩ thú y mới (nếu cần) *"><Sel name="vetId" options={vetOpts} /></Field>
+              </div>
+              <div className="form-grid" style={{ marginTop: 8 }}>
+                <Field label="Đơn vị cấp cứu y tế người *"><Inp name="ambulancePartner" placeholder="Bệnh viện cấp cứu địa phương" /></Field>
+                <Field label="SĐT cấp cứu *"><Inp name="ambulancePhone" placeholder="SĐT 115" /></Field>
+              </div>
+              <Field label="Specialist điều động xử lý pháp lý &amp; cảnh sát"><Sel name="specialistId" options={specialistOpts} /></Field>
+            </div>
+          )}
+
+          <div style={{ marginTop: 14 }}>
+            <Field label="Nội dung phương án tổng quan *">
+              <Txt name="desc" placeholder="Tự động sinh theo kịch bản hoặc nhập thêm chỉ dẫn cụ thể..." />
+            </Field>
+            <Field label="Lý do thực hiện *">
+              <Inp name="reason" placeholder="Lý do thực hiện phương án" />
+            </Field>
+          </div>
 
           <div id="f5-route-box" style={{ marginTop: 12 }}>
             <Chk name="legal">Lộ trình mới vẫn trong tuyến pháp lý đã duyệt (giữ quốc gia và cửa khẩu)</Chk>
@@ -470,9 +719,10 @@ export function f5Plan(id: string) {
 
           <div className="form-grid" style={{ marginTop: 12 }}>
             <Field label="Thời gian giao dự kiến *"><DateTimeInput name="eta" /></Field>
-            <Field label="Chi phí phát sinh (USD) *"><Inp name="cost" type="number" min="0" /></Field>
-            <Field label="Bên chịu chi phí"><Sel name="payer" options={[['COMPANY', 'CBN Transport'], ['CUSTOMER', 'Khách hàng (thỏa thuận riêng)'], ['INSURANCE', 'Bảo hiểm (dự kiến)']]} /></Field>
+            <Field label="Tổng chi phí phát sinh nội bộ (USD) *"><Inp name="cost" type="number" min="0" /></Field>
+            <Field label="Bên chịu chi phí"><Sel name="payer" options={[['COMPANY', 'CBN Transport (Nội bộ)'], ['INSURANCE', 'Bảo hiểm'], ['CUSTOMER', 'Khách hàng (thỏa thuận riêng)']]} /></Field>
           </div>
+          <p className="hint" style={{ margin: '4px 0 0' }}>Toàn bộ chi phí sự cố do công ty và bảo hiểm hạch toán nội bộ. Khách hàng thanh toán 0 VNĐ.</p>
         </>
       );
     },
@@ -480,11 +730,9 @@ export function f5Plan(id: string) {
       const k = v.k;
       const cost = Number(v.cost || 0), eta = String(v.eta || '').replace('T', ' ');
 
-      if (String(v.desc).trim().length < 10) return 'Mô tả phương án ít nhất 10 ký tự.';
-      if (String(v.reason).trim().length < 3) return 'Nhập lý do.';
       if (k === 'ROUTE_ADJUST' && !v.legal) return 'Đổi quốc gia/cửa khẩu nằm ngoài Flow 5: dùng “Báo không thể tiếp tục” để Điều phối lập lại kế hoạch.';
 
-      // Kiểm tra chọn xe khi phương án yêu cầu đổi xe
+      // Kiểm tra xe khi yêu cầu đổi xe
       if ((k === 'VEHICLE_SWAP' || k === 'VEHICLE_AND_CREW_SWAP') && !v.veh) {
         return 'Vui lòng chọn xe điều động / thay thế cho chuyến đi.';
       }
@@ -492,21 +740,17 @@ export function f5Plan(id: string) {
       // Kiểm tra nhân sự
       const newCrew: Record<string, string> = {};
       if (k === 'CREW_SWAP' || k === 'VEHICLE_AND_CREW_SWAP') {
-        if (v.changeMainDriver) {
-          if (!v.mainDriverId) return 'Vui lòng chọn tài xế chính mới.';
-          newCrew.MAIN_DRIVER = v.mainDriverId;
-        }
-        if (v.changeCoDriver) {
-          if (!v.coDriverId) return 'Vui lòng chọn phụ lái / escort mới.';
-          newCrew.CO_DRIVER = v.coDriverId;
-        }
-        if (v.changeVet) {
-          if (!v.vetId) return 'Vui lòng chọn áp tải chăm sóc ngựa mới.';
-          newCrew.VETERINARIAN = v.vetId;
-        }
+        if (v.scenario === '2.1_QUICK_SWAP') {
+          if (!curCD) return 'Chuyến xe không có phụ lái khả dụng để chỉ định lên ghế lái chính.';
+          newCrew.MAIN_DRIVER = curCD.id;
+        } else {
+          if (v.mainDriverId) newCrew.MAIN_DRIVER = v.mainDriverId;
+          if (v.coDriverId) newCrew.CO_DRIVER = v.coDriverId;
+          if (v.vetId) newCrew.VETERINARIAN = v.vetId;
 
-        if (k === 'CREW_SWAP' && Object.keys(newCrew).length === 0) {
-          return 'Bạn đã chọn hướng xử lý “Thay nhân sự”, vui lòng tích chọn và phân công ít nhất một vị trí nhân sự thay thế.';
+          if (k === 'CREW_SWAP' && Object.keys(newCrew).length === 0) {
+            return 'Vui lòng chọn ít nhất một nhân sự thay thế cho chuyến đi.';
+          }
         }
 
         const selectedIds = Object.values(newCrew);
@@ -520,6 +764,86 @@ export function f5Plan(id: string) {
         }
       }
 
+      // Xây dựng danh sách Sub-tasks theo đúng kịch bản
+      const subTasks: string[] = [];
+      let autoDesc = String(v.desc || '').trim();
+
+      if (k === 'PICKUP_RELOCATE') {
+        const place = String(v.meetingPointName || '').trim() || proposedPlace || 'Điểm hẹn đón dắt bộ';
+        subTasks.push('Walk_Horse_To_Meeting_Point', 'Confirm_Safe_Loading');
+        if (!autoDesc) {
+          autoDesc = `Đổi điểm hẹn đón ngoại vi tại ${place}. Dắt bộ ngựa ra ngoài đường lớn (< 500m), không phát sinh chi phí.`;
+        }
+        if (t) {
+          t.pickupAccessStatus = 'RELOCATING';
+          t.relocationMeetingPointName = place;
+        }
+        const cleanTripKey = (t?.id || i.tripId || '').replace(/-/g, '_');
+        try {
+          localStorage.setItem(`rts_pickup_resolution_${cleanTripKey}`, JSON.stringify({
+            resolutionType: 'RELOCATING',
+            meetingPointName: place,
+            meetingLatitude: i.lat || 10.825,
+            meetingLongitude: i.lng || 106.632,
+            distanceMeters: t?.relocationDistanceMeters || 320,
+            shuttleCostVnd: 0,
+            customerApprovalStatus: 'APPROVED',
+          }));
+          localStorage.setItem(`rts_driver_pickup_status_${cleanTripKey}`, 'RELOCATING');
+        } catch {}
+      }
+
+      if (k === 'VEHICLE_SWAP') {
+        if (!v.veh) return 'Chọn xe chuyên dụng dự phòng của công ty.';
+        if (!v.reliefDriverId) return 'Chọn tài xế giao xe dự phòng ra hiện trường.';
+        v.scenario = v.needTowing ? '1.2_CRITICAL' : '1.1_STANDARD';
+        if (v.needTowing) {
+          subTasks.push('Send_Relief_Vehicle', 'Send_Relief_Driver', 'Call_Towing_Service', 'Transfer_Horses');
+          if (!autoDesc) {
+            autoDesc = `Điều xe chuyên dụng dự phòng của công ty (${vehicle(v.veh)?.plate || v.veh}) kèm tài xế giao xe (${emp(v.reliefDriverId)?.name || 'tài xế'}) ra hiện trường để tổ xe cũ tiếp tục hành trình. Đồng thời gọi xe cứu hộ (${v.towingPartner || 'Cứu hộ giao thông'}) kéo xe hỏng về garage công ty.`;
+          }
+        } else {
+          subTasks.push('Send_Relief_Vehicle', 'Send_Relief_Driver', 'Transfer_Horses');
+          if (!autoDesc) {
+            autoDesc = `Điều xe chuyên dụng dự phòng của công ty (${vehicle(v.veh)?.plate || v.veh}) kèm tài xế giao xe (${emp(v.reliefDriverId)?.name || 'tài xế'}) ra hiện trường. Tổ xe cũ nhận xe dự phòng để tiếp tục hành trình ngay.`;
+          }
+        }
+      } else if (k === 'CREW_SWAP') {
+        if (v.scenario === '2.1_QUICK_SWAP') {
+          subTasks.push('Promote_CoDriver_To_Main', 'Medical_Transport_Driver');
+          if (!autoDesc) {
+            autoDesc = `Kịch bản 2.1 (Phụ lái lên thay): Phụ lái ${curCD?.name || 'Phụ lái'} lên lái chính chở ngựa đi tiếp. Đưa tài xế cũ đi viện bằng ${v.medicalTransport || 'xe cấp cứu/taxi'}.`;
+          }
+        } else if (v.scenario === '2.2_INTERNAL_SUPPORT') {
+          subTasks.push('Send_Relief_Driver_Company_Car', 'Medical_Transport_Driver');
+          if (!autoDesc) {
+            autoDesc = `Kịch bản 2.2 (Xe công ty hỗ trợ): Điều xe con công ty (${v.companyCarPlate || 'Company Car'}) chở tài xế mới ${emp(v.mainDriverId)?.name || 'tài xế'} ra và chở tài xế ốm về.`;
+          }
+        } else {
+          subTasks.push('Send_Relief_Driver_Taxi', 'Medical_Transport_Driver');
+          if (!autoDesc) {
+            autoDesc = `Kịch bản 2.3 (Taxi ngoài hỗ trợ): Tài xế mới ${emp(v.mainDriverId)?.name || 'tài xế'} bắt ${v.taxiVendor || 'Taxi'} ra hiện trường. Ghi nhận chi phí taxi vào chi phí nội bộ.`;
+          }
+        }
+      } else if (k === 'VEHICLE_AND_CREW_SWAP') {
+        subTasks.push('Call_Ambulance', 'Send_Relief_Vehicle', 'Send_Relief_Crew', 'Specialist_On_Scene');
+        if (!autoDesc) {
+          autoDesc = `Kịch bản 3.1 (Tai nạn giao thông - Thay mới toàn bộ): Gọi cấp cứu ${v.ambulancePartner || '115'}, điều xe mới ${vehicle(v.veh)?.plate || v.veh} cùng tổ xe mới và Specialist ${emp(v.specialistId)?.name || ''} ra xử lý hiện trường.`;
+        }
+      } else if (k === 'NO_CHANGE') {
+        subTasks.push('Onsite_Troubleshooting', 'Driver_Self_Resolution', 'Safety_Inspection');
+        if (!autoDesc) {
+          autoDesc = `Khắc phục tại chỗ, giữ nguyên kế hoạch: Giữ nguyên phương tiện và tổ xe hiện tại. Tài xế thực hiện kiểm tra an toàn, khắc phục sự cố tại hiện trường. Sau khi hoàn thành và đảm bảo an toàn, bấm nút “Sự cố đã được xử lý” để tiếp tục hành trình.`;
+        }
+      } else if (k === 'ROUTE_ADJUST') {
+        subTasks.push('Adjust_Route_Path', 'Notify_Border_Authority', 'Update_Arrival_Time');
+        if (!autoDesc) {
+          autoDesc = `Điều chỉnh lộ trình trong tuyến pháp lý đã duyệt: Tránh đoạn đường bị ảnh hưởng, giữ nguyên quốc gia và cửa khẩu đã cấp phép. ETA mới dự kiến: ${eta}.`;
+        }
+      }
+
+      if (autoDesc.length < 10) return 'Mô tả phương án ít nhất 10 ký tự.';
+      if (String(v.reason).trim().length < 3) return 'Nhập lý do thực hiện phương án.';
       if (!eta) return 'Chọn thời gian giao dự kiến.';
       if (!(cost >= 0)) return 'Chi phí không hợp lệ.';
 
@@ -531,9 +855,25 @@ export function f5Plan(id: string) {
         v: draft ? base.v : (base ? base.v + 1 : 1),
         id: draft ? base.id : nextId('PL'),
         kind: k,
-        desc: String(v.desc).trim(),
+        scenario: v.scenario || '',
+        scenarioTitle: F5_SCENARIOS[v.scenario]?.title || '',
+        subTasks,
+        desc: autoDesc,
         reason: String(v.reason).trim(),
+        meetingPointName: v.meetingPointName || '',
         vehicleId: v.veh || '',
+        reliefDriverId: v.reliefDriverId || '',
+        towingPartner: v.towingPartner || '',
+        towingPhone: v.towingPhone || '',
+        towingCost: Number(v.towingCost || 0),
+        crewSwapMode: v.scenario || '',
+        companyCarPlate: v.companyCarPlate || '',
+        taxiVendor: v.taxiVendor || '',
+        taxiCost: Number(v.taxiCost || 0),
+        medicalTransport: v.medicalTransport || '',
+        ambulancePartner: v.ambulancePartner || '',
+        ambulancePhone: v.ambulancePhone || '',
+        specialistId: v.specialistId || '',
         crewRole: primaryRole,
         crewId: primaryCid,
         newCrew,
@@ -541,7 +881,7 @@ export function f5Plan(id: string) {
         etaBase: t.eta,
         etaTo: eta === t.eta ? '' : eta,
         cost,
-        payer: v.payer,
+        payer: v.payer || 'COMPANY',
         by: me().name,
         at: nowStamp(),
         status: 'DRAFT',
@@ -734,28 +1074,29 @@ export function f5Close(id: string) {
     };
   }
   openModal({
-    title: `Đóng sự cố ${i.id}`, ok: 'Đóng sự cố', init: { ok: false, note: '' },
+    title: `Ghi nhận kết quả ${i.id}`, ok: 'Ghi nhận đã xử lý', init: { ok: false, note: '' },
     body: () => (<>
       <Note tone="grey" title={`Kết quả từ ${i.result.by} (${dt(i.result.at)})`}>{i.result.text}</Note>
       <Chk name="ok">Đã kiểm tra kết quả, tình hình ổn định</Chk>
-      <Field label="Ghi chú đóng *"><Txt name="note" placeholder="Kết quả kiểm tra" /></Field>
+      <Field label="Ghi chú xử lý *"><Txt name="note" placeholder="Kết quả kiểm tra" /></Field>
     </>),
     onOk: (v) => {
       if (!v.ok) return 'Tick xác nhận đã kiểm tra.'; if (String(v.note).trim().length < 5) return 'Nhập ghi chú.';
-      i.status = 'CLOSED'; i.closedAt = nowStamp(); i.closedBy = me().name; i.closeNote = String(v.note).trim(); f5Log(i, 'Đóng sự cố: ' + i.closeNote);
+      i.status = 'RESOLVED'; i.closeNote = String(v.note).trim(); f5Log(i, 'Đã xử lý sự cố: ' + i.closeNote);
+      updateSharedIncidentStatus(i.id, 'RESOLVED');
       try {
         // Để Tài xế / Quản lý / Khách thấy ngay (cùng trình duyệt)
-        localStorage.setItem(`rts_incident_status_${cleanId(i.id)}`, 'CLOSED');
-        localStorage.setItem(`rts_incident_status_${i.id}`, 'CLOSED');
+        localStorage.setItem(`rts_incident_status_${cleanId(i.id)}`, 'RESOLVED');
+        localStorage.setItem(`rts_incident_status_${i.id}`, 'RESOLVED');
         window.dispatchEvent(new Event('rts_incident_pins_changed'));
       } catch { /* bỏ qua */ }
-      notify('LOGISTICS_MANAGER', `${i.id} đã đóng`, i.closeNote, `m/incident/${i.id}`); toast('Đã đóng sự cố. Chuyến vẫn tiếp tục theo các mốc.');
+      notify('LOGISTICS_MANAGER', `${i.id} đã xử lý`, i.closeNote, `m/incident/${i.id}`); toast('Đã ghi nhận kết quả. Chuyên viên sẽ đóng sự cố.');
 
       void (async () => {
         try {
           await apiClient.post(`/incidents/${cleanId(i.id)}/resolve`, {
-            resolutionSummary: i.closeNote,
-            requiresCustomerFollowUp: false,
+            resolutionType: 'RESOLVED_CONTINUE_CURRENT',
+            notes: i.closeNote,
           });
         } catch (e) {
           console.warn('[f5Close] Failed to sync close to backend:', e);

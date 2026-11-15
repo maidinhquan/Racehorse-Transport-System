@@ -1,11 +1,9 @@
 import React from 'react';
 import { ReviewInbox } from '../../../../shared/components/RequestReview/ReviewInbox';
-import { getDemoMode } from '../../../../shared/context/DemoModeContext';
 import { useNavigate } from 'react-router-dom';
 import { SpecialistLayout, Icon } from '../../components/SpecialistLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { MiniProgress } from '../../components/Common/Common';
-import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { CUSTOMER_DOC_NAME, countryName, docEffective, fmtDate, fmtDateTime, horseName, shortName, tripTotals, typeName } from '../../hooks/specialistRules';
 import './SpecialistDashboardPage.css';
@@ -44,7 +42,7 @@ export const SpecialistDashboardPage: React.FC = () => {
 
   return (
     <SpecialistLayout title="Tổng quan">
-      {!getDemoMode('specialist') && <ReviewInbox role="specialist" button="spc-btn" />}
+      <ReviewInbox role="specialist" button="spc-btn" />
       <div className="spc-head">
         <div>
           <h2 className="spc-title">Xin chào, {firstName}</h2>
@@ -97,7 +95,6 @@ export const SpecialistDashboardPage: React.FC = () => {
           </div>
         </div>
       </div>
-      <DemoPanel />
     </SpecialistLayout>
   );
 };

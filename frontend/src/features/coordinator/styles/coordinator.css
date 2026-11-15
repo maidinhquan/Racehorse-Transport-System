@@ -205,7 +205,6 @@
 .cbn-coord .au-error {font-size: 12px; color: var(--red);}
 .cbn-coord .check {margin-top: 20px; display: flex; gap: 10px; align-items: flex-start; font-size: 12px; font-weight: 500; color: var(--ink); cursor: pointer;}
 .cbn-coord .check input {margin-top: 1px; accent-color: var(--orange);}
-.cbn-coord .stack .card.demo {border-style: dashed; background: #fafafa; box-shadow: none;}
 .cbn-coord .toast {position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); background: #0f172a; color: #fff;
     padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 500; box-shadow: 0 10px 30px rgba(15,23,42,.35);
     opacity: 0; pointer-events: none; transition: .25s ease; z-index: 9999; max-width: 90vw;}
@@ -333,9 +332,6 @@
 @media (max-width: 900px){
 .cbn-coord .stats.six {grid-template-columns: repeat(2, minmax(0, 1fr));}
 }
-.cbn-coord .card.demo.m-demo {padding: 16px 20px; border-style: dashed; background: #fafafa; box-shadow: none; margin-top: 20px;}
-.cbn-coord .stack > .card.demo.m-demo {margin-top: 0;}
-.cbn-coord .card.demo.m-demo .btn-row .btn {white-space: normal; height: auto; min-height: 28px; padding: 6px 12px; text-align: left;}
 .cbn-coord .timeline.history li {padding-bottom: 14px;}
 .cbn-coord .field select:disabled, .cbn-coord .field input:disabled, .cbn-coord .field textarea:disabled {background: var(--bg); color: var(--muted); cursor: not-allowed;}
 .cbn-coord .step.warn {color: #b45309; font-weight: 600;}
@@ -447,15 +443,6 @@
 .cbn-coord .cbn-dp-grid button.on {background: var(--orange); color: #fff;}
 .cbn-coord .cbn-dp-grid button:disabled {color: #cbd5e1;}
 .cbn-coord .cbn-dp-foot {margin-top: 6px; font-size: 11px; color: var(--muted);}
-.cbn-coord .card.demo, .cbn-coord section.demo.m-demo {padding: 12px 14px !important;}
-.cbn-coord .card.demo .hint, .cbn-coord .m-demo .hint {font-size: 11px !important; line-height: 1.45 !important; margin: 3px 0 6px !important;}
-.cbn-coord .card.demo .eyebrow, .cbn-coord .m-demo .eyebrow {font-size: 10.5px;}
-.cbn-coord .card.demo .btn-row, .cbn-coord .m-demo .btn-row {gap: 6px !important; margin-top: 4px !important;}
-.cbn-coord .card.demo .btn, .cbn-coord .m-demo .btn {min-height: 26px !important; height: auto !important; padding: 4px 10px !important; font-size: 11.5px !important; line-height: 1.35 !important;
-    border-radius: 999px !important; white-space: nowrap !important; flex: 0 0 auto !important; width: auto !important; text-align: left !important;}
-@media (max-width: 640px){
-.cbn-coord .card.demo .btn, .cbn-coord .m-demo .btn {white-space: normal !important;}
-}
 .cbn-coord .lf-route {height:320px;border-radius:10px;border:1px solid #e1e7ee;z-index:0}
 .cbn-coord .f-track-map .lf-route {height:380px}
 .cbn-coord .lf-wrap .legend {margin-top:8px}
@@ -742,29 +729,6 @@
 .cbn-coord .journey-section-head {align-items:flex-start}
 .cbn-coord .journey-map .lf-route {height:280px}
 .cbn-coord .journey-eta {font-size:22px}
-}
-.cbn-coord .empty-plan-demo {padding:20px;margin:16px 0;background:#fffaf3;border:1px solid #fed7aa}
-.cbn-coord .empty-plan-demo h3 {margin:6px 0 0;font-size:17px;color:var(--ink)}
-.cbn-coord .empty-plan-guide {margin:12px 0;color:#53657c;font-size:13px;line-height:1.6}
-.cbn-coord .empty-plan-steps {display:grid;grid-template-columns:1.2fr 1fr;gap:20px}
-.cbn-coord .empty-plan-steps>div>b {font-size:12px;color:#56677b}
-.cbn-coord .empty-plan-steps .btn-row {margin-top:8px}
-.cbn-coord .empty-plan-demo .btn:disabled {opacity:.4;cursor:not-allowed}
-.cbn-coord .empty-plan-footer {border-top:1px solid #f3dfc6;margin-top:16px;padding-top:12px;display:flex;justify-content:space-between;gap:16px;align-items:center}
-.cbn-coord .empty-plan-footer>span {font-size:11px;color:#7d8797;line-height:1.6;max-width:540px}
-.cbn-coord .empty-plan-footer .btn-row {margin:0;flex-shrink:0}
-.cbn-coord .empty-plan-launch {display:flex;align-items:center;justify-content:space-between;gap:16px;background:#fffaf3;border:1px solid #fed7aa;padding:16px 20px;border-radius:12px;margin-bottom:20px}
-.cbn-coord .empty-plan-launch b, .cbn-coord .empty-plan-launch span {display:block}
-.cbn-coord .empty-plan-launch b {font-size:14px;color:var(--ink)}
-.cbn-coord .empty-plan-launch span {font-size:12px;color:#7d8797;margin-top:4px}
-@media(max-width:1000px){
-.cbn-coord .empty-plan-steps {grid-template-columns:1fr}
-.cbn-coord .empty-plan-footer {align-items:flex-start;flex-direction:column}
-.cbn-coord .empty-plan-footer .btn-row {flex-shrink:1}
-}
-@media(max-width:560px){
-.cbn-coord .empty-plan-demo {padding:16px}
-.cbn-coord .empty-plan-launch {align-items:flex-start;flex-direction:column}
 }
 .cbn-coord .f3-hours {border:1px solid #dfe7ef;border-radius:10px;padding:16px;margin:16px 0}
 .cbn-coord .f3-hours legend {padding:0 6px;font-size:13px;font-weight:650}

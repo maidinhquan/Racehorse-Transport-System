@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
 import { LockedCard, MiniProgress, Note } from '../../../components/Common/Common';
 import { Modal, ReasonModal } from '../../../components/Modals';
-import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
 import { AssignStage } from './AssignStage';
 import { ManagerRouteMap } from '../../../components/RouteMap/ManagerRouteMap';
 import { refreshTripPlan, useManager } from '../../../hooks/useManager';
@@ -176,13 +175,6 @@ export const PrepareStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
             </div>
             {planning && <Link className={`mgr-btn mgr-btn--block ${isReady(t) ? 'mgr-btn--solid' : ''}`} style={{ marginTop: 12 }} to={`/manager/trips/${t.id}/depart`}>Đến bước Duyệt khởi hành →</Link>}
           </section>
-          {planning && t.deployment.status === 'CONFIRMED' && (
-            <DemoPanel buttons={[
-              { label: 'Specialist: hoàn tất hồ sơ, bảo hiểm & kiểm dịch', run: () => actions.demo.specialistPrepare(t.id), hidden: docsOk },
-              { label: `Coordinator: gửi phương án tuyến${t.mode === 'AIR' ? ' & ngân sách bay' : ''}`, run: () => actions.demo.coordinatorSubmitRoute(t.id), hidden: !!rt && rt.status !== 'CHANGES_REQUESTED' },
-              { label: 'Coordinator: đặt chỗ chuyến bay', run: () => actions.demo.coordinatorBookFlight(t.id), hidden: t.flight?.status !== 'APPROVED' },
-            ]} hint="Giả lập thao tác của Specialist và Coordinator. Quyết định duyệt luôn thuộc về Manager." />
-          )}
         </aside>
       </div>
 

@@ -2,7 +2,6 @@
 export * from './types';
 export * from './api/managerApi';
 export * from './api/managerEndpoints';
-export * from './data/mockData';
 export * from './hooks/useManager';
 export * from './hooks/useManagerFilter';
 export * from './hooks/managerRules';
