@@ -51,7 +51,7 @@ describe('Flow 1 wire contract', () => {
   });
   it('matches selectable before the dynamic horse detail route', async () => {
     request.mockResolvedValue({ status: 200, data: example('/customer/horses/selectable', 'get') });
-    const result = await customerApi.getSelectableHorses('2026-11-20', 'REQUEST_001');
+    const result = await customerApi.getSelectableHorses('2026-11-20');
     expect(result[0].selectable).toBe(true);
   });
   it('rejects missing data and missing frontend fields', async () => {

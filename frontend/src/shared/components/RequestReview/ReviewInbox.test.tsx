@@ -28,7 +28,7 @@ beforeEach(() => {
 
 async function openReview() {
   render(<ReviewInbox role="specialist" button="btn" />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Mở xét duyệt' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Thẩm định' }));
   await screen.findByRole('button', { name: 'Gửi đánh giá hồ sơ' });
   fireEvent.change(screen.getByLabelText('Kết luận hồ sơ'), { target: { value: 'FEASIBLE' } });
 }
@@ -66,7 +66,7 @@ it('hides flight schedule in coordinator review', async () => {
   });
 
   render(<ReviewInbox role="coordinator" button="btn" />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Mở xét duyệt' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Thẩm định' }));
 
   expect(await screen.findByText(/Xe sẵn sàng theo quốc gia và sức chứa/)).toBeInTheDocument();
   expect(screen.queryByText(/Danh mục chuyến bay/)).not.toBeInTheDocument();
@@ -91,7 +91,7 @@ it('hides health certificate and vaccination from specialist checklist and submi
   api.specialist.mockResolvedValueOnce({ ...detail, status: 'MANAGER_PENDING' });
 
   render(<ReviewInbox role="specialist" button="btn" />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Mở xét duyệt' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Thẩm định' }));
 
   // PASSPORT should be rendered
   expect(await screen.findByText(/Ngựa Bạch Long · Hộ chiếu FEI/)).toBeInTheDocument();

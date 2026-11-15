@@ -48,7 +48,7 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
     let active = true;
     setSelectable(null);
     setConflicts({});
-    customerApi.getSelectableHorses(r.date, r.id, r.pickupAt)
+    customerApi.getSelectableHorses(r.date, r.pickupAt)
       .then(rows => {
         if (active) {
           setConflicts(Object.fromEntries(rows.filter(h => h.conflict).map(h => [h.id, h.conflict!.code])));
