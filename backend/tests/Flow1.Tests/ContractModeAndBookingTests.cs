@@ -113,7 +113,7 @@ public sealed class ContractModeAndBookingTests
                 ["phone"] = "0901112233", ["representative"] = "Manager", ["taxCode"] = "TEST"
             } };
             Service = new ContractService(Data, access, new CatalogService(Data, policies),
-                new SnapshotBuilder(Data, issuer, policies), new Renderer(), null!,
+                new SnapshotBuilder(Data, issuer, policies),
                 new NotificationService(Data, access, TimeProvider.System), issuer, TimeProvider.System,
                 new RequestDetailsService(Data, access));
         }
@@ -126,11 +126,6 @@ public sealed class ContractModeAndBookingTests
 
         public ContractDraftInput Input(string mode) => new("2099-01-12 18:00", new(0, 0, 0, 0, 0), "2099-01-10 08:00",
             40, "", [new PriceItem(1000000, "Transport", true)], mode, "", [new ContractTerm("Payment", "Deposit before signature")]);
-    }
-
-    private sealed class Renderer : IContractRenderer
-    {
-        public Task<string> RenderAsync(JsonElement snapshot, CancellationToken ct) => Task.FromResult("test.pdf");
     }
 
     private sealed class MemorySession : IDataSession

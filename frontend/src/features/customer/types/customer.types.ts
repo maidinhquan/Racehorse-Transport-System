@@ -136,7 +136,6 @@ export interface DeadlineChange {
 export interface ContractVersion {
   versionNo?: number;
   contractStatus?: string;
-  pdfUrl?: string | null;
   v: number;
   number: string;
   contractId?: string;

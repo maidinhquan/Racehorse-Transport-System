@@ -1,4 +1,4 @@
-import { downloadFile } from '../../../../../shared/api/downloadFile';
+import { downloadFile } from '../../../../../shared/api/core/downloadFile';
 import { useCustomer } from '../../../hooks/useCustomer';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';

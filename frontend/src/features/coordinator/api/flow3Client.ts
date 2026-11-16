@@ -9,7 +9,7 @@
 import Ajv from 'ajv';
 import { isAxiosError } from 'axios';
 import specification from '../../../contracts/flow3.openapi.json';
-import { apiClient } from '../../../shared/api/apiClient';
+import { apiClient } from '../../../shared/api/core/apiClient';
 
 type Schema = Record<string, unknown>;
 type Content = Record<string, { schema: Schema }>;

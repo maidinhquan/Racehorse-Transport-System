@@ -4,8 +4,8 @@ import { useCustomer } from '../../../hooks/useCustomer';
 import { fmtDateTime } from '../../../hooks/customerRules';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
 import { generateUuidV4 } from '../../../../../shared/utils/uuid';
-import { flow6Api } from '../../../../aftercare/api/flow6Api';
-import type * as T6 from '../../../../aftercare/types/flow6.types';
+import { flow6Api } from '../../../../../shared/api/handover';
+import type * as T6 from '../../../../../shared/api/handover';
 
 /** Tab Khiếu nại & Hỗ trợ (CHẾ ĐỘ BACKEND FLOW 6 THỰC TẾ) */
 const RealComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r }) => {

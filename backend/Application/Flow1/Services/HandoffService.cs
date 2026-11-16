@@ -22,15 +22,6 @@ public sealed class HandoffService(IDataSession data, AccessService access, IPri
             (role == UserRoles.TransportSpecialist && t.AssignedSpecialistId == actor || role == UserRoles.FleetRouteCoordinator && t.AssignedCoordinatorId == actor), ct))
             .Select(t => new { tripId=t.TripID, requestId=t.RequestID, eventId=t.HandoffEventId, status=t.Status, specialistId=t.AssignedSpecialistId, coordinatorId=t.AssignedCoordinatorId }).ToArray();
     }
-    public async Task<(byte[] Bytes,string ContentType)> PdfAsync(string actor,string id,string eventId,CancellationToken ct)
-    {
-        var trip=await TripAsync(actor,id,eventId,ct);
-        var contract=(await data.ListAsync<Contract>(c=>c.TripID==id && c.ContractStatus=="EFFECTIVE",ct)).SingleOrDefault();
-        Require(contract?.CurrentVersionNo is not null,"NOT_FOUND","Effective contract not found.",404);
-        var version=await data.FindAsync<ContractVersion>(ct,contract!.ContractID,contract.CurrentVersionNo!.Value);
-        Require(version?.VersionStatus=="SIGNED" && version.PdfUrl is not null,"NOT_FOUND","Signed PDF not found.",404);
-        return await files.ReadAsync(version!.PdfUrl!,ct);
-    }
     public async Task<(byte[] Bytes,string ContentType)> HorseAsync(string actor,string id,string horseId,string kind,string eventId,CancellationToken ct)
     {
         var trip=await TripAsync(actor,id,eventId,ct);

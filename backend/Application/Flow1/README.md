@@ -10,19 +10,18 @@ Nhánh `Refactor-Flow1`, nền `Truong` tại `cacc5be`. Cập nhật 24/10/2026
 | `Application/Flow1/Dtos/` | Một input/form nghiệp vụ mỗi file; từ chối thuộc tính JSON không khai báo. |
 | `Application/Flow1/Services/` | Quyền, nghiệp vụ, điều kiện chuyển trạng thái và ranh giới transaction. |
 | `Application/Flow1/Mapping/` | Chiếu response từ dữ liệu lưu; không tự cấp ID, giả thời điểm hoặc dựng lại hợp đồng cũ. |
-| `Application/Flow1/Interfaces/` | Cổng persistence, maps, OTP, PDF, private files và VNPAY; mỗi type riêng file. |
+| `Application/Flow1/Interfaces/` | Cổng persistence, maps, OTP, private files và VNPAY; mỗi type riêng file. |
 | `Application/Flow1/Rules/BusinessRules.cs` | Lỗi nghiệp vụ có HTTP status/errorCode và kiểm tra invariant. |
 | `Application/Flow1/Settings/CostSettings.cs` | Giả định nhân sự/sức chứa phải cấu hình rõ; không mặc định ngầm 2 người/1 bác sĩ. |
 | `Domain/Flow1/Entities/` | 17 entity phục vụ Flow 1, mỗi bảng một file, không sửa entity auth dùng chung. |
 | `Infrastructure/Flow1/Configurations/` | 17 mapping riêng: tên bảng/cột, kiểu SQL, NULL, default và khóa. |
 | `Infrastructure/Flow1/Data/RequestContext.cs` | Nạp mapping và quan hệ/unique index của module. |
-| `Infrastructure/Flow1/Data/SqlSession.cs` | Transaction Serializable và khóa ghi ngắn của module; không gọi SMTP/maps/PDF khi giữ transaction. |
+| `Infrastructure/Flow1/Data/SqlSession.cs` | Transaction Serializable và khóa ghi ngắn của module; không gọi SMTP/maps khi giữ transaction. |
 | `Infrastructure/Flow1/Data/SchemaCheck.cs` | Kiểm tra schema Reviewed, constraint/FK, sequence và unique index trước lần dùng đầu tiên; không tự migration. |
 | `Infrastructure/Flow1/Files/LocalFileStore.cs` | Private bytes, kiểm chữ ký file, kích thước và tính toàn vẹn; không phục vụ đường dẫn tùy ý. |
-| `Infrastructure/Flow1/Documents/ContractRenderer.cs` | HTML từ snapshot đã chốt, escape nội dung, chuyển PDF bằng browser và lưu private bytes. |
 | `WebApi/Extensions/Flow1/ServiceRegistration.cs` | Wiring duy nhất cho runtime mới: `AddRequestModule`. |
 | `WebApi/Extensions/Flow1/ProviderRegistration.cs` | Adapter bản đồ/VNPAY/SMTP hiện có, được tái sử dụng qua các port mới. |
-| `tests/Flow1.Rebuild.Tests/` | SQL Reviewed thật trong database tạm riêng + HTTP integration và kiểm thử PDF thật. |
+| `tests/Flow1.Rebuild.Tests/` | SQL Reviewed thật trong database tạm riêng + HTTP integration. |
 
 `IDataSession` là cổng query/write chung; service giữ điều kiện nghiệp vụ. Chưa tách thêm repository riêng từng aggregate vì các truy vấn hiện tại ngắn và dùng cùng một context/transaction. Các danh sách chưa có phân trang; không có query phân trang trong 65 operations nguồn.
 
@@ -39,7 +38,7 @@ Nhánh `Refactor-Flow1`, nền `Truong` tại `cacc5be`. Cập nhật 24/10/2026
 | RequestDocumentsService, ChecklistService | Đọc hồ sơ chung/từng ngựa theo request; nhận hồ sơ qua POST/PUT request không đồng nghĩa VERIFIED. |
 | RequestReviewService | Manager nhận queue chung: chấp nhận, yêu cầu sửa, từ chối. |
 | SnapshotBuilder | Chốt đầy đủ nội dung thương mại/hai bên/ngựa/lịch/điều khoản/policy; không chứa giá vốn hoặc OTP. |
-| ContractService | Soạn, lưu, phát hành, đọc version/PDF, chấp nhận điều khoản và phản hồi tự do. |
+| ContractService | Soạn, lưu, phát hành, đọc version, chấp nhận điều khoản và phản hồi tự do. |
 | ContractLifecycleService | Gia hạn metadata, nhắc việc, xóa draft; không sửa snapshot đã phát hành. |
 | PaymentService | Session VNPAY, kiểm IPN, ghi bằng chứng tiền và cập nhật đúng invoice/version. |
 | ContractSigningService | OTP gắn đúng version, giới hạn động, ký và tạo một Trip trong cùng transaction. |
@@ -57,7 +56,7 @@ Nhánh `Refactor-Flow1`, nền `Truong` tại `cacc5be`. Cập nhật 24/10/2026
 - COUNTRY/SUPPORTED_ROUTE/COST_RATE/CONTRACT_TEMPLATE đọc từ SQL. Adapter bản đồ không khóa danh mục ở VN/JP; service kiểm nước/tuyến hoạt động.
 - ID do DEFAULT + Sequence SQL cấp, cho phép khoảng trống. Không dùng MAX+1/hash làm khóa chính, không reset/cấp lại số. REQUEST_HORSE_MAPPING và CONTRACT_VERSION dùng khóa ghép.
 - Toàn bộ tiền VND nguyên. Không cột RowVersion, DeclaredValueUsd, ContractCode, PdfSha256 hay FeedbackFields trong entity/mapping runtime mới.
-- PDF và nội dung bản phát hành đọc từ version đã lưu. Gia hạn lưu ở metadata/currentDeadline, không sửa điều khoản/snapshot lịch sử. Bản seed SQL cũ được đọc nguyên trạng, không bù nội dung từ master hiện tại.
+- Nội dung bản phát hành đọc từ version đã lưu (hợp đồng không còn tạo PDF; khách xem trên web). Gia hạn lưu ở metadata/currentDeadline, không sửa điều khoản/snapshot lịch sử. Bản seed SQL cũ được đọc nguyên trạng, không bù nội dung từ master hiện tại.
 - Chấp nhận điều khoản lưu TermsAcceptedAtUtc của đúng version. Sai OTP vẫn commit tăng số lần thử. Không mã OTP cố định/bypass hay mock-sign/mock-deposit.
 - Chỉ IPN đã kiểm chữ ký/merchant/tiền/reference được ghi nhận. Callback trùng không cộng tiền lại. Tiền đến sau hủy/hết hạn/khác phiên bản hoặc sau thông báo FAILED được giữ REVIEW_REQUIRED, không tự kích hoạt request.
 - Không endpoint Manager xác nhận tiền thủ công. Hoàn tiền chỉ cập nhật RefundStatus; không gọi ngân hàng/chuyển tiền.
@@ -112,7 +111,7 @@ dotnet test backend/tests/Registration.Tests/Registration.Tests.csproj -v quiet
 
 Kết quả gần nhất: Rebuild **24 qua, 0 bỏ qua**; Flow1.Tests **76 qua, 88 bỏ qua**; Registration.Tests **42 qua, 5 bỏ qua**. Build WebApi không warning/error. Các test bỏ qua không được tính là đã xác minh.
 
-Bộ Rebuild chạy SQL thật trên `.\SQLEXPRESS` (hoặc FLOW1_TEST_SQL), tự tạo/xóa chỉ database `Flow1Rebuild_<GUID>`. Database đang dùng không bị reset. Test auth/SMTP/maps trong HTTP fixture là adapter test; IPN dùng thuật toán HMAC thật của gateway với merchant/secret test. Một test riêng chạy Chrome/Edge thật để chuyển PDF và kiểm private-file integrity; máy khác thiếu browser thì test đó skip có lý do (FLOW1_TEST_BROWSER để cấu hình).
+Bộ Rebuild chạy SQL thật trên `.\SQLEXPRESS` (hoặc FLOW1_TEST_SQL), tự tạo/xóa chỉ database `Flow1Rebuild_<GUID>`. Database đang dùng không bị reset. Test auth/SMTP/maps trong HTTP fixture là adapter test; IPN dùng thuật toán HMAC thật của gateway với merchant/secret test.
 
 Đã kiểm hash 22 file auth/registration và sáu nguồn data theo fingerprint kế hoạch: không thay đổi. Không đổi frontend, SQL, rule nguồn hay dữ liệu của flow khác. Chưa thử email SMTP thật, phiên thanh toán ngân hàng thật/public IPN, địa chỉ/maps thật hoặc E2E frontend; không suy các phần đó từ test doubles.
 

@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiClient } from '../../../shared/api/apiClient';
+import { apiClient } from '../../../shared/api/core/apiClient';
 import { db, resetCoordinatorState, syncCoordinatorTrips } from './coordinatorStore';
 import { reqOfTrip, tripHorses } from '../domain/coordinatorRules';
 
-vi.mock('../../../shared/api/apiClient', () => ({ apiClient: { get: vi.fn().mockResolvedValue({ data: { data: [] } }) } }));
+vi.mock('../../../shared/api/core/apiClient', () => ({ apiClient: { get: vi.fn().mockResolvedValue({ data: { data: [] } }) } }));
 
 const summary = { tripId: 'TRIP_004', requestId: 'REQUEST_005', status: 'PLANNING', mode: 'ROAD', plannedDepart: '2026-12-09 06:00', eta: '2026-11-03 07:00' };
 const context = {

@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
-import { downloadFile } from '../../../../shared/api/downloadFile';
+import { downloadFile } from '../../../../shared/api/core/downloadFile';
 import type { FileRef } from '../../types';
-import { isImageFile, normalizeImage } from '../../../../shared/files/normalizeImage';
+import { isImageFile, normalizeImage } from '../../../../shared/utils/file/normalizeImage';
 
 export const SCAN_TYPES = ['pdf', 'jpg', 'jpeg', 'png'];
 export const PHOTO_TYPES = ['jpg', 'jpeg', 'png'];

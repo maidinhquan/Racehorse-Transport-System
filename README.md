@@ -66,6 +66,22 @@ Hệ thống sử dụng **SQL Server cài trực tiếp trên máy tính** (kh�
 
 ---
 
+## ✅ Chạy lần đầu cho người mới (checklist)
+
+Làm lần lượt, sau đó mới chạy theo "Hướng dẫn chạy dự án" bên dưới:
+
+1. **Cài công cụ:** Git, Docker Desktop (nếu chạy bằng Docker) hoặc .NET 8 SDK và Node.js (nếu chạy từng phần).
+2. **Cài SQL Server trên máy**, bật đăng nhập SQL Server Authentication và giao thức TCP/IP (cổng 1433). Docker **không** tạo CSDL giúp bạn.
+3. **Tạo CSDL:** chạy toàn bộ file [HorseTransportDB/HorseTransportDB.sql](HorseTransportDB/HorseTransportDB.sql) bằng SSMS hoặc Azure Data Studio.
+4. **Tạo file `.env`:** sao chép `.env.example` thành `.env` ở thư mục gốc, rồi điền ít nhất `SQL_PASSWORD`. Thiếu biến này `docker compose` sẽ báo lỗi ngay.
+5. **Các giá trị còn để mẫu** (`your_..._here`) chỉ ảnh hưởng chức năng tương ứng: SMTP (gửi email OTP khi đăng ký), `VITE_GOOGLE_CLIENT_ID` (nút Google), Mapbox/Geoapify (bản đồ), VNPay (thanh toán). Hãy xin giá trị thật từ trưởng nhóm nếu bạn cần thử các chức năng đó.
+6. **Chạy:** `docker compose up -d --build` (lần đầu lâu vì phải tải image), rồi mở http://localhost:5173.
+
+> [!NOTE]
+> Hợp đồng (Flow 1) **không còn tạo file PDF**: khách xem hợp đồng ngay trên trang web, nên Docker không cần Chromium. Riêng **PDF bàn giao của Flow 6** vẫn cần LibreOffice; công cụ này hiện **chưa được cài sẵn** trong Docker để build nhanh, nên bước xuất PDF bàn giao sẽ báo lỗi 501. Muốn dùng, hãy chạy Backend trực tiếp trên máy (Cách 1) và cài LibreOffice, xem [backend/README.md](backend/README.md).
+>
+> **CSDL đã tạo từ bản cũ:** chạy thêm [HorseTransportDB/migrate_contract_pdf_optional.sql](HorseTransportDB/migrate_contract_pdf_optional.sql) một lần để hợp đồng phát hành được khi không có PDF. Người tạo CSDL mới từ `HorseTransportDB.sql` hiện tại không cần chạy.
+
 ## 🏃 Hướng dẫn chạy dự án
 
 Bạn có thể chạy dự án theo 2 cách:
@@ -101,7 +117,7 @@ npm run dev
 ### CÁCH 2: Khởi chạy bằng Docker Compose
 
 > [!IMPORTANT]
-> Docker Compose chỉ chạy 2 dịch vụ: **Backend** và **Frontend**. Dịch vụ Backend trong Docker sẽ tự động kết nối với SQL Server trên máy tính của bạn qua địa chỉ `host.docker.internal,1433`.
+> Docker Compose chạy **Backend** và **Frontend** (dịch vụ `tunnel` của ngrok chỉ để VNPay gọi về máy, tự thoát nếu không có `NGROK_AUTHTOKEN`). Backend trong Docker kết nối SQL Server trên máy tính của bạn qua địa chỉ `host.docker.internal,1433`; địa chỉ này dùng được trên Windows và macOS, còn Linux cần thêm `extra_hosts` trong `compose.yaml`.
 
 1. Đảm bảo SQL Server trên máy tính đang chạy và file `.env` đã được điền đúng thông tin tài khoản.
 2. Mở phần mềm Docker Desktop.
@@ -125,7 +141,10 @@ npm run dev
 Tạo file `.env` tại thư mục gốc từ bản mẫu `.env.example` và điền các thông tin:
 * Khóa bảo mật JWT: `Jwt__Key` (chuỗi ký tự ngẫu nhiên tối thiểu 32 ký tự).
 * Khóa ký hợp đồng và gửi OTP: `Flow1__Contracts__OtpHmacKey`, thông tin tài khoản gửi email SMTP.
-* Cấu hình cổng thanh toán VNPay: `Vnpay__TmnCode`, `Vnpay__HashSecret`.
+* Cấu hình cổng thanh toán VNPay: `Vnpay__TmnCode`, `Vnpay__HashSecret`, và `VNPAY_ALLOWED_ORIGINS` (danh sách địa chỉ web được nhận kết quả thanh toán, cách nhau bằng dấu phẩy).
+* Đăng nhập Google: điền `VITE_GOOGLE_CLIENT_ID` (xin Client ID từ trưởng nhóm). Địa chỉ bạn chạy web (ví dụ `http://localhost:5173`) phải được thêm vào danh sách "Authorized JavaScript origins" của Client ID đó, nếu không nút Google sẽ không hoạt động.
+* Frontend dùng chung file `.env` này (không còn `frontend/.env`). Chỉ biến bắt đầu bằng `VITE_` được đưa vào trình duyệt, nên không đặt secret vào các biến đó. Sau khi sửa `.env`, hãy khởi động lại `npm run dev` hoặc `docker compose up`.
+* Tunnel nhận webhook VNPay (tùy chọn): xem `COMPOSE_PROFILES` trong [backend/README.md](backend/README.md).
 * Kiểm tra tính hợp lệ của cấu hình Docker: `docker compose config --quiet`.
 
 Hướng dẫn chi tiết về cổng thanh toán VNPay thử nghiệm xem tại file [backend/README.md](backend/README.md).

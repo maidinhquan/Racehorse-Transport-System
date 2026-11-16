@@ -11,8 +11,8 @@ import {
   sumActual,
 } from '../../../hooks/managerRules';
 import { generateUuidV4 } from '../../../../../shared/utils/uuid';
-import { flow6Api } from '../../../../aftercare/api/flow6Api';
-import type * as T6 from '../../../../aftercare/types/flow6.types';
+import { flow6Api } from '../../../../../shared/api/handover';
+import type * as T6 from '../../../../../shared/api/handover';
 
 
 /** Mục 3: Bàn giao, tất toán và đóng đơn (CHẾ ĐỘ BACKEND FLOW 6 THỰC TẾ) */

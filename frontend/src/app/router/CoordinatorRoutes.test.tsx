@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiClient } from '../../shared/api/apiClient';
+import { apiClient } from '../../shared/api/core/apiClient';
 import {
   db, resetCoordinatorState, syncCoordinatorIncidents, syncCoordinatorMasterData, syncCoordinatorTrips,
 } from '../../features/coordinator/store/coordinatorStore';

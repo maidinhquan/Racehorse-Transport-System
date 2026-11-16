@@ -40,7 +40,7 @@ import type {
   Trip,
   TripStatus,
 } from '../types';
-import { cleanStopName } from '../../tracking/utils/progress';
+import { cleanStopName } from '../../../shared/utils/progress';
 
 // ============================================================================
 // Đồng hồ chạy theo thời gian thực (đồng bộ với Backend C#)

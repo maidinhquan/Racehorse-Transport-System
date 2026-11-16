@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import type { FileRef } from '../../types';
-import { downloadFile } from '../../../../shared/api/downloadFile';
-import { useAuthFile } from '../../../../shared/api/useAuthFileUrl';
+import { downloadFile } from '../../../../shared/api/core/downloadFile';
+import { useAuthFile } from '../../../../shared/api/core/useAuthFileUrl';
 import { Icon } from '../CustomerLayout';
 import './Modals.css';
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuthFileUrl } from '../api/useAuthFileUrl';
+import { useAuthFileUrl } from '../api/core/useAuthFileUrl';
 import './AuthImage.css';
 
 type Props = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> & {

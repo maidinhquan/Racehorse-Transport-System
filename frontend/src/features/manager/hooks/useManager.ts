@@ -10,10 +10,10 @@ import type {
   Trip,
 } from '../types';
 import { managerApi } from '../api/managerApi';
-import { apiMessage } from '../../../shared/api/apiError';
+import { apiMessage } from '../../../shared/api/core/apiError';
 import { MANAGER_NAME } from '../types';
-import type { RefundEvidence } from '../../../shared/api/flow1Wire';
-import type { ChangeReview, OptionKey } from '../../../shared/api/requestReviewApi';
+import type { RefundEvidence } from '../../../shared/api/contracts';
+import type { ChangeReview, OptionKey } from '../../../shared/api/reviews/requestReviewApi';
 import { getSharedRequests, toManagerRequest } from '../../../shared/utils/sharedRequests';
 import {
   closureChecks,
@@ -49,8 +49,8 @@ const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
 import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
 import { getSharedNotificationsFor } from '../../../shared/utils/sharedNotifications';
 import { getSharedTrips, saveSharedTrip } from '../../../shared/utils/sharedTrips';
-import { flow4Api } from '../../tracking/api/flow4Api';
-import { progressFromMilestones } from '../../tracking/utils/progress';
+import { flow4Api } from '../../../shared/api/tracking';
+import { progressFromMilestones } from '../../../shared/utils/progress';
 
 function mergeTripsWithShared(baseTrips: Trip[]): Trip[] {
   const sharedMap = getSharedTrips();

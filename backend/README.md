@@ -39,8 +39,8 @@ Mở http://localhost:5173/payment/sandbox và tạo giao dịch 10.000 VND. Ch�
 Cách nhanh với Docker (tự bật đường hầm khi chạy `docker compose up`):
 
 1. Tạo tài khoản miễn phí tại https://dashboard.ngrok.com, lấy **authtoken** và nhận **tên miền tĩnh miễn phí** (Domains).
-2. Trong `.env` ở thư mục gốc: `COMPOSE_PROFILES=tunnel`, `NGROK_AUTHTOKEN=...`, `NGROK_DOMAIN=<tên-miền>.ngrok-free.app`.
-3. Đăng ký **một lần** với VNPAY (merchant sandbox của `Flow1__Vnpay__TmnCode`) IPN URL: `https://<NGROK_DOMAIN>/api/payments/vnpay/ipn`.
+2. Trong `.env` ở thư mục gốc: `NGROK_AUTHTOKEN=...`. Có token thì dịch vụ `tunnel` tự chạy cùng `docker compose up`, không cần `COMPOSE_PROFILES`. Tài khoản miễn phí tự dùng tên miền tĩnh của nó (xem tại http://localhost:4040 hoặc trong dashboard ngrok).
+3. Đăng ký **một lần** với VNPAY (merchant sandbox của `Flow1__Vnpay__TmnCode`) IPN URL: `https://<tên-miền-ngrok-của-bạn>/api/payments/vnpay/ipn`.
 4. `docker compose up -d`. Xem các lần VNPAY gọi IPN tại http://localhost:4040.
 
 Không muốn tạo tài khoản: đặt `COMPOSE_PROFILES=quicktunnel` (Cloudflare Quick Tunnel). Địa chỉ công khai xem tại http://localhost:2000/quicktunnel; địa chỉ này đổi sau mỗi lần khởi động nên phải cập nhật IPN URL bên VNPAY mỗi lần.

@@ -32,8 +32,8 @@ export interface Db {
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
-import { apiClient } from '../../../shared/api/apiClient';
-import { progressFromMilestones } from '../../tracking/utils/progress';
+import { apiClient } from '../../../shared/api/core/apiClient';
+import { progressFromMilestones } from '../../../shared/utils/progress';
 
 export const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
 

@@ -1,5 +1,5 @@
 import L from 'leaflet';
-import { apiClient } from '../api/apiClient';
+import { apiClient } from '../api/core/apiClient';
 
 /** Fetch through the authenticated backend so the Geoapify key never reaches the browser. */
 export function addGeoapifyTiles(map: L.Map, onError: () => void) {

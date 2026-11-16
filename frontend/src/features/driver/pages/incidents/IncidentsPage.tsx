@@ -9,7 +9,7 @@ import { Modal } from '../../components/Modals/Modal';
 import { useDriver } from '../../hooks/useDriver';
 import { driverApi } from '../../api/driverApi';
 import { INCIDENT_TYPE_LABEL, SEVERITY_LABEL, defaultSegmentRatio, fmtDateTime, incidentWhere, nowStamp, segmentPickable } from '../../hooks/driverRules';
-import { apiClient } from '../../../../shared/api/apiClient';
+import { apiClient } from '../../../../shared/api/core/apiClient';
 import { notifySync } from '../../../../shared/utils/syncChannel';
 import type { HorseHealthIssue, Incident, IncidentSeverity, IncidentType, Photo, Trip } from '../../types';
 import './IncidentsPage.css';

@@ -1,4 +1,4 @@
-import { apiClient } from '../../../shared/api/apiClient';
+import { apiClient } from '../../../shared/api/core/apiClient';
 import { SPECIALIST_ENDPOINTS } from './specialistEndpoints';
 import type {
   ApiResponse,

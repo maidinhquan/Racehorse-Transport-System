@@ -9,8 +9,8 @@ import { Icon } from '../../../components/CustomerLayout';
 import { LockedCard, Note } from '../../../components/Common/Common';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
 import { generateUuidV4 } from '../../../../../shared/utils/uuid';
-import { flow6Api } from '../../../../aftercare/api/flow6Api';
-import type * as T6 from '../../../../aftercare/types/flow6.types';
+import { flow6Api } from '../../../../../shared/api/handover';
+import type * as T6 from '../../../../../shared/api/handover';
 import { onSync } from '../../../../../shared/utils/syncChannel';
 
 

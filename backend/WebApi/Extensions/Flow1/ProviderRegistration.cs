@@ -14,7 +14,16 @@ public static class ProviderRegistration
 {
     public static IServiceCollection AddFlow1Providers(this IServiceCollection services,IConfiguration config,IHostEnvironment environment)
     {
-        services.AddSingleton(config.GetSection("Flow1:Vnpay").Get<Flow1VnpayOptions>() ?? new());
+        var vnpayOptions = config.GetSection("Flow1:Vnpay").Get<Flow1VnpayOptions>() ?? new();
+        if (vnpayOptions.AllowedReturnOrigins == null || vnpayOptions.AllowedReturnOrigins.Length == 0)
+        {
+            var originsConfig = config["VNPAY_ALLOWED_ORIGINS"];
+            if (!string.IsNullOrWhiteSpace(originsConfig))
+            {
+                vnpayOptions.AllowedReturnOrigins = originsConfig.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            }
+        }
+        services.AddSingleton(vnpayOptions);
         services.AddHttpContextAccessor();
         services.AddSingleton<IPaymentGateway, VnpaySandboxGateway>();
         // Resolve deposits whose IPN never arrived (not in automated tests, which control time and providers).
@@ -25,18 +34,49 @@ public static class ProviderRegistration
         }
         services.AddHttpClient<IGatewayQuery,VnpayQueryGateway>(c=>c.Timeout=TimeSpan.FromSeconds(15))
             .RemoveAllLoggers().ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
-        services.AddSingleton<IOtpSecurity>(new ContractOtpSecurity(config["Flow1:Contracts:OtpHmacKey"]));
+        services.AddSingleton<IOtpSecurity>(new ContractOtpSecurity(config["Flow1:Contracts:OtpHmacKey"] ?? config["OTP_HMAC_KEY"]));
         var emailOptions = config.GetSection("Flow1:Contracts:Email").Get<ContractSmtpOptions>() ?? new();
         if (!config.GetSection("Flow1:Contracts:Email:Smtp").Exists())
             emailOptions.Smtp = config.GetSection("RegistrationEmail:Smtp").Get<Infrastructure.ExternalServices.Email.RegistrationSmtpOptions>() ?? new();
         services.AddSingleton<IOtpSender>(new ContractSmtpSender(emailOptions, environment.IsDevelopment()));
         var contractOptions = config.GetSection("Flow1:Contracts").Get<Flow1ContractOptions>() ?? new();
+        void EnsureIssuer(string key, string? fallbackVal)
+        {
+            if ((!contractOptions.Issuer.TryGetValue(key, out var v) || string.IsNullOrWhiteSpace(v)) && !string.IsNullOrWhiteSpace(fallbackVal))
+            {
+                contractOptions.Issuer[key] = fallbackVal;
+            }
+        }
+        EnsureIssuer("legalName", config["COMPANY_NAME"] ?? config["Flow1:Contracts:Issuer:legalName"]);
+        EnsureIssuer("address", config["COMPANY_ADDRESS"] ?? config["Flow1:Contracts:Issuer:address"]);
+        EnsureIssuer("phone", config["COMPANY_PHONE"] ?? config["Flow1:Contracts:Issuer:phone"]);
+        EnsureIssuer("representative", config["COMPANY_REPRESENTATIVE"] ?? config["Flow1:Contracts:Issuer:representative"]);
+        EnsureIssuer("taxCode", config["COMPANY_TAX_CODE"] ?? config["Flow1:Contracts:Issuer:taxCode"]);
+        EnsureIssuer("email", config["SMTP_FROM"] ?? config["SMTP_USERNAME"] ?? config["RegistrationEmail:Smtp:From"] ?? config["Smtp:FromEmail"]);
         services.AddSingleton(contractOptions);
         services.AddSingleton<IDocumentGenerator>(sp => new CodeContractDocumentGenerator(
             environment.ContentRootPath, contractOptions, sp.GetRequiredService<IFileArchive>()));
         services.AddScoped<TransportEstimateService>();
         services.AddScoped<ICostRates, Infrastructure.Data.Context.DatabaseCostRates>();
-        services.AddSingleton(config.GetSection("Flow1:Maps").Get<Flow1MapOptions>() ?? new());
+        var mapOptions = config.GetSection("Flow1:Maps").Get<Flow1MapOptions>() ?? new();
+        if (string.IsNullOrWhiteSpace(mapOptions.Mapbox.AccessToken))
+        {
+            var token = config["MAPBOX_ACCESS_TOKEN"] ?? config["Flow1:Maps:Mapbox:AccessToken"];
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                mapOptions.Mapbox.AccessToken = token;
+                mapOptions.Mapbox.PermanentGeocodingEnabled = true;
+            }
+        }
+        if (string.IsNullOrWhiteSpace(mapOptions.Geoapify.ApiKey))
+        {
+            var key = config["GEOAPIFY_API_KEY"] ?? config["Flow1:Maps:Geoapify:ApiKey"];
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                mapOptions.Geoapify.ApiKey = key;
+            }
+        }
+        services.AddSingleton(mapOptions);
         services.AddSingleton(config.GetSection("Flow1:Estimate").Get<Flow1EstimateOptions>() ?? new());
         services.AddSingleton<OsmRequestGate>();
         services.AddHttpClient<OsmTransportMaps>(client => client.Timeout = TimeSpan.FromSeconds(15))

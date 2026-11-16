@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { apiMessage } from '../../api/contractClient';
-import { requestReviewApi } from '../../api/requestReviewApi';
+import { apiMessage } from '../../api/contracts/contractClient';
+import { requestReviewApi } from '../../api/reviews/requestReviewApi';
 import { notifySync } from '../../utils/syncChannel';
 import { DateInput } from '../DateInput/DateInput';
 import type {
@@ -15,7 +15,7 @@ import type {
   Reviewer,
   ScheduleOption,
   SpecialistResult,
-} from '../../api/requestReviewApi';
+} from '../../api/reviews/requestReviewApi';
 import { documentName, documentStage, itemStatus, reviewDay, reviewMode, reviewResult, reviewStatus } from './labels';
 import './RequestReview.css';
 

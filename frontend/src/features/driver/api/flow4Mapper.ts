@@ -1,5 +1,5 @@
-import type { Tracking } from '../../tracking/types/flow4.types';
-import { progressFromMilestones } from '../../tracking/utils/progress';
+import type { Tracking } from '../../../shared/api/tracking';
+import { progressFromMilestones } from '../../../shared/utils/progress';
 import type { CrewMember, CrewRole, CrewSlot, Horse, Milestone, RouteStop, Trip } from '../types';
 
 

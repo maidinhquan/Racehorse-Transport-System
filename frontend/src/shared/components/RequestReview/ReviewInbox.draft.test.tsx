@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { ReviewInbox } from './ReviewInbox';
 
 const api = vi.hoisted(() => ({ queue: vi.fn(), detail: vi.fn(), specialist: vi.fn(), coordinator: vi.fn() }));
-vi.mock('../../api/requestReviewApi', () => ({ requestReviewApi: api }));
+vi.mock('../../api/reviews/requestReviewApi', () => ({ requestReviewApi: api }));
 
 const source = { checklistItemId: 'HOR_1:PASSPORT', horseId: 'HOR_1', horseName: 'Bạch Long', documentType: 'PASSPORT', stage: 'BEFORE_CONTRACT', fileAvailable: true, expiryDate: null, usable: true };
 const detail = {

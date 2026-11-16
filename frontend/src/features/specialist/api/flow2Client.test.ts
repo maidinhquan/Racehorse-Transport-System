@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flow2Api } from './flow2Api';
-import { apiClient } from '../../../shared/api/apiClient';
+import { apiClient } from '../../../shared/api/core/apiClient';
 
-vi.mock('../../../shared/api/apiClient', () => ({
+vi.mock('../../../shared/api/core/apiClient', () => ({
   apiClient: {
     request: vi.fn(),
   },

@@ -71,6 +71,63 @@ if (!string.IsNullOrWhiteSpace(smtpFrom))
     builder.Configuration["Flow1:Contracts:Email:Smtp:From"] ??= smtpFrom;
     builder.Configuration["Smtp:FromEmail"] ??= smtpFrom;
 }
+var effectiveEmail = !string.IsNullOrWhiteSpace(smtpFrom) ? smtpFrom : smtpUser;
+if (!string.IsNullOrWhiteSpace(effectiveEmail))
+{
+    builder.Configuration["Flow1:Contracts:Issuer:email"] ??= effectiveEmail;
+}
+
+// Fallback mapping for clean enterprise environment variables
+var jwtKeyFromEnv = builder.Configuration["JWT_SECRET_KEY"] ?? builder.Configuration["JWT_KEY"];
+if (!string.IsNullOrWhiteSpace(jwtKeyFromEnv))
+{
+    builder.Configuration["Jwt:Key"] ??= jwtKeyFromEnv;
+}
+var otpHmac = builder.Configuration["OTP_HMAC_KEY"];
+if (!string.IsNullOrWhiteSpace(otpHmac))
+{
+    builder.Configuration["Flow1:Contracts:OtpHmacKey"] ??= otpHmac;
+}
+var mapboxToken = builder.Configuration["MAPBOX_ACCESS_TOKEN"];
+if (!string.IsNullOrWhiteSpace(mapboxToken))
+{
+    builder.Configuration["Flow1:Maps:Mapbox:AccessToken"] ??= mapboxToken;
+    builder.Configuration["Flow1:Maps:Mapbox:PermanentGeocodingEnabled"] ??= "true";
+}
+var geoapifyKey = builder.Configuration["GEOAPIFY_API_KEY"];
+if (!string.IsNullOrWhiteSpace(geoapifyKey))
+{
+    builder.Configuration["Flow1:Maps:Geoapify:ApiKey"] ??= geoapifyKey;
+}
+builder.Configuration["Flow1:Maps:Provider"] ??= "MAPBOX";
+builder.Configuration["Flow1:Maps:DataProvider"] ??= "GEOAPIFY";
+builder.Configuration["Flow1:Maps:MayPersistResults"] ??= "true";
+
+var companyName = builder.Configuration["COMPANY_NAME"];
+if (!string.IsNullOrWhiteSpace(companyName))
+{
+    builder.Configuration["Flow1:Contracts:Issuer:legalName"] ??= companyName;
+}
+var companyAddress = builder.Configuration["COMPANY_ADDRESS"];
+if (!string.IsNullOrWhiteSpace(companyAddress))
+{
+    builder.Configuration["Flow1:Contracts:Issuer:address"] ??= companyAddress;
+}
+var companyPhone = builder.Configuration["COMPANY_PHONE"];
+if (!string.IsNullOrWhiteSpace(companyPhone))
+{
+    builder.Configuration["Flow1:Contracts:Issuer:phone"] ??= companyPhone;
+}
+var companyRep = builder.Configuration["COMPANY_REPRESENTATIVE"];
+if (!string.IsNullOrWhiteSpace(companyRep))
+{
+    builder.Configuration["Flow1:Contracts:Issuer:representative"] ??= companyRep;
+}
+var companyTax = builder.Configuration["COMPANY_TAX_CODE"];
+if (!string.IsNullOrWhiteSpace(companyTax))
+{
+    builder.Configuration["Flow1:Contracts:Issuer:taxCode"] ??= companyTax;
+}
 
 // Fallback mapping for standard VNPAY_* environment variables
 var vnpayReturnUrl = builder.Configuration["VNPAY_RETURN_URL"];
@@ -87,6 +144,15 @@ var vnpayHash = builder.Configuration["VNPAY_HASH_SECRET"];
 if (!string.IsNullOrWhiteSpace(vnpayHash))
 {
     builder.Configuration["Flow1:Vnpay:HashSecret"] = vnpayHash;
+}
+var vnpayOrigins = builder.Configuration["VNPAY_ALLOWED_ORIGINS"];
+if (!string.IsNullOrWhiteSpace(vnpayOrigins))
+{
+    var origins = vnpayOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    for (int i = 0; i < origins.Length; i++)
+    {
+        builder.Configuration[$"Flow1:Vnpay:AllowedReturnOrigins:{i}"] = origins[i];
+    }
 }
 
 // The same private configuration is mounted under /app in Docker. Resolve it

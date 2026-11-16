@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiClient } from '../../../shared/api/apiClient';
+import { apiClient } from '../../../shared/api/core/apiClient';
 import specification from '../../../contracts/flow3.openapi.json';
 import { flow3Api } from './flow3Api';
 import { flow3Request } from './flow3Client';
 import { flow3Endpoints } from './flow3Endpoints';
 
-vi.mock('../../../shared/api/apiClient', () => ({ apiClient: { request: vi.fn() } }));
+vi.mock('../../../shared/api/core/apiClient', () => ({ apiClient: { request: vi.fn() } }));
 const request = vi.mocked(apiClient.request);
 const key = '1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd';
 const tripId = 'TRIP_001';

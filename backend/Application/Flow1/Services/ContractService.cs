@@ -9,7 +9,7 @@ using static Application.Flow1.Rules.BusinessRules;
 namespace Application.Flow1.Services;
 
 public sealed class ContractService(IDataSession data, AccessService access, CatalogService catalogs,
-    SnapshotBuilder snapshots, IContractRenderer renderer, IPrivateFiles files,
+    SnapshotBuilder snapshots,
     NotificationService notifications, Flow1ContractOptions issuer, TimeProvider clock, RequestDetailsService details, RequestAssessmentService? assessments = null)
 {
     public async Task<object> EditorAsync(string actor, string request, CancellationToken ct, string? mode = null)
@@ -121,7 +121,7 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         var preparation = checked((int)node["route"]!["preparationDays"]!.GetValue<decimal>());
         Require(deadline <= departure.AddDays(-preparation), "CONTRACT_EXPIRED", "Publication needs a full completion window before preparation.");
         node["issuedAtUtc"] = now; node["paymentObligations"]!["completionDeadlineUtc"] = deadline;
-        var frozen = node.ToJsonString(); var pdf = await renderer.RenderAsync(JsonSerializer.Deserialize<JsonElement>(frozen), ct);
+        var frozen = node.ToJsonString();
         return await data.WriteAsync<object>(async token =>
         {
             contract = await access.ContractAsync(contract.ContractID, actor, true, token);
@@ -148,8 +148,8 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
             { Require(invoice.PaidAmount == 0, "PAYMENT_RECONCILIATION_REQUIRED", "Old version has received money."); invoice.PaymentStatus = "CANCELLED"; }
             var total = node["commercial"]!["totalPrice"]!.GetValue<decimal>();
             var amount = node["commercial"]!["depositAmount"]!.GetValue<decimal>();
-            draft.ContentSnapshot = frozen; draft.VersionStatus = "ISSUED"; draft.PdfUrl = pdf; draft.PublishedAtUtc = now; draft.PublishedBy = actor;
-            contract.PublishedAtUtc = now; contract.PublishedBy = actor; contract.PdfUrl = pdf; contract.CompletionDeadline = deadline;
+            draft.ContentSnapshot = frozen; draft.VersionStatus = "ISSUED"; draft.PublishedAtUtc = now; draft.PublishedBy = actor;
+            contract.PublishedAtUtc = now; contract.PublishedBy = actor; contract.CompletionDeadline = deadline;
             contract.TotalQuotedPrice = total; contract.DepositAmount = amount; contract.DepositRateStandard = node["commercial"]!["depositPercent"]!.GetValue<decimal>();
             contract.ContractStatus = "ISSUED"; contract.SignOtpHash = null; contract.SignOtpExpiry = null; contract.SignOtpSentAtUtc = null; contract.SignOtpFailedAttempts = 0;
             row.ExpectedDate = departure; row.CommittedDeadline = node["route"]!["deliveryAtUtc"]!.GetValue<DateTime>();
@@ -175,13 +175,6 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         var version = await data.FindAsync<ContractVersion>(ct, id, number);
         Require(version is not null && (manager || version.PublishedAtUtc is not null), "NOT_FOUND", "Version not found.", 404);
         return View(contract, version!, await data.FindAsync<TransportRequest>(ct, contract.RequestID)! ?? throw Failure("NOT_FOUND", "Request not found.", 404));
-    }
-    public async Task<(byte[] Bytes, string ContentType)> PdfAsync(string actor, string id, int number, bool manager, CancellationToken ct)
-    {
-        await access.ContractAsync(id, actor, manager, ct);
-        var version = await data.FindAsync<ContractVersion>(ct, id, number);
-        Require(version?.PublishedAtUtc is not null && version.PdfUrl is not null, "NOT_FOUND", "Published PDF not found.", 404);
-        return await files.ReadAsync(version!.PdfUrl!, ct);
     }
     public Task<object> AcceptAsync(string actor, string id, int number, CancellationToken ct) => data.WriteAsync<object>(async token =>
     {

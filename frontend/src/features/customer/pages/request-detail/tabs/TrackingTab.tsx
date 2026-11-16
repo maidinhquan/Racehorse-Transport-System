@@ -7,9 +7,9 @@ import { LockedCard, Note } from '../../../components/Common/Common';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
 import { CustomerRelocationCard } from '../../../components/RelocationProposal/CustomerRelocationCard';
 import { RouteMap } from '../../../components/RouteMap/RouteMap';
-import { flow4Api } from '../../../../tracking/api/flow4Api';
-import type * as T from '../../../../tracking/types/flow4.types';
-import { progressFromMilestones } from '../../../../tracking/utils/progress';
+import { flow4Api } from '../../../../../shared/api/tracking';
+import type * as T from '../../../../../shared/api/tracking';
+import { progressFromMilestones } from '../../../../../shared/utils/progress';
 import { getSharedTrips } from '../../../../../shared/utils/sharedTrips';
 
 const cleanId = (x?: string) => (x || '').replace(/-/g, '_');

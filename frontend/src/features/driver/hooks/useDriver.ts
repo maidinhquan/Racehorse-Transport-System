@@ -18,7 +18,7 @@ import { createSyncController, notifySync, onSync } from '../../../shared/utils/
 import { saveSharedIncident } from '../../../shared/utils/sharedIncidents';
 import { saveSharedNotification } from '../../../shared/utils/sharedNotifications';
 import { tripFromTracking } from '../api/flow4Mapper';
-import { flow4Api } from '../../tracking/api/flow4Api';
+import { flow4Api } from '../../../shared/api/tracking';
 import type { DriverNotification } from '../types';
 import {
   INCIDENT_TYPE_LABEL,
@@ -38,7 +38,7 @@ import {
   lastMilestone,
   openIncidentHold,
 } from './driverRules';
-import { flow6Api } from '../../aftercare/api/flow6Api';
+import { flow6Api } from '../../../shared/api/handover';
 
 // ============================================================================
 // Store dùng chung cho mọi trang Tài xế (giữ state khi chuyển route)

@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { RouteMap } from '../RouteMap/RouteMap';
-import { cleanStopName } from '../../../tracking/utils/progress';
+import { cleanStopName } from '../../../../shared/utils/progress';
 import { incidentSegment, incidentWhere, pointOnSegment, ratioOnSegment } from '../../hooks/driverRules';
 import type { Trip } from '../../types';
 

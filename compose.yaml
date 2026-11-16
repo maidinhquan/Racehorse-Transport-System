@@ -48,10 +48,14 @@ services:
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    # node_modules đã được cài lúc build (npm ci trong Dockerfile) nên không cần npm install mỗi lần khởi động.
+    # Khi đổi package.json: docker compose build frontend && docker compose down -v (xóa volume node_modules cũ).
+    command: npm run dev -- --host 0.0.0.0
     environment:
       # Gọi API theo đường dẫn tương đối (/api); Vite chuyển tiếp sang backend để mở qua ngrok cho người khác dùng.
       API_PROXY_TARGET: http://backend:8080
+      # Trong container Vite không thấy .env ở thư mục gốc, nên truyền biến VITE_* cần dùng qua đây.
+      VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
     depends_on:
       - backend
     restart: unless-stopped
