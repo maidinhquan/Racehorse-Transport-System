@@ -4,7 +4,7 @@ import { BOOKING_DESTINATIONS, BOOKING_ORIGINS, city, cityLabel, getDefaultCoord
 import { customerApi } from '../../api/customerApi';
 import { LocationMap } from '../RouteMap/LocationMap';
 import { Icon } from '../CustomerLayout';
-import { apiMessage } from '../../../../shared/api/apiError';
+import { apiMessage } from '../../../../shared/api/core/apiError';
 
 export type RequestPlaces = { pickup: Place; delivery: Place };
 type PlaceKey = keyof RequestPlaces;

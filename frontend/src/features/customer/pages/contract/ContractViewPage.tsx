@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { customerApi } from '../../api/customerApi';
-import { apiMessage } from '../../../../shared/api/apiError';
+import { apiMessage } from '../../../../shared/api/core/apiError';
 import type { ContractVersion } from '../../types';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomerLayout, Icon } from '../../components/CustomerLayout';
@@ -9,14 +9,13 @@ import { Note } from '../../components/Common/Common';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { useCustomer } from '../../hooks/useCustomer';
 import { cityLabel, ctRef, curVersion, fmtDateTime, versionState } from '../../hooks/customerRules';
-import { downloadFile } from '../../../../shared/api/downloadFile';
 import './ContractPages.css';
 
 /** Hợp đồng đầy đủ của một phiên bản (chỉ xem; phiên bản cũ không thể ký) */
 export const ContractViewPage: React.FC = () => {
   const navigate = useNavigate();
   const { requestId = '', version = '' } = useParams<{ requestId: string; version: string }>();
-  const { horses, getRequest, actions } = useCustomer(requestId);
+  const { horses, getRequest } = useCustomer(requestId);
   const r = getRequest(requestId);
   const ref = r && curVersion(r);
   const selectedNo = version ? Number(version) : ref?.v;
@@ -37,12 +36,6 @@ export const ContractViewPage: React.FC = () => {
   }
   const current = v.v === curVersion(r)?.v, state = versionState(v);
 
-  const handleDownloadPdf = async () => {
-    if (!v.contractId) return actions.showToast('Chưa có mã hợp đồng.');
-    try { await downloadFile(`/customer/contracts/${v.contractId}/versions/${v.v}/pdf`, `${v.contractId}-v${v.v}.pdf`); }
-    catch (error) { actions.showToast(apiMessage(error)); }
-  };
-
   return (
     <CustomerLayout title="Hợp đồng">
       <button type="button" className="cus-back" onClick={() => navigate(`/customer/requests/${r.id}/contract`)}><Icon name="back" />Hợp đồng & chi phí</button>
@@ -51,7 +44,6 @@ export const ContractViewPage: React.FC = () => {
           <h2 className="cus-title cus-detail__title">Hợp đồng dịch vụ {ctRef(v)} <TripStatusBadge kind="contract" status={state} /></h2>
           <p className="cus-subtitle">{r.id} • {cityLabel(r.origin)} → {cityLabel(r.destination)}</p>
         </div>
-        <button type="button" className="cus-btn" onClick={handleDownloadPdf}><Icon name="file" />Xem / Tải file PDF</button>
       </div>
       {!current && <Note tone="grey" title="Phiên bản cũ – chỉ xem">Phiên bản này đã được thay bằng {ctRef(curVersion(r)!)} và không thể ký.</Note>}
       {current && state === 'EXPIRED' && <Note tone="grey" title="Phiên bản đã hết hạn">Không thể ký nữa. Yêu cầu phiên bản cập nhật ở tab Hợp đồng & chi phí.</Note>}

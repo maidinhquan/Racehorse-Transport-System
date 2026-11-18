@@ -1,9 +1,9 @@
 import L from 'leaflet';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { addGeoapifyTiles } from './GeoapifyTiles';
-import { apiClient } from '../../../../shared/api/apiClient';
+import { apiClient } from '../../../../shared/api/core/apiClient';
 
-vi.mock('../../../../shared/api/apiClient', () => ({ apiClient: { get: vi.fn() } }));
+vi.mock('../../../../shared/api/core/apiClient', () => ({ apiClient: { get: vi.fn() } }));
 let layer: { createTile(coords: L.Coords, done: L.DoneCallback): HTMLElement };
 beforeEach(() => {
   vi.spyOn(L.TileLayer.prototype, 'addTo').mockImplementation(function (this: L.TileLayer) {

@@ -10,7 +10,7 @@ import { audit, commit, confirmAction, db, flushTripStateToStorage, go, me, next
 import { addHours, city, cityLabel, date, dt, human, MILESTONE_LABEL, MS_VI } from '../utils/format';
 import { submitAirPlan } from './airOperations';
 import { submitRoadRoute } from './routePlanner';
-import { apiClient } from '../../../shared/api/apiClient';
+import { apiClient } from '../../../shared/api/core/apiClient';
 import { saveSharedTrip } from '../../../shared/utils/sharedTrips';
 
 

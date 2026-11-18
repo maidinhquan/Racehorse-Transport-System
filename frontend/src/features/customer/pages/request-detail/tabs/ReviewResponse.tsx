@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { onSync } from '../../../../../shared/utils/syncChannel';
-import { apiMessage } from '../../../../../shared/api/contractClient';
-import { requestReviewApi } from '../../../../../shared/api/requestReviewApi';
-import type { CustomerReview } from '../../../../../shared/api/requestReviewApi';
+import { apiMessage } from '../../../../../shared/api/contracts/contractClient';
+import { requestReviewApi } from '../../../../../shared/api/reviews/requestReviewApi';
+import type { CustomerReview } from '../../../../../shared/api/reviews/requestReviewApi';
 import { reviewDay, reviewMode } from '../../../../../shared/components/RequestReview/labels';
 import { useCustomer } from '../../../hooks/useCustomer';
 import { Link } from 'react-router-dom';

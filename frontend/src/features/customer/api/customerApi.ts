@@ -1,10 +1,10 @@
-import { apiRequest } from '../../../shared/api/apiRequest';
-import { contractClient, withRouteList, type FormOptions } from '../../../shared/api/contractClient';
-import { apiMessage } from '../../../shared/api/apiError';
+import { apiRequest } from '../../../shared/api/core/apiRequest';
+import { contractClient, withRouteList, type FormOptions } from '../../../shared/api/contracts/contractClient';
+import { apiMessage } from '../../../shared/api/core/apiError';
 import type { ComplaintInput, ContractChangeInput, CustomerNotification, CustomerProfile, FileRef, Horse, HorseInput, Place, TransportRequest, TripInfoInput, ContractVersion, Payment } from '../types';
 import { city, registerBackendCity } from '../hooks/customerRules';
 import { CUSTOMER_ENDPOINTS } from './customerEndpoints';
-import { attachContractFeedback, contractFromWire, documentKey, fileFromWire, paymentFromWire, refundFromWire, utcMs, type WirePayment, type WireHorse, type WireContract } from '../../../shared/api/flow1Wire';
+import { attachContractFeedback, contractFromWire, documentKey, fileFromWire, paymentFromWire, refundFromWire, utcMs, type WirePayment, type WireHorse, type WireContract } from '../../../shared/api/contracts';
 
 const horseBody = (h: HorseInput) => ({
   name: h.name.trim(), breed: h.breed.trim(), sex: h.sex, dob: h.dob,

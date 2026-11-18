@@ -1,4 +1,4 @@
-import { downloadFile } from '../../../../../shared/api/downloadFile';
+import { downloadFile } from '../../../../../shared/api/core/downloadFile';
 import { RequestAssessmentPanel } from './RequestAssessmentPanel';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';

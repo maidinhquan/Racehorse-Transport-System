@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { onSync } from '../../../../../shared/utils/syncChannel';
 import type { FormEvent } from 'react';
-import { apiMessage } from '../../../../../shared/api/contractClient';
-import { requestReviewApi } from '../../../../../shared/api/requestReviewApi';
-import type { ChangeReview, OptionKey, ScheduleOption } from '../../../../../shared/api/requestReviewApi';
+import { apiMessage } from '../../../../../shared/api/contracts/contractClient';
+import { requestReviewApi } from '../../../../../shared/api/reviews/requestReviewApi';
+import type { ChangeReview, OptionKey, ScheduleOption } from '../../../../../shared/api/reviews/requestReviewApi';
 import { itemStatus, reviewDay, reviewMode, reviewResult, reviewStatus, documentName } from '../../../../../shared/components/RequestReview/labels';
 import { Icon } from '../../../components/ManagerLayout';
 import './RequestAssessmentPanel.css';

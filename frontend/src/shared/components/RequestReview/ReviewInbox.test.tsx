@@ -5,7 +5,7 @@ import { ReviewInbox } from './ReviewInbox';
 const api = vi.hoisted(() => ({
   queue: vi.fn(), detail: vi.fn(), specialist: vi.fn(), coordinator: vi.fn(), preview: vi.fn(), file: vi.fn(),
 }));
-vi.mock('../../api/requestReviewApi', () => ({ requestReviewApi: api }));
+vi.mock('../../api/reviews/requestReviewApi', () => ({ requestReviewApi: api }));
 
 const detail = {
   reviewId: 'REQUEST_REVIEW_001', requestId: 'REQUEST_001', requestRevision: 1,

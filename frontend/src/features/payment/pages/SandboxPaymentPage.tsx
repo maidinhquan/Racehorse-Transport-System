@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { contractClient } from '../../../shared/api/contractClient'
-import { flow6Api } from '../../aftercare/api/flow6Api'
+import { contractClient } from '../../../shared/api/contracts/contractClient'
+import { flow6Api } from '../../../shared/api/handover'
 import './SandboxPaymentPage.css'
 
 type Payment = { id: string; amount: number; status: string; responseCode?: string }

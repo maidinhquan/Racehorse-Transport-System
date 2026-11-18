@@ -1,12 +1,12 @@
-import type { ChangeReview, OptionKey } from '../../../shared/api/requestReviewApi';
-import { apiRequest } from '../../../shared/api/apiRequest';
-import { contractClient, type FormOptions } from '../../../shared/api/contractClient';
+import type { ChangeReview, OptionKey } from '../../../shared/api/reviews/requestReviewApi';
+import { apiRequest } from '../../../shared/api/core/apiRequest';
+import { contractClient, type FormOptions } from '../../../shared/api/contracts/contractClient';
 import { incidentPhase, rememberClosedIncident } from '../../../shared/utils/incidentState';
 import { getSharedIncidents } from '../../../shared/utils/sharedIncidents';
 import { formatNotification } from '../../../shared/utils/notificationFormat';
 import { MANAGER_ENDPOINTS as E } from './managerEndpoints';
 import type { ActualCost, Complaint, ContractDraft, ContractVersion, CustomerInfo, HorseRef, Incident, ManagerNotification, RoutePlan, Staff, Transaction, TransportMode, TransportRequest, Trip } from '../types';
-import { attachContractFeedback, contractFromWire, documentKey, paymentFromWire, refundFromWire, type RefundEvidence, type WireContract, type WireHorse, type WirePayment } from '../../../shared/api/flow1Wire';
+import { attachContractFeedback, contractFromWire, documentKey, paymentFromWire, refundFromWire, type RefundEvidence, type WireContract, type WireHorse, type WirePayment } from '../../../shared/api/contracts';
 export interface CostPlanDto {
   costs: {
     transport: number;

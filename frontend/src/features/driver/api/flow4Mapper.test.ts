@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Tracking } from '../../tracking/types/flow4.types';
+import type { Tracking } from '../../../shared/api/tracking';
 import { nextMilestone } from '../hooks/driverRules';
 import { tripFromTracking } from './flow4Mapper';
 

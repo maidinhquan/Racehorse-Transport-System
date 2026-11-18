@@ -54,7 +54,6 @@ public sealed class ApiFactory(SqlFixture database) : WebApplicationFactory<Prog
             services.RemoveAll<IDeliveryOtpSender>();services.AddSingleton<IDeliveryOtpSender>(Sender);
             services.RemoveAll<IOtpSecurity>(); services.AddSingleton<IOtpSecurity>(new ContractOtpSecurity("test-otp-key-private-at-least-thirty-two-bytes"));
             services.RemoveAll<Flow1ContractOptions>(); services.AddSingleton(new Flow1ContractOptions { Issuer = new() { ["legalName"] = "Test Transport", ["phone"] = "0901112233", ["taxCode"] = "DEMO123", ["address"] = "Test address", ["email"] = "issuer@example.invalid", ["representative"] = "Test Manager" } });
-            services.RemoveAll<IContractRenderer>(); services.AddScoped<IContractRenderer, TestRenderer>();
         });
     }
     protected override void Dispose(bool disposing)
@@ -90,11 +89,6 @@ public sealed class CaptureSender : IOtpSender, IDeliveryOtpSender
     public Task SendAsync(string email,string code,string id,int version,string document,DateTimeOffset expires,CancellationToken ct)
     { Codes[id]=code; return Task.CompletedTask; }
 }
-public sealed class TestRenderer(IPrivateFiles files) : IContractRenderer
-{
-    public Task<string> RenderAsync(JsonElement snapshot,CancellationToken ct) => files.PutAsync(new UploadedFile(Encoding.UTF8.GetBytes("%PDF-1.7 test fixture "+snapshot.GetRawText()),"contract.pdf"),false,ct);
-}
-
 public sealed class TestLocations : ILocationVerifier, ICityLocations
 {
     public Task<IReadOnlyList<CitySelection>> CitiesAsync(string query, string country, CancellationToken ct) => throw new NotSupportedException();

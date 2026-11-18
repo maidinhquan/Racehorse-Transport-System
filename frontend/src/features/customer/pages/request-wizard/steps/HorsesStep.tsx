@@ -8,7 +8,7 @@ import { Icon } from '../../../components/CustomerLayout';
 import { DocumentRows } from '../../../components/DocumentList/DocumentList';
 import { HorseForm } from '../../../components/HorseForm/HorseForm';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
-import { apiMessage } from '../../../../../shared/api/apiError';
+import { apiMessage } from '../../../../../shared/api/core/apiError';
 import { AuthImage } from '../../../../../shared/components/AuthImage';
 
 /** Bước 2/3 – giấy tờ chung của đơn + chọn ngựa cho từng vị trí và hoàn thiện hồ sơ từng ngựa */

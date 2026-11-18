@@ -9,9 +9,9 @@ import { useCustomer } from '../../hooks/useCustomer';
 import type { RequestField, TripInfoInput } from '../../types';
 import { FIELD_LABEL, addDays, city, displayRequestId, emptyPlace, fmtDate, isSupportedRoute, today } from '../../hooks/customerRules';
 import { customerApi } from '../../api/customerApi';
-import type { FormOptions } from '../../../../shared/api/contractClient';
+import type { FormOptions } from '../../../../shared/api/contracts/contractClient';
 import './CreateRequestPage.css';
-import { apiMessage } from '../../../../shared/api/apiError';
+import { apiMessage } from '../../../../shared/api/core/apiError';
 
 /** First of three steps: schedule, pickup address/contact, delivery address/contact. */
 export const CreateRequestPage: React.FC = () => {

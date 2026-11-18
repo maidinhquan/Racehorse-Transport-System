@@ -18,7 +18,7 @@ import type {
 } from '../types';
 import { customerApi } from '../api/customerApi';
 import { readRequestDrafts, writeRequestDrafts, mergeRequestDrafts } from '../api/requestDrafts';
-import { apiMessage } from '../../../shared/api/apiError';
+import { apiMessage } from '../../../shared/api/core/apiError';
 import { getCurrentUser } from '../../auth/api/authApi';
 import {
   FILE_DOC_KEYS,

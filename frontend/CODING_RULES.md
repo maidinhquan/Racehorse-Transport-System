@@ -56,12 +56,10 @@ Mã nguồn nghiệp vụ được phân chia theo **Vai trò người dùng (Ro
 
 2. **Nhóm Domain & Hỗ trợ:**
    - `features/auth/`: Đăng nhập, phân quyền, xác thực Google/OAuth.
-   - `features/tracking/`: Bản đồ theo dõi thời gian thực chuyến đi (GPS/Leaflet).
-   - `features/incidents/`: Báo cáo và xử lý sự cố.
    - `features/payment/`: Tích hợp thanh toán (VNPay sandbox / cổng thanh toán).
-   - `features/aftercare/`: Chăm sóc và theo dõi ngựa sau vận chuyển.
    - `features/landing/`: Trang giới thiệu công khai.
-   - `features/demo/`: Bộ điều khiển kịch bản thử nghiệm / trình diễn luồng.
+
+   Client API dùng chung nhiều vai trò (theo dõi chuyến Flow 4, bàn giao/aftercare Flow 6, hợp đồng, duyệt yêu cầu) nằm trong `shared/api/`, không tạo feature riêng.
 
 ---
 
@@ -90,9 +88,18 @@ Dành cho các thành phần dùng lại ở từ 2 vai trò trở lên:
 - `shared/components/`: Nút bấm, Card, Modal, Input, Badge trạng thái (`StatusBadge`).
 - `shared/layouts/`: Bố cục chung (Header, Sidebar, Navigation).
 - `shared/maps/`: Bản đồ Leaflet, tính toán tọa độ, trạm dừng.
-- `shared/utils/`: Tiện ích chung, đặc biệt là các công cụ đồng bộ: `sharedTrips.ts`, `sharedRequests.ts`, `syncChannel.ts`.
+- `shared/api/`: Client API dùng chung, import qua `shared/api` (barrel `index.ts`):
+  - `core/`: `apiClient`, `apiRequest`, `apiError`, tải file (`downloadFile`, `useAuthFileUrl`).
+  - `contracts/`: client và wire của Flow 1 (hợp đồng, yêu cầu, ngựa).
+  - `reviews/`: API duyệt yêu cầu.
+  - `tracking/`: Flow 4 (`tracking.types.ts`, `trackingEndpoints.ts`).
+  - `handover/`: Flow 6 (bàn giao, aftercare); `handoverEndpoints.ts` viết tay.
+- `shared/utils/`: Tiện ích chung, chia theo nhóm:
+  - `sync/`: đồng bộ giữa các vai trò (`sharedTrips`, `sharedRequests`, `syncChannel`, `realtime`...).
+  - `business/`: quy tắc nghiệp vụ dùng chung (`incidentState`, `progress`, `locationResolver`...).
+  - `file/`: xử lý file (`normalizeImage`).
+  - Các file `shared/utils/*.ts` ở cấp ngoài chỉ re-export để giữ tương thích import cũ; code mới import từ `shared/utils` hoặc thư mục con.
 - `shared/context/`: Context chia sẻ đa vai trò (AuthContext, NotificationContext).
-- `shared/types/`: Types dùng chung toàn ứng dụng.
 
 ---
 
@@ -105,12 +112,8 @@ Dành cho các thành phần dùng lại ở từ 2 vai trò trở lên:
    - **Bắt buộc** viết hàm chuyển đổi (`fromWire` / `toWire`) ngay tại tầng `api/` của feature.
    - Không được rải rác logic parse JSON, định dạng ngày tháng, hoặc chuyển đổi enum trong component.
 3. **API Contract-first:**
-   - Hợp đồng API được lưu tại `src/contracts/*.openapi.json`.
-   - Trước khi tích hợp hoặc khi có thay đổi contract từ Backend, chạy:
-     ```bash
-     npm run contract:check
-     npm run contract:sync
-     ```
+   - Hợp đồng API được lưu tại `src/contracts/*.openapi.json`; client dùng các file này lúc chạy để kiểm tra dữ liệu.
+   - Mỗi flow tự quản lý file endpoint/types của mình (không có script sinh code chung). Khi Backend đổi API, cập nhật đồng thời file `*.openapi.json`, file endpoint/types và hàm `fromWire`/`toWire` của flow đó, rồi chạy `npm run test:run`.
 
 ---
 

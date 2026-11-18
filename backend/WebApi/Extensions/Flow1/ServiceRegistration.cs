@@ -3,7 +3,6 @@ using Application.Flow1.Interfaces;
 using Application.Flow1.Services;
 using Application.Flow1.Settings;
 using Infrastructure.Flow1.Data;
-using Infrastructure.Flow1.Documents;
 using Infrastructure.Flow1.Files;
 using Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -49,7 +48,6 @@ public static class ServiceRegistration
                 environment
             )
         ));
-        services.AddScoped<IContractRenderer, ContractRenderer>();
         services.AddSingleton(
             configuration.GetSection("Flow1:Estimate").Get<CostSettings>() ?? new()
         );

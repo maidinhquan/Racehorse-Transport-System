@@ -8,8 +8,8 @@ import {
   handoverReady,
 } from '../../../hooks/driverRules';
 import { generateUuidV4 } from '../../../../../shared/utils/uuid';
-import { flow6Api } from '../../../../aftercare/api/flow6Api';
-import type * as T6 from '../../../../aftercare/types/flow6.types';
+import { flow6Api } from '../../../../../shared/api/handover';
+import type * as T6 from '../../../../../shared/api/handover';
 
 
 /** Tab Bàn giao thực tế của tài xế (CHẾ ĐỘ BACKEND FLOW 6 - OTP & MICROCHIP) */

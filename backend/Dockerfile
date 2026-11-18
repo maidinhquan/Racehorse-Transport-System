@@ -13,20 +13,18 @@ RUN --mount=type=cache,target=/root/.nuget/packages dotnet restore "WebApi/WebAp
 COPY . .
 WORKDIR "/src/WebApi"
 FROM build AS publish
-# publish already compiles the project; --no-restore reuses the restored assets from the previous layer
-RUN --mount=type=cache,target=/root/.nuget/packages dotnet publish "WebApi.csproj" -c Release -o /app/publish --no-restore /p:UseAppHost=false
+# publish already compiles the project. No --no-restore on purpose: the restore layer above can stay cached
+# while the NuGet cache mount is gone (e.g. after Docker Desktop restarts), which fails with NETSDK1064.
+# When packages are already present, this restore is a fast no-op; when missing, it fetches them again.
+RUN --mount=type=cache,target=/root/.nuget/packages dotnet publish "WebApi.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # Final image
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
-RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update \
-    && apt-get install -y --no-install-recommends chromium libreoffice-writer fonts-liberation fonts-noto-core
-ENV Flow1__Contracts__BrowserExecutablePath=/usr/bin/chromium \
-    Flow1__Contracts__DisableBrowserSandbox=true
+# TẠM BỎ công cụ xuất PDF để build nhanh. Chức năng xuất PDF hợp đồng (Flow 1) và PDF bàn giao (Flow 6) sẽ báo lỗi
+# 503/501 cho tới khi được thêm lại. Để thêm lại, khôi phục các bước cài `chromium libreoffice-writer fonts-liberation
+# fonts-noto-core`, biến Flow1__Contracts__BrowserExecutablePath=/usr/bin/chromium, Flow1__Contracts__DisableBrowserSandbox=true
+# và lệnh COPY WebApi/Resources/Contracts/99-flow1-vietnamese.conf /etc/fonts/conf.d/ (xem lịch sử git của file này).
 WORKDIR /app
 COPY --from=publish /app/publish .
-COPY WebApi/Resources/Contracts/99-flow1-vietnamese.conf /etc/fonts/conf.d/99-flow1-vietnamese.conf
 ENTRYPOINT ["dotnet", "WebApi.dll"]
 

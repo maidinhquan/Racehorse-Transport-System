@@ -1,6 +1,6 @@
 import { rememberClosedIncident, sortIncidentsNewestFirst } from '../../../shared/utils/incidentState';
 import axios from 'axios';
-import { apiClient } from '../../../shared/api/apiClient';
+import { apiClient } from '../../../shared/api/core/apiClient';
 import { DRIVER_ENDPOINTS } from './driverEndpoints';
 import type {
   ApiResponse,
@@ -16,7 +16,7 @@ import type {
   ReportIncidentRequestDto,
   Trip,
 } from '../types';
-import { flow4Api } from '../../tracking/api/flow4Api';
+import { flow4Api } from '../../../shared/api/tracking';
 import { tripFromTracking } from './flow4Mapper';
 import { generateUuidV4 } from '../../../shared/utils/uuid';
 import { getSharedIncidents } from '../../../shared/utils/sharedIncidents';

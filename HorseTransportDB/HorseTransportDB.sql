@@ -918,11 +918,11 @@ CREATE TABLE CONTRACT (
     CONSTRAINT FK_Contract_Customer FOREIGN KEY (CustomerID) REFERENCES [USER](UserID),
     CONSTRAINT CK_F1S_CONTRACT_PdfUrl CHECK ([PdfUrl] IS NULL OR [PdfUrl] like 'private/%' AND len([PdfUrl])>(8)),
     CONSTRAINT CK_F1S_CONTRACT_Deposit CHECK ([DepositAmount] IS NULL OR [CurrencyCode]='VND' AND [TotalQuotedPrice] IS NOT NULL AND [TotalQuotedPrice]>(0) AND [TotalQuotedPrice]=round([TotalQuotedPrice],(0)) AND [DepositRateStandard] IS NOT NULL AND [DepositRateStandard]>(0) AND [DepositRateStandard]<=(100) AND [DepositAmount]>(0) AND [DepositAmount]<=[TotalQuotedPrice] AND [DepositAmount]=round(([TotalQuotedPrice]*[DepositRateStandard])/(100),(0))),
-    CONSTRAINT CK_F1S_CONTRACT_Publication CHECK ([PublishedAtUtc] IS NULL OR [PublishedBy] IS NOT NULL AND [PdfUrl] IS NOT NULL AND [DepositAmount] IS NOT NULL AND [CompletionDeadline] IS NOT NULL),
+    CONSTRAINT CK_F1S_CONTRACT_Publication CHECK ([PublishedAtUtc] IS NULL OR [PublishedBy] IS NOT NULL AND [DepositAmount] IS NOT NULL AND [CompletionDeadline] IS NOT NULL),
     CONSTRAINT CK_F1S_CONTRACT_OtpAttempts CHECK ([SignOtpFailedAttempts]>=(0)),
     CONSTRAINT CK_F1S_CONTRACT_Otp CHECK ([SignOtpHash] IS NULL OR len([SignOtpHash])=(64) AND NOT [SignOtpHash] like ('%[^0-9a-f]%') collate Latin1_General_100_BIN2 AND [SignOtpExpiry] IS NOT NULL AND [SignOtpSentAtUtc] IS NOT NULL AND [SignOtpExpiry]>[SignOtpSentAtUtc] AND [PublishedAtUtc] IS NOT NULL AND [SignedAt] IS NULL),
     CONSTRAINT CK_F1S_CONTRACT_SignDeadline CHECK (CompletionDeadline IS NULL OR PublishedAtUtc IS NULL OR CompletionDeadline>PublishedAtUtc),
-    CONSTRAINT CK_F1S_CONTRACT_Signed CHECK (SignedAt IS NULL OR (PublishedAtUtc IS NOT NULL AND PublishedBy IS NOT NULL AND PdfUrl IS NOT NULL AND DepositAmount IS NOT NULL AND SignerEmail IS NOT NULL AND CompletionDeadline IS NOT NULL AND SignedAt >= PublishedAtUtc AND CompletionDeadline > SignedAt AND SignOtpHash IS NULL)),
+    CONSTRAINT CK_F1S_CONTRACT_Signed CHECK (SignedAt IS NULL OR (PublishedAtUtc IS NOT NULL AND PublishedBy IS NOT NULL AND DepositAmount IS NOT NULL AND SignerEmail IS NOT NULL AND CompletionDeadline IS NOT NULL AND SignedAt >= PublishedAtUtc AND CompletionDeadline > SignedAt AND SignOtpHash IS NULL)),
     CONSTRAINT CK_F1S_CONTRACT_Extension CHECK ([LastExtensionReason] IS NULL AND [LastExtensionBy] IS NULL AND [LastExtensionAtUtc] IS NULL OR [LastExtensionReason] IS NOT NULL AND [LastExtensionBy] IS NOT NULL AND [LastExtensionAtUtc] IS NOT NULL),
     CONSTRAINT CK_F1S_CONTRACT_Cancellation CHECK ([CancellationId] IS NULL AND [CancellationStatus] IS NULL AND [CancellationReason] IS NULL AND [CancellationRequestedAtUtc] IS NULL AND [CancellationDecisionReason] IS NULL AND [CancellationDecidedBy] IS NULL AND [CancellationDecidedAtUtc] IS NULL OR [CancellationId] IS NOT NULL AND [CancellationStatus] IS NOT NULL AND [CancellationReason] IS NOT NULL AND [CancellationRequestedAtUtc] IS NOT NULL AND ([CancellationStatus]='PENDING' AND [CancellationDecisionReason] IS NULL AND [CancellationDecidedBy] IS NULL AND [CancellationDecidedAtUtc] IS NULL OR ([CancellationStatus]='REJECTED' OR [CancellationStatus]='APPROVED') AND [CancellationDecisionReason] IS NOT NULL AND [CancellationDecidedBy] IS NOT NULL AND [CancellationDecidedAtUtc] IS NOT NULL)),
     CONSTRAINT CK_F1Final_Feedback CHECK ([FeedbackStatus] IS NULL OR ([FeedbackStatus]='REJECTED' OR [FeedbackStatus]='ACCEPTED' OR [FeedbackStatus]='PENDING') AND [CustomerFeedback] IS NOT NULL AND [FeedbackAtUtc] IS NOT NULL),
@@ -965,11 +965,11 @@ CREATE TABLE CONTRACT_VERSION (
     CONSTRAINT CK_ContractVersion_Status CHECK (VersionStatus IN ('DRAFT', 'ISSUED', 'SUPERSEDED', 'SIGNED', 'CANCELLED')),
     CONSTRAINT CK_ContractVersion_Publication CHECK (
         (VersionStatus NOT IN ('ISSUED', 'SUPERSEDED', 'SIGNED') AND PublishedAtUtc IS NULL)
-        OR (PublishedAtUtc IS NOT NULL AND PublishedBy IS NOT NULL AND PdfUrl IS NOT NULL)),
+        OR (PublishedAtUtc IS NOT NULL AND PublishedBy IS NOT NULL)),
     CONSTRAINT CK_ContractVersion_Signature CHECK (
         (VersionStatus <> 'SIGNED' OR SignedAtUtc IS NOT NULL)
         AND (SignedAtUtc IS NULL OR (VersionStatus IN ('SIGNED', 'CANCELLED')
-            AND PublishedAtUtc IS NOT NULL AND PublishedBy IS NOT NULL AND PdfUrl IS NOT NULL
+            AND PublishedAtUtc IS NOT NULL AND PublishedBy IS NOT NULL
             AND SignerEmail IS NOT NULL AND SignedAtUtc >= PublishedAtUtc))),
     CONSTRAINT CK_ContractVersion_Pdf CHECK (PdfUrl IS NULL OR PdfUrl LIKE 'private/%' AND LEN(PdfUrl) > 8)
 );

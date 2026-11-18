@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiClient } from "../../shared/api/apiClient";
+import { apiClient } from "../../shared/api/core/apiClient";
 import ThemeToggle from "../../shared/components/ThemeToggle/ThemeToggle";
 import "./AdminDashboard.css";
 

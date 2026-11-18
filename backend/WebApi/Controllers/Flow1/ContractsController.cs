@@ -45,11 +45,6 @@ public sealed class ContractsController(ContractService contracts, ContractLifec
     public async Task<IActionResult> CurrentAsync(string requestId, CancellationToken ct) =>
         Reply(await contracts.CustomerAsync(Actor, requestId, ct));
 
-    [HttpGet("customer/contracts/{contractId}/versions/{versionNo}/pdf")]
-    [Authorize(Roles = UserRoles.Customer)]
-    public async Task<IActionResult> PdfAsync(string contractId, int versionNo, CancellationToken ct) =>
-        Binary(await contracts.PdfAsync(Actor, contractId, versionNo, false, ct));
-
     [HttpPost("customer/contracts/{contractId}/accept-terms")]
     [Authorize(Roles = UserRoles.Customer)]
     public async Task<IActionResult> AcceptTermsAsync(string contractId, VersionInput input, CancellationToken ct) =>

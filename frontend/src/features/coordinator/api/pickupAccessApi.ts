@@ -1,4 +1,4 @@
-import { apiRequest } from '../../../shared/api/apiRequest';
+import { apiRequest } from '../../../shared/api/core/apiRequest';
 
 export interface PickupAccessResolutionRequest {
   resolutionType: 'RELOCATING' | 'SHUTTLING';

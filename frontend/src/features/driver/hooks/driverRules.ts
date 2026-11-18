@@ -18,7 +18,7 @@ import type {
   Trip,
   TripStatus,
 } from '../types';
-import { cleanStopName } from '../../tracking/utils/progress';
+import { cleanStopName } from '../../../shared/utils/progress';
 
 // ============================================================================
 // Nhãn hiển thị (VI)

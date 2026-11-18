@@ -5373,7 +5373,6 @@
                             }
                           ]
                         },
-                        "pdfUrl": "/api/customer/contracts/CONTRACT_001/versions/1/pdf",
                         "note": ""
                       }
                     }
@@ -5591,7 +5590,6 @@
                               }
                             ]
                           },
-                          "pdfUrl": "/api/customer/contracts/CONTRACT_001/versions/1/pdf",
                           "note": ""
                         }
                       }
@@ -5799,142 +5797,10 @@
                             }
                           ]
                         },
-                        "pdfUrl": "/api/customer/contracts/CONTRACT_001/versions/1/pdf",
                         "note": ""
                       }
                     }
                   }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Shared error; 501 means capability not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Shared error; 501 means capability not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Shared error; 501 means capability not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
-                      "errorCode": "NOT_FOUND",
-                      "data": null
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Shared error; 501 means capability not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Shared error; 501 means capability not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Shared error; 501 means capability not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Shared error; 501 means capability not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "contractId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 50,
-              "pattern": "^[A-Z_]+_\\d{3,}$"
-            }
-          },
-          {
-            "name": "versionNo",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          }
-        ]
-      }
-    },
-    "/customer/contracts/{contractId}/versions/{versionNo}/pdf": {
-      "get": {
-        "operationId": "F1-J36",
-        "summary": "PDF hợp đồng. Role: **CUSTOMER**.",
-        "x-implementation-status": "aligned-with-backend",
-        "responses": {
-          "200": {
-            "description": "Authorized binary; errors remain JSON",
-            "content": {
-              "application/pdf": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
                 }
               }
             }
@@ -18997,16 +18863,6 @@
           },
           "snapshot": {
             "type": "object"
-          },
-          "pdfUrl": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "note": {
             "anyOf": [

@@ -1,13 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { ThemeToggle } from '../../../../shared/components';
+import React, { useMemo } from 'react';
+import { DashboardLayout } from '../../../../shared/layouts/DashboardLayout';
 import { useDriver } from '../../hooks/useDriver';
 import { formatNotification } from '../../../../shared/utils/notificationFormat';
 import type { DriverNotification } from '../../types';
-import './DriverLayout.css';
 
 // ---------------------------------------------------------------------------
-// Icon dùng chung trong feature
+// Icon dùng chung trong feature Driver (giữ nguyên để không phá vỡ import)
 // ---------------------------------------------------------------------------
 const PATHS: Record<string, React.ReactNode> = {
   map: <><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z" /><path d="M9 4v14M15 6v14" /></>,
@@ -30,68 +28,34 @@ const PATHS: Record<string, React.ReactNode> = {
   search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>,
 };
+
 export const Icon: React.FC<{ name: string; className?: string }> = ({ name, className = '' }) => (
-  <svg className={`drv-i ${className}`} viewBox="0 0 24 24" aria-hidden="true">{PATHS[name] ?? null}</svg>
+  <svg className={`drv-i ${className}`} viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" strokeWidth="2">
+    {PATHS[name] ?? null}
+  </svg>
 );
 
-const initials = (name = '') => name.replace(/^Dr\.\s*/, '').split(' ').filter(Boolean).slice(-2).map((w) => w[0]).join('').toUpperCase();
-const roleText = (role?: string) => (role === 'VETERINARIAN' ? 'Hộ tống • Bác sĩ thú y' : role === 'ESCORT' ? 'Hộ tống' : 'Tài xế');
+const initials = (name = '') =>
+  name
+    .replace(/^Dr\.\s*/, '')
+    .split(' ')
+    .filter(Boolean)
+    .slice(-2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
 
-// ---------------------------------------------------------------------------
-// Layout: sidebar (desktop) + thanh điều hướng dưới (mobile) + topbar + toast
-// ---------------------------------------------------------------------------
+const roleText = (role?: string) =>
+  role === 'VETERINARIAN' ? 'Hộ tống • Bác sĩ thú y' : role === 'ESCORT' ? 'Hộ tống' : 'Tài xế';
+
 interface DriverLayoutProps {
   title: string;
   children: React.ReactNode;
 }
 
+/** Layout trang Driver - chuẩn hóa qua DashboardLayout chung */
 export const DriverLayout: React.FC<DriverLayoutProps> = ({ title, children }) => {
-  const navigate = useNavigate();
   const { me, activeTrips, incidents, toast, notifications, unreadNotificationsCount, actions } = useDriver();
-  const [notifOpen, setNotifOpen] = useState(false);
-  const notifRef = useRef<HTMLDivElement>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  const formattedNotifs = useMemo(() => {
-    return (notifications || []).map((raw: DriverNotification) =>
-      formatNotification({
-        id: raw.id,
-        title: raw.title,
-        body: raw.text,
-        at: raw.at,
-        read: raw.read,
-        link: raw.link,
-      })
-    );
-  }, [notifications]);
-
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => actions.clearToast(), 3500);
-    return () => clearTimeout(timer);
-  }, [toast, actions]);
-
-  useEffect(() => {
-    const close = (e: MouseEvent) => {
-      if (notifOpen && notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setNotifOpen(false);
-      }
-      if (menuOpen && menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [notifOpen, menuOpen]);
-
-  const logout = () => {
-    ['accessToken', 'user', 'userFullName', 'userEmail', 'userRole', 'token'].forEach((k) => {
-      sessionStorage.removeItem(k);
-      localStorage.removeItem(k);
-    });
-    window.location.href = '/login';
-  };
 
   const isVet = useMemo(() => {
     if (me?.role === 'VETERINARIAN') return true;
@@ -106,152 +70,59 @@ export const DriverLayout: React.FC<DriverLayoutProps> = ({ title, children }) =
     return isVet ? isHorseIssue : !isHorseIssue;
   }).length;
 
-  const NAV: Array<[string, string, string, number?]> = [
-    ['/driver/journey', 'Hành trình', 'map', activeTrips.length],
-    ['/driver/trips', 'Chuyến đi', 'truck'],
-    ['/driver/incidents', 'Sự cố', 'alert', openIncidents],
-    ['/driver/history', 'Lịch sử', 'clock'],
+  const menu = [
+    { path: '/driver/journey', label: 'Hành trình', icon: <Icon name="map" />, badge: activeTrips.length },
+    { path: '/driver/trips', label: 'Chuyến đi', icon: <Icon name="truck" /> },
+    { path: '/driver/incidents', label: 'Sự cố', icon: <Icon name="alert" />, badge: openIncidents },
+    { path: '/driver/history', label: 'Lịch sử', icon: <Icon name="clock" /> },
   ];
 
+  const formattedNotifs = useMemo(() => {
+    return (notifications || []).map((raw: DriverNotification) => {
+      const n = formatNotification({
+        id: raw.id,
+        title: raw.title,
+        body: raw.text,
+        at: raw.at,
+        read: raw.read,
+        link: raw.link,
+      });
+      return {
+        id: raw.id,
+        title: n.title,
+        body: n.body,
+        time: raw.at,
+        unread: !raw.read,
+        link: n.link,
+      };
+    });
+  }, [notifications]);
+
+  const driverName = me?.name || 'Tài xế';
+  const driverInitials = initials(driverName);
+
   return (
-    <div className="drv-app">
-      <aside className="drv-sidebar">
-        <NavLink to="/driver/journey" className="drv-brand">CBN Transport</NavLink>
-        <div className="drv-role">
-          <b>Tài xế &amp; Hộ tống</b>
-          <span>Cổng Tài xế &amp; Áp tải</span>
-        </div>
-        <nav className="drv-nav">
-          {NAV.map(([to, label, icon, count]) => (
-            <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>
-              <Icon name={icon} />
-              <span>{label}</span>
-              {!!count && <em className="drv-nav__count">{count}</em>}
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
-
-      <div className="drv-main">
-        <header className="drv-topbar">
-          <h1>{title}</h1>
-          <div className="drv-topbar__right">
-            {/* Bell thông báo */}
-            <div className="drv-notif-wrap" ref={notifRef}>
-              <button
-                type="button"
-                className="drv-icon-btn drv-bell"
-                onClick={() => setNotifOpen((v) => !v)}
-                aria-expanded={notifOpen}
-                aria-label="Thông báo"
-              >
-                <Icon name="bell" />
-                {unreadNotificationsCount > 0 && <i className="drv-bell__dot" />}
-              </button>
-
-              {notifOpen && (
-                <div className="drv-notif" role="menu">
-                  <div className="drv-notif__head">
-                    <div className="drv-notif__title-wrap">
-                      <span className="drv-notif__title">Thông báo</span>
-                      {unreadNotificationsCount > 0 && (
-                        <span className="drv-notif__badge-count">{unreadNotificationsCount} mới</span>
-                      )}
-                    </div>
-                    {unreadNotificationsCount > 0 && (
-                      <button type="button" className="drv-link" onClick={actions.markAllNotificationsRead}>
-                        Đánh dấu đã đọc
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="drv-notif__list">
-                    {formattedNotifs.length === 0 && (
-                      <div className="drv-notif__empty">
-                        <Icon name="bell" />
-                        <p>Bạn không có thông báo nào.</p>
-                      </div>
-                    )}
-                    {formattedNotifs.slice(0, 8).map((n: ReturnType<typeof formatNotification>) => (
-                      <button
-                        key={n.id}
-                        type="button"
-                        className={`drv-notif__item ${n.read ? 'read' : 'unread'}`}
-                        onClick={() => {
-                          if (!n.read) actions.markNotificationRead(n.id);
-                          setNotifOpen(false);
-                          if (n.link) navigate(n.link);
-                        }}
-                      >
-                        <span className={`drv-notif__icon-box tone-${n.tone}`}>
-                          <Icon name={n.icon} />
-                        </span>
-                        <div className="drv-notif__content">
-                          <div className="drv-notif__item-head">
-                            <b>{n.title}</b>
-                            {!n.read && <span className="drv-notif__unread-dot" />}
-                          </div>
-                          <span className="drv-notif__body">{n.body}</span>
-                          <small className="drv-notif__time">
-                            <Icon name="clock" /> {n.at}
-                          </small>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="drv-notif__foot">
-                    <button
-                      type="button"
-                      className="drv-notif__view-all-btn"
-                      onClick={() => {
-                        setNotifOpen(false);
-                        navigate('/driver/notifications');
-                      }}
-                    >
-                      <span>Xem tất cả thông báo ({formattedNotifs.length})</span>
-                      <Icon name="chevron" className="drv-notif__chevron-right" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <ThemeToggle showLabel={false} />
-
-            <div className="drv-user" ref={menuRef}>
-              <button type="button" className="drv-user__btn" onClick={() => setMenuOpen((v) => !v)} aria-expanded={menuOpen} aria-label="Menu tài khoản">
-                <span className="drv-avatar">{initials(me?.name) || 'TX'}</span>
-                <span className="drv-user__text"><b>{me?.name ?? 'Tài xế'}</b><small>{roleText(me?.role)}</small></span>
-                <Icon name="chevron" />
-              </button>
-              {menuOpen && (
-                <div className="drv-user__menu" role="menu">
-                  <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); navigate('/driver/profile'); }}>
-                    <Icon name="user" /> Hồ sơ của tôi
-                  </button>
-                  <hr />
-                  <button type="button" role="menuitem" className="drv-user__logout" onClick={logout}><Icon name="logout" /> Đăng xuất</button>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-        <main className="drv-view">{children}</main>
-      </div>
-
-      <nav className="drv-bottomnav" aria-label="Điều hướng">
-        {NAV.map(([to, label, icon, count]) => (
-          <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>
-            <Icon name={icon} />
-            <span>{label}</span>
-            {!!count && <em>{count}</em>}
-          </NavLink>
-        ))}
-      </nav>
-
-      {toast && <div className="drv-toast" role="status" key={toast.id}>{toast.message}</div>}
-    </div>
+    <DashboardLayout
+      title={title}
+      brandTitle="CBN Transport"
+      brandLink="/driver/journey"
+      roleLabel="Tài xế & Hộ tống"
+      roleDescription={roleText(me?.role)}
+      userName={driverName}
+      userRoleLabel={roleText(me?.role)}
+      userInitials={driverInitials}
+      menu={menu}
+      notifications={formattedNotifs}
+      unreadNotificationsCount={unreadNotificationsCount}
+      notificationsPath="/driver/notifications"
+      onNotificationClick={(item) => actions.markNotificationRead(item.id)}
+      onReadAllNotifications={() => actions.markAllNotificationsRead()}
+      userProfilePath="/driver/profile"
+      toast={toast}
+      onClearToast={() => actions.clearToast()}
+    >
+      {children}
+    </DashboardLayout>
   );
 };
 

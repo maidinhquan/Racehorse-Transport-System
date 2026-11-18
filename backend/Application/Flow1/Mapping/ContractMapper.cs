@@ -25,8 +25,7 @@ public static class ContractMapper
             note = legacy ? Field(snapshot, "CommercialNotes") : Field(commercial, "notes"), terms = MapTerms(legacy ? Field(snapshot, "Clauses") : Field(snapshot, "terms")), mode = Field(route, "mode"),
             departAt = Format(ReadDate(route, "departureAtUtc")), arriveAt = Format(ReadDate(route, "deliveryAtUtc")),
             snapshot,
-            unsupportedFields = legacy ? new[] { "items", "mode", "departAt", "arriveAt" } : Array.Empty<string>(),
-            pdfUrl = version.PdfUrl is null ? null : $"/api/customer/contracts/{contract.ContractID}/versions/{version.VersionNo}/pdf"
+            unsupportedFields = legacy ? new[] { "items", "mode", "departAt", "arriveAt" } : Array.Empty<string>()
         };
     }
     private static object? MapTerms(JsonElement? clauses)

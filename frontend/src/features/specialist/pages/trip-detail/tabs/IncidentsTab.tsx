@@ -4,7 +4,7 @@ import type { SpecTrip } from '../../../types';
 import { useSharedIncidents, updateSharedIncidentReview, type SharedIncident } from '../../../../../shared/utils/sharedIncidents';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
 import { fmtDateTime } from '../../../hooks/specialistRules';
-import { apiClient } from '../../../../../shared/api/apiClient';
+import { apiClient } from '../../../../../shared/api/core/apiClient';
 import { getUserFullName } from '../../../../../shared/utils/userNameResolver';
 import './IncidentsTab.css';
 

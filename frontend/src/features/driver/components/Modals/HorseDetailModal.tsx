@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Modal } from './Modal';
 import { Icon } from '../DriverLayout';
 import { AuthImage } from '../../../../shared/components/AuthImage';
-import { useAuthFileUrl } from '../../../../shared/api/useAuthFileUrl';
+import { useAuthFileUrl } from '../../../../shared/api/core/useAuthFileUrl';
 import { fmtDateTime } from '../../hooks/driverRules';
-import { apiRequest } from '../../../../shared/api/apiRequest';
+import { apiRequest } from '../../../../shared/api/core/apiRequest';
 import type { Horse, Trip } from '../../types';
 
 interface HorseDetailModalProps {

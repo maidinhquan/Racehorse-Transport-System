@@ -10,7 +10,7 @@ import type { Any } from '../store/coordinatorStore';
 import { audit, commit, confirmAction, db, flushTripStateToStorage, me, notify, nowStamp, openModal, toast } from '../store/coordinatorStore';
 import { addHours, cityLabel, dt, MILESTONE_LABEL, stampMs, usd } from '../utils/format';
 import { plannerMap, resourceSignature, ROUTE_POLICY, RP, rpCalc, rpDeadline, rpEnsure, rpFlightKey, rpRoute, rpWriteTimes, stop, validateRoute } from './routePlanner';
-import { apiClient } from '../../../shared/api/apiClient';
+import { apiClient } from '../../../shared/api/core/apiClient';
 import { flow3Api } from '../api/flow3Api';
 import { pushPlanToBackend } from './planSync';
 import { saveSharedTrip } from '../../../shared/utils/sharedTrips';

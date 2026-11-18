@@ -6,7 +6,7 @@ import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadg
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { useSharedIncidents, updateSharedIncidentReview, updateSharedIncidentStatus, type SharedIncident } from '../../../../shared/utils/sharedIncidents';
 import { fmtDateTime } from '../../hooks/specialistRules';
-import { apiClient } from '../../../../shared/api/apiClient';
+import { apiClient } from '../../../../shared/api/core/apiClient';
 import { getUserFullName } from '../../../../shared/utils/userNameResolver';
 import './SpecialistIncidentsPage.css';
 

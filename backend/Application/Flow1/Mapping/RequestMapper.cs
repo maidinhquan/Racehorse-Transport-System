@@ -51,8 +51,7 @@ public static class RequestMapper
                             note = contract.CommercialNotes,
                             mode = request.TransportType,
                             items = Array.Empty<object>(),
-                            terms = Array.Empty<object>(),
-                            pdfUrl = (string?)null
+                            terms = Array.Empty<object>()
                         }
                     }
                     : Array.Empty<object>()),

@@ -1,15 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { ThemeToggle } from '../../../../shared/components';
+import React, { useEffect, useState, useMemo } from 'react';
+import { DashboardLayout } from '../../../../shared/layouts/DashboardLayout';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { fmtDateTime } from '../../hooks/specialistRules';
 import { formatNotification } from '../../../../shared/utils/notificationFormat';
 import { SPECIALIST_INITIALS, SPECIALIST_NAME, type SpecialistNotification } from '../../types';
-import { requestReviewApi } from '../../../../shared/api/requestReviewApi';
-import './SpecialistLayout.css';
+import { requestReviewApi } from '../../../../shared/api/reviews/requestReviewApi';
 
 // ---------------------------------------------------------------------------
-// Icon dùng chung trong feature
+// Icon dùng chung trong feature Specialist (giữ nguyên để không phá vỡ import)
 // ---------------------------------------------------------------------------
 const PATHS: Record<string, React.ReactNode> = {
   home: <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
@@ -34,8 +32,11 @@ const PATHS: Record<string, React.ReactNode> = {
   user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>,
 };
+
 export const Icon: React.FC<{ name: string; className?: string }> = ({ name, className = '' }) => (
-  <svg className={`spc-i ${className}`} viewBox="0 0 24 24" aria-hidden="true">{PATHS[name] ?? null}</svg>
+  <svg className={`spc-i ${className}`} viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" strokeWidth="2">
+    {PATHS[name] ?? null}
+  </svg>
 );
 
 interface SpecialistLayoutProps {
@@ -43,18 +44,16 @@ interface SpecialistLayoutProps {
   children: React.ReactNode;
 }
 
-/** Layout trang Transport Specialist: sidebar + topbar + toast */
+/** Layout trang Transport Specialist - chuẩn hóa qua DashboardLayout chung */
 export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, children }) => {
-  const navigate = useNavigate();
   const { trips, toast, notifications, unreadNotificationsCount, actions } = useSpecialist();
-  const [notifOpen, setNotifOpen] = useState(false);
-  const notifRef = useRef<HTMLDivElement>(null);
   const [reviewCount, setReviewCount] = useState<number>(0);
 
   useEffect(() => {
     let active = true;
     const fetchQueue = () => {
-      requestReviewApi.queue('specialist')
+      requestReviewApi
+        .queue('specialist')
         .then((rows) => {
           if (active && Array.isArray(rows)) setReviewCount(rows.length);
         })
@@ -69,211 +68,82 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
       window.removeEventListener('rts_requests_updated', fetchQueue);
     };
   }, []);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => actions.clearToast(), 3800);
-    return () => clearTimeout(timer);
-  }, [toast, actions]);
+  const storedName =
+    (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null) ||
+    (typeof localStorage !== 'undefined' ? localStorage.getItem('userFullName') : null) ||
+    SPECIALIST_NAME;
 
-  useEffect(() => {
-    const handleOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (userMenuOpen && userMenuRef.current && !userMenuRef.current.contains(target)) {
-        setUserMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleOutside);
-    return () => document.removeEventListener('mousedown', handleOutside);
-  }, [userMenuOpen, notifOpen]);
+  const specialistInitials =
+    storedName
+      .split(' ')
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join('')
+      .slice(-2)
+      .toUpperCase() || SPECIALIST_INITIALS;
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('accessToken');
-    sessionStorage.removeItem('user');
-    sessionStorage.removeItem('userFullName');
-    sessionStorage.removeItem('userEmail');
-    sessionStorage.removeItem('userRole');
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
-
-  const NAV: Array<{ to: string; label: string; icon: string; count?: number; countTooltip?: string }> = [
-    { to: '/specialist/dashboard', label: 'Tổng quan', icon: 'home' },
+  const menu = [
+    { path: '/specialist/dashboard', label: 'Tổng quan', icon: <Icon name="home" /> },
     {
-      to: '/specialist/request-reviews',
+      path: '/specialist/request-reviews',
       label: 'Thẩm định yêu cầu',
-      icon: 'file',
-      count: reviewCount > 0 ? reviewCount : undefined,
-      countTooltip: `${reviewCount} yêu cầu chờ thẩm định hồ sơ`,
+      icon: <Icon name="file" />,
+      badge: reviewCount > 0 ? reviewCount : undefined,
     },
     {
-      to: '/specialist/trips',
+      path: '/specialist/trips',
       label: 'Chuyến được giao',
-      icon: 'truck',
-      count: trips.length,
-      countTooltip: `${trips.length} chuyến được giao phụ trách`,
+      icon: <Icon name="truck" />,
+      badge: trips.length > 0 ? trips.length : undefined,
     },
-    { to: '/specialist/regulations', label: 'Quy định & thiết lập', icon: 'list' },
-    { to: '/specialist/audit', label: 'Lịch sử thao tác', icon: 'clock' },
+    { path: '/specialist/regulations', label: 'Quy định & thiết lập', icon: <Icon name="list" /> },
+    { path: '/specialist/audit', label: 'Lịch sử thao tác', icon: <Icon name="clock" /> },
   ];
 
-  const storedName = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null)
-    || (typeof localStorage !== 'undefined' ? localStorage.getItem('userFullName') : null);
-  const specialistName = storedName || SPECIALIST_NAME;
-  const specialistInitials = specialistName.split(' ').filter(Boolean).map((n) => n[0]).join('').slice(-2).toUpperCase() || SPECIALIST_INITIALS;
+  const formattedNotifs = useMemo(() => {
+    return (notifications || []).map((raw: SpecialistNotification) => {
+      const n = formatNotification({
+        id: raw.id,
+        title: raw.title,
+        body: raw.text,
+        at: raw.at,
+        read: raw.read,
+        link: raw.link,
+      });
+      return {
+        id: n.id,
+        title: n.title,
+        body: n.body,
+        time: raw.at ? fmtDateTime(raw.at) : '',
+        unread: !raw.read,
+        link: n.link,
+      };
+    });
+  }, [notifications]);
 
   return (
-    <div className="spc-app">
-      <aside className="spc-sidebar">
-        <NavLink to="/specialist/dashboard" className="spc-brand" style={{ textDecoration: 'none', display: 'block' }}>
-          CBN Transport
-        </NavLink>
-        <div className="spc-role"><b>Transport Specialist</b><span>Hồ sơ pháp lý & quy định</span></div>
-        <nav className="spc-nav">
-          {NAV.map(({ to, label, icon, count, countTooltip }) => (
-            <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>
-              <Icon name={icon} />
-              <span>{label}</span>
-              {count !== undefined && count > 0 && (
-                <em className="spc-nav__count" title={countTooltip}>
-                  {count}
-                </em>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
-      <div className="spc-main">
-        <header className="spc-topbar">
-          <h1>{title}</h1>
-          <div className="spc-topbar__user">
-            <ThemeToggle showLabel={false} />
-            <div className="spc-notif-wrap" ref={notifRef}>
-              <button
-                type="button"
-                className="spc-icon-btn spc-bell"
-                aria-label="Thông báo"
-                aria-expanded={notifOpen}
-                onClick={() => { setNotifOpen((v) => !v); setUserMenuOpen(false); }}
-              >
-                <Icon name="bell" />
-                {unreadNotificationsCount > 0 && <i className="spc-bell__dot" />}
-              </button>
-              {notifOpen && (
-                <div className="spc-notif" role="menu">
-                  <div className="spc-notif__head">
-                    <div className="spc-notif__title-wrap">
-                      <span className="spc-notif__title">Thông báo</span>
-                      {unreadNotificationsCount > 0 && (
-                        <span className="spc-notif__badge-count">{unreadNotificationsCount} mới</span>
-                      )}
-                    </div>
-                    {unreadNotificationsCount > 0 && (
-                      <button type="button" className="spc-link" onClick={actions.markAllNotificationsRead}>
-                        Đánh dấu đã đọc
-                      </button>
-                    )}
-                  </div>
-                  <div className="spc-notif__list">
-                    {notifications.length === 0 && (
-                      <div className="spc-notif__empty">
-                        <Icon name="bell" />
-                        <p>Bạn không có thông báo nào.</p>
-                      </div>
-                    )}
-                    {notifications.slice(0, 8).map((raw: SpecialistNotification) => {
-                      const n = formatNotification({ id: raw.id, title: raw.title, body: raw.text, at: raw.at, read: raw.read, link: raw.link });
-                      return (
-                        <button
-                          key={n.id}
-                          type="button"
-                          className={`spc-notif__item ${n.read ? 'read' : 'unread'}`}
-                          onClick={() => {
-                            if (!n.read) actions.markNotificationRead(n.id);
-                            setNotifOpen(false);
-                            if (n.link) navigate(n.link);
-                          }}
-                        >
-                          <span className={`spc-notif__icon-box tone-${n.tone}`}>
-                            <Icon name={n.icon} />
-                          </span>
-                          <div className="spc-notif__content">
-                            <div className="spc-notif__item-head">
-                              <b>{n.title}</b>
-                              {!n.read && <span className="spc-notif__unread-dot" />}
-                            </div>
-                            <span className="spc-notif__body">{n.body}</span>
-                            <small className="spc-notif__time">
-                              <Icon name="clock" /> {fmtDateTime(n.at)}
-                            </small>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="spc-notif__foot">
-                    <button
-                      type="button"
-                      className="spc-notif__view-all-btn"
-                      onClick={() => {
-                        setNotifOpen(false);
-                        navigate('/specialist/notifications');
-                      }}
-                    >
-                      <span>Xem tất cả thông báo ({notifications.length})</span>
-                      <Icon name="chevron" className="spc-notif__chevron-right" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <div className="spc-user-wrap" ref={userMenuRef}>
-              <button
-                type="button"
-                className="spc-user-widget"
-                onClick={() => setUserMenuOpen((v: boolean) => !v)}
-                aria-label="Menu chuyên viên"
-                aria-expanded={userMenuOpen}
-              >
-                <span className="spc-avatar">{specialistInitials}</span>
-                <span className="spc-user-name">{specialistName}</span>
-                <Icon name="chevron" className="spc-user-chevron" />
-              </button>
-
-              {userMenuOpen && (
-                <div className="spc-user-menu" role="menu">
-                  <div className="spc-user-menu__header">
-                    <div className="spc-user-menu__avatar">{specialistInitials}</div>
-                    <div className="spc-user-menu__info">
-                      <b>{specialistName}</b>
-                      <span>Transport Specialist</span>
-                    </div>
-                  </div>
-                  <div className="spc-user-menu__divider" />
-                  <button type="button" className="spc-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/specialist/profile'); }}>
-                    <Icon name="user" /> Hồ sơ của tôi
-                  </button>
-                  <div className="spc-user-menu__divider" />
-                  <button type="button" className="spc-user-menu__item spc-user-menu__logout" onClick={handleLogout}>
-                    <Icon name="logout" /> Đăng xuất
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-        <nav className="spc-mobile-nav">
-          {NAV.map(({ to, label }) => <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>)}
-        </nav>
-        <main className="spc-view">{children}</main>
-      </div>
-      {toast && <div className="spc-toast" role="status" key={toast.id}>{toast.message}</div>}
-    </div>
+    <DashboardLayout
+      title={title}
+      brandTitle="CBN Transport"
+      brandLink="/specialist/dashboard"
+      roleLabel="Transport Specialist"
+      roleDescription="Hồ sơ pháp lý & quy định y tế"
+      userName={storedName}
+      userRoleLabel="Chuyên viên y tế & pháp lý"
+      userInitials={specialistInitials}
+      menu={menu}
+      notifications={formattedNotifs}
+      unreadNotificationsCount={unreadNotificationsCount}
+      notificationsPath="/specialist/notifications"
+      onNotificationClick={(item) => actions.markNotificationRead(item.id)}
+      onReadAllNotifications={() => actions.markAllNotificationsRead()}
+      userProfilePath="/specialist/profile"
+      toast={toast}
+      onClearToast={() => actions.clearToast()}
+    >
+      {children}
+    </DashboardLayout>
   );
 };
 

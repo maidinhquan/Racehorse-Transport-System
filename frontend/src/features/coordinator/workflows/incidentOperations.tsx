@@ -8,7 +8,7 @@ import { DateTimeInput } from '../components/forms/DateTime';
 import { changeEta, crewConflict, crewOf, dWhere, emp, horse, isDriver, isStaffAssignedToTrip, isVet, lastMilestone, legHolds, legOf, livePos, reqOfTrip, staffError, selectableStaff, trip, tripHalted, tripHorses, tripLabel, tripStops, vehicle, vehicleConflict } from '../domain/coordinatorRules';
 import type { Any } from '../store/coordinatorStore';
 import { audit, cleanId, commit, db, go, me, nextId, notify, nowStamp, openModal, toast } from '../store/coordinatorStore';
-import { apiClient } from '../../../shared/api/apiClient';
+import { apiClient } from '../../../shared/api/core/apiClient';
 import { notifySync } from '../../../shared/utils/syncChannel';
 import { updateSharedIncidentStatus } from '../../../shared/utils/sharedIncidents';
 import { dt, human, incTypeVi } from '../utils/format';

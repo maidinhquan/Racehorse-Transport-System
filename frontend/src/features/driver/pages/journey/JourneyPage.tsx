@@ -23,7 +23,7 @@ import {
   nextMilestone,
   openIncidentHold,
 } from '../../hooks/driverRules';
-import { cleanStopName } from '../../../tracking/utils/progress';
+import { cleanStopName } from '../../../../shared/utils/progress';
 import type { Horse, Trip } from '../../types';
 import './JourneyPage.css';
 

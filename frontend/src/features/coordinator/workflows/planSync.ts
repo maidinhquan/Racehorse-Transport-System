@@ -1,5 +1,5 @@
 // Gửi phương án (tuyến + xe + nhân sự) của Điều phối lên backend để Quản lý xem và duyệt được ở mọi máy.
-import { apiClient } from '../../../shared/api/apiClient';
+import { apiClient } from '../../../shared/api/core/apiClient';
 import { curRoute, emp, groundLegs, placeById, vehicle } from '../domain/coordinatorRules';
 import type { Any } from '../store/coordinatorStore';
 import type { PlanDraftInput } from '../types/flow3.types';

@@ -8,6 +8,9 @@ const apiAgent = new http.Agent({ keepAlive: true, maxSockets: 64 });
 export default defineConfig({
   plugins: [react()],
 
+  // Dùng chung file .env ở thư mục gốc repo (chỉ biến VITE_* được đưa vào trình duyệt).
+  envDir: "..",
+
   server: {
     host: "0.0.0.0",
     port: 5173,

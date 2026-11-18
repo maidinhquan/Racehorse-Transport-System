@@ -1,14 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { ThemeToggle } from '../../../../shared/components';
+import React, { useMemo } from 'react';
+import { DashboardLayout } from '../../../../shared/layouts/DashboardLayout';
 import { formatNotification } from '../../../../shared/utils/notificationFormat';
 import { useManager } from '../../hooks/useManager';
 import { fmtDateTime } from '../../hooks/managerRules';
 import { MANAGER_INITIALS, MANAGER_NAME } from '../../types';
-import './ManagerLayout.css';
 
 // ---------------------------------------------------------------------------
-// Icon dùng chung trong feature
+// Icon dùng chung trong feature Manager (giữ nguyên để không phá vỡ import)
 // ---------------------------------------------------------------------------
 const PATHS: Record<string, React.ReactNode> = {
   home: <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
@@ -37,8 +35,11 @@ const PATHS: Record<string, React.ReactNode> = {
   user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>,
 };
+
 export const Icon: React.FC<{ name: string; className?: string }> = ({ name, className = '' }) => (
-  <svg className={`mgr-i ${className}`} viewBox="0 0 24 24" aria-hidden="true">{PATHS[name] ?? null}</svg>
+  <svg className={`mgr-i ${className}`} viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" strokeWidth="2">
+    {PATHS[name] ?? null}
+  </svg>
 );
 
 interface ManagerLayoutProps {
@@ -46,201 +47,102 @@ interface ManagerLayoutProps {
   children: React.ReactNode;
 }
 
-/** Layout trang Logistics Manager: sidebar + topbar (thông báo) + toast */
+/** Layout trang Logistics Manager - chuẩn hóa qua DashboardLayout chung */
 export const ManagerLayout: React.FC<ManagerLayoutProps> = ({ title, children }) => {
   const { stats, toast, notifications, actions } = useManager();
-  const [open, setOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const boxRef = useRef<HTMLDivElement>(null);
-  const userMenuRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
-  const storedName = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null)
-    || (typeof localStorage !== 'undefined' ? localStorage.getItem('userFullName') : null);
-  const managerName = storedName || MANAGER_NAME;
-  const managerInitials = managerName.split(' ').filter(Boolean).map((n) => n[0]).join('').slice(-2).toUpperCase() || MANAGER_INITIALS;
 
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => actions.clearToast(), 3800);
-    return () => clearTimeout(timer);
-  }, [toast, actions]);
+  const storedName =
+    (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null) ||
+    (typeof localStorage !== 'undefined' ? localStorage.getItem('userFullName') : null) ||
+    MANAGER_NAME;
 
-  useEffect(() => {
-    const close = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (open && boxRef.current && !boxRef.current.contains(target)) setOpen(false);
-      if (userMenuOpen && userMenuRef.current && !userMenuRef.current.contains(target)) setUserMenuOpen(false);
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [open, userMenuOpen]);
+  const managerInitials =
+    storedName
+      .split(' ')
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join('')
+      .slice(-2)
+      .toUpperCase() || MANAGER_INITIALS;
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('accessToken');
-    sessionStorage.removeItem('user');
-    sessionStorage.removeItem('userFullName');
-    sessionStorage.removeItem('userEmail');
-    sessionStorage.removeItem('userRole');
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
-
-  const NAV: Array<[string, string, string, number?]> = [
-    ['/manager/dashboard', 'Tổng quan', 'home'],
-    ['/manager/requests', 'Yêu cầu vận chuyển', 'inbox', stats.pendingReview + stats.cancellations],
-    ['/manager/contracts', 'Hợp đồng & giá', 'file', stats.awaitingContract],
-    ['/manager/payments', 'Tiền cọc & thanh toán', 'card', stats.payQueue],
-    ['/manager/trips', 'Chuyến đi', 'truck', stats.tripDecisions],
-    ['/manager/incidents', 'Sự cố & khiếu nại', 'alert', stats.openIncidents + stats.openComplaints],
-    ['/manager/reports', 'Chi phí & báo cáo', 'chart'],
+  const menu = [
+    { path: '/manager/dashboard', label: 'Tổng quan', icon: <Icon name="home" /> },
+    {
+      path: '/manager/requests',
+      label: 'Yêu cầu vận chuyển',
+      icon: <Icon name="inbox" />,
+      badge: stats.pendingReview + stats.cancellations,
+    },
+    {
+      path: '/manager/contracts',
+      label: 'Hợp đồng & giá',
+      icon: <Icon name="file" />,
+      badge: stats.awaitingContract,
+    },
+    {
+      path: '/manager/payments',
+      label: 'Tiền cọc & thanh toán',
+      icon: <Icon name="card" />,
+      badge: stats.payQueue,
+    },
+    {
+      path: '/manager/trips',
+      label: 'Chuyến đi',
+      icon: <Icon name="truck" />,
+      badge: stats.tripDecisions,
+    },
+    {
+      path: '/manager/incidents',
+      label: 'Sự cố & khiếu nại',
+      icon: <Icon name="alert" />,
+      badge: stats.openIncidents + stats.openComplaints,
+    },
+    { path: '/manager/reports', label: 'Chi phí & báo cáo', icon: <Icon name="chart" /> },
   ];
 
+  const formattedNotifs = useMemo(() => {
+    return (notifications || []).map((raw) => {
+      const n = formatNotification({
+        id: raw.id,
+        title: raw.title,
+        body: raw.text,
+        at: raw.at,
+        read: raw.read,
+        link: raw.link,
+      });
+      return {
+        id: n.id,
+        title: n.title,
+        body: n.body,
+        time: raw.at ? fmtDateTime(raw.at) : '',
+        unread: !raw.read,
+        link: n.link,
+      };
+    });
+  }, [notifications]);
+
   return (
-    <div className="mgr-app">
-      <aside className="mgr-sidebar">
-        <NavLink to="/manager/dashboard" className="mgr-brand" style={{ textDecoration: 'none', display: 'block' }}>
-          CBN Transport
-        </NavLink>
-        <div className="mgr-role"><b>Logistics Manager</b><span>Xét duyệt, hợp đồng & điều hành</span></div>
-        <nav className="mgr-nav">
-          {NAV.map(([to, label, icon, count]) => (
-            <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>
-              <Icon name={icon} /><span>{label}</span>{!!count && <em className="mgr-nav__count">{count}</em>}
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
-      <div className="mgr-main">
-        <header className="mgr-topbar">
-          <h1>{title}</h1>
-          <div className="mgr-topbar__user">
-            <ThemeToggle showLabel={false} />
-
-            {/* Chuông thông báo */}
-            <div className="mgr-notif-wrap" ref={boxRef}>
-              <button
-                type="button"
-                className="mgr-icon-btn mgr-bell"
-                aria-label="Thông báo"
-                aria-expanded={open}
-                onClick={() => { setOpen((v) => !v); setUserMenuOpen(false); }}
-              >
-                <Icon name="bell" />{stats.unread > 0 && <i className="mgr-bell__dot" />}
-              </button>
-              {open && (
-                <div className="mgr-notif" role="menu">
-                  <div className="mgr-notif__head">
-                    <div className="mgr-notif__title-wrap">
-                      <span className="mgr-notif__title">Thông báo</span>
-                      {stats.unread > 0 && (
-                        <span className="mgr-notif__badge-count">{stats.unread} mới</span>
-                      )}
-                    </div>
-                    {stats.unread > 0 && (
-                      <button type="button" className="mgr-link" onClick={() => actions.markAllRead()}>
-                        Đánh dấu đã đọc
-                      </button>
-                    )}
-                  </div>
-                  <div className="mgr-notif__list">
-                    {notifications.length === 0 && (
-                      <div className="mgr-notif__empty">
-                        <Icon name="bell" />
-                        <p>Bạn không có thông báo nào.</p>
-                      </div>
-                    )}
-                    {notifications.slice(0, 8).map((raw) => {
-                      const n = formatNotification({ id: raw.id, title: raw.title, body: raw.text, at: raw.at, read: raw.read, link: raw.link });
-                      return (
-                        <button
-                          key={n.id}
-                          type="button"
-                          className={`mgr-notif__item ${n.read ? 'read' : 'unread'}`}
-                          onClick={() => {
-                            if (!n.read) actions.markRead(n.id);
-                            setOpen(false);
-                            if (n.link) navigate(n.link);
-                          }}
-                        >
-                          <span className={`mgr-notif__icon-box tone-${n.tone}`}>
-                            <Icon name={n.icon} />
-                          </span>
-                          <div className="mgr-notif__content">
-                            <div className="mgr-notif__item-head">
-                              <b>{n.title}</b>
-                              {!n.read && <span className="mgr-notif__unread-dot" />}
-                            </div>
-                            <span className="mgr-notif__body">{n.body}</span>
-                            <small className="mgr-notif__time">
-                              <Icon name="clock" /> {fmtDateTime(n.at)}
-                            </small>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="mgr-notif__foot">
-                    <button
-                      type="button"
-                      className="mgr-notif__view-all-btn"
-                      onClick={() => {
-                        setOpen(false);
-                        navigate('/manager/notifications');
-                      }}
-                    >
-                      <span>Xem tất cả thông báo ({notifications.length})</span>
-                      <Icon name="chevron" className="mgr-notif__chevron-right" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Menu người dùng / Tài khoản */}
-            <div className="mgr-user-wrap" ref={userMenuRef}>
-              <button
-                type="button"
-                className="mgr-user-widget"
-                onClick={() => { setUserMenuOpen((v: boolean) => !v); setOpen(false); }}
-                aria-label="Menu tài khoản"
-                aria-expanded={userMenuOpen}
-              >
-                <span className="mgr-avatar">{managerInitials}</span>
-                <span className="mgr-user-name">{managerName}</span>
-                <Icon name="chevron" className="mgr-user-chevron" />
-              </button>
-
-              {userMenuOpen && (
-                <div className="mgr-user-menu" role="menu">
-                  <div className="mgr-user-menu__header">
-                    <div className="mgr-user-menu__avatar">{managerInitials}</div>
-                    <div className="mgr-user-menu__info">
-                      <b>{managerName}</b>
-                      <span>Logistics Manager</span>
-                    </div>
-                  </div>
-                  <div className="mgr-user-menu__divider" />
-                  <button type="button" className="mgr-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/manager/profile'); }}>
-                    <Icon name="user" /> Hồ sơ của tôi
-                  </button>
-                  <div className="mgr-user-menu__divider" />
-                  <button type="button" className="mgr-user-menu__item mgr-user-menu__logout" onClick={handleLogout}>
-                    <Icon name="logout" /> Đăng xuất
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-        <nav className="mgr-mobile-nav">
-          {NAV.map(([to, label]) => <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>)}
-        </nav>
-        <main className="mgr-view">{children}</main>
-      </div>
-      {toast && <div className="mgr-toast" role="status" key={toast.id}>{toast.message}</div>}
-    </div>
+    <DashboardLayout
+      title={title}
+      brandTitle="CBN Transport"
+      brandLink="/manager/dashboard"
+      roleLabel="Logistics Manager"
+      roleDescription="Xét duyệt, hợp đồng & điều hành"
+      userName={storedName}
+      userRoleLabel="Quản lý vận tải"
+      userInitials={managerInitials}
+      menu={menu}
+      notifications={formattedNotifs}
+      unreadNotificationsCount={stats.unread}
+      notificationsPath="/manager/notifications"
+      onNotificationClick={(item) => actions.markRead(item.id)}
+      onReadAllNotifications={() => actions.markAllRead()}
+      userProfilePath="/manager/profile"
+      toast={toast}
+      onClearToast={() => actions.clearToast()}
+    >
+      {children}
+    </DashboardLayout>
   );
 };
 

@@ -1,13 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { ThemeToggle } from '../../../../shared/components';
+import React, { useMemo } from 'react';
+import { DashboardLayout } from '../../../../shared/layouts/DashboardLayout';
 import { useCustomer } from '../../hooks/useCustomer';
 import { fmtDateTime } from '../../hooks/customerRules';
 import { formatNotification } from '../../utils/notificationFormat';
-import './CustomerLayout.css';
+import type { CustomerNotification } from '../../types';
 
 // ---------------------------------------------------------------------------
-// Icon dùng chung trong feature
+// Icon dùng chung trong feature Customer (giữ nguyên để không phá vỡ import)
 // ---------------------------------------------------------------------------
 const PATHS: Record<string, React.ReactNode> = {
   home: <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
@@ -32,46 +31,77 @@ const PATHS: Record<string, React.ReactNode> = {
   user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>,
 };
+
 export const Icon: React.FC<{ name: string; className?: string }> = ({ name, className = '' }) => (
-  <svg className={`cus-i ${className}`} viewBox="0 0 24 24" aria-hidden="true">{PATHS[name] ?? null}</svg>
+  <svg className={`cus-i ${className}`} viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" strokeWidth="2">
+    {PATHS[name] ?? null}
+  </svg>
 );
 
-// ---------------------------------------------------------------------------
-// Layout: sidebar + topbar (thông báo + menu tài khoản) + toast
-// ---------------------------------------------------------------------------
 interface CustomerLayoutProps {
   title: string;
   children: React.ReactNode;
   narrow?: boolean;
 }
 
+/** Layout trang Customer - chuẩn hóa qua DashboardLayout chung */
 export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children, narrow = false }) => {
-  const navigate = useNavigate();
   const { profile, stats, notifications, toast, actions } = useCustomer();
-  const [open, setOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const notifRef = useRef<HTMLDivElement>(null);
-  const userMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => actions.clearToast(), 3800);
-    return () => clearTimeout(timer);
-  }, [toast, actions]);
+  const menu = [
+    { path: '/customer/home', label: 'Trang chủ', icon: <Icon name="home" /> },
+    {
+      path: '/customer/requests',
+      label: 'Yêu cầu vận chuyển',
+      icon: <Icon name="file" />,
+      badge: stats.needAction,
+    },
+    { path: '/customer/horses', label: 'Ngựa của tôi', icon: <Icon name="horse" /> },
+    {
+      path: '/customer/tracking',
+      label: 'Theo dõi chuyến',
+      icon: <Icon name="pin" />,
+      badge: stats.inTransit,
+    },
+    { path: '/customer/history', label: 'Lịch sử', icon: <Icon name="clock" /> },
+  ];
 
-  useEffect(() => {
-    const handleOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (open && notifRef.current && !notifRef.current.contains(target)) {
-        setOpen(false);
+  const formattedNotifs = useMemo(() => {
+    return (notifications || []).map((raw: CustomerNotification) => {
+      const n = formatNotification({
+        id: raw.id,
+        title: raw.title,
+        body: raw.body,
+        at: raw.at,
+        read: raw.read,
+        link: raw.link,
+      });
+      return {
+        id: n.id,
+        title: n.title,
+        body: n.body,
+        time: raw.at ? fmtDateTime(raw.at) : '',
+        unread: !raw.read,
+        link: n.link,
+      };
+    });
+  }, [notifications]);
+
+  const initials = profile.name
+    .split(' ')
+    .filter(Boolean)
+    .slice(-2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+
+  const handleReadAll = () => {
+    notifications.forEach((n) => {
+      if (!n.read) {
+        actions.markNotificationRead(n.id);
       }
-      if (userMenuOpen && userMenuRef.current && !userMenuRef.current.contains(target)) {
-        setUserMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleOutside);
-    return () => document.removeEventListener('mousedown', handleOutside);
-  }, [open, userMenuOpen]);
+    });
+  };
 
   const handleLogout = () => {
     sessionStorage.removeItem('accessToken');
@@ -85,171 +115,33 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children,
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userRole');
     actions.reset();
-    navigate('/login');
+    window.location.href = '/login';
   };
 
-  const NAV: Array<[string, string, string, number?]> = [
-    ['/customer/home', 'Trang chủ', 'home'],
-    ['/customer/requests', 'Yêu cầu vận chuyển', 'file', stats.needAction],
-    ['/customer/horses', 'Ngựa của tôi', 'horse'],
-    ['/customer/tracking', 'Theo dõi chuyến', 'pin', stats.inTransit],
-    ['/customer/history', 'Lịch sử', 'clock'],
-  ];
-
   return (
-    <div className="cus-app">
-      <aside className="cus-sidebar">
-        <NavLink to="/customer/home" className="cus-brand" style={{ textDecoration: 'none', display: 'block' }}>
-          CBN Transport
-        </NavLink>
-        <div className="cus-role">
-          <b>Cổng khách hàng</b>
-          <span>{profile.company}</span>
-        </div>
-        <nav className="cus-nav">
-          {NAV.map(([to, label, icon, count]) => (
-            <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>
-              <Icon name={icon} />
-              <span>{label}</span>
-              {!!count && <em className="cus-nav__count">{count}</em>}
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
-
-      <div className="cus-main">
-        <header className="cus-topbar">
-          <h1>{title}</h1>
-          <div className="cus-topbar__user">
-            <ThemeToggle showLabel={false} />
-
-            {/* Chuông thông báo */}
-            <div className="cus-notif-wrap" ref={notifRef}>
-              <button
-                type="button"
-                className="cus-icon-btn cus-bell"
-                aria-label="Thông báo"
-                aria-expanded={open}
-                onClick={() => { setOpen((v) => !v); setUserMenuOpen(false); }}
-              >
-                <Icon name="bell" />
-                {stats.unread > 0 && <i className="cus-bell__dot" />}
-              </button>
-              {open && (
-                <div className="cus-notif" role="menu">
-                  <div className="cus-notif__head">
-                    <div className="cus-notif__title-wrap">
-                      <span className="cus-notif__title">Thông báo</span>
-                      {stats.unread > 0 && (
-                        <span className="cus-notif__badge-count">{stats.unread} mới</span>
-                      )}
-                    </div>
-                    {stats.unread > 0 && (
-                      <button type="button" className="cus-link" onClick={actions.markAllNotificationsRead}>
-                        Đánh dấu đã đọc
-                      </button>
-                    )}
-                  </div>
-                  <div className="cus-notif__list">
-                    {notifications.length === 0 && (
-                      <div className="cus-notif__empty">
-                        <Icon name="bell" />
-                        <p>Bạn không có thông báo nào.</p>
-                      </div>
-                    )}
-                    {notifications.slice(0, 8).map((raw) => {
-                      const n = formatNotification(raw);
-                      return (
-                        <button
-                          key={n.id}
-                          type="button"
-                          className={`cus-notif__item ${n.read ? 'read' : 'unread'}`}
-                          onClick={() => {
-                            if (!n.read) actions.markNotificationRead(n.id);
-                            setOpen(false);
-                            if (n.link) navigate(n.link);
-                          }}
-                        >
-                          <span className={`cus-notif__icon-box tone-${n.tone}`}>
-                            <Icon name={n.icon} />
-                          </span>
-                          <div className="cus-notif__content">
-                            <div className="cus-notif__item-head">
-                              <b>{n.title}</b>
-                              {!n.read && <span className="cus-notif__unread-dot" />}
-                            </div>
-                            <span className="cus-notif__body">{n.body}</span>
-                            <small className="cus-notif__time">
-                              <Icon name="clock" /> {fmtDateTime(n.at)}
-                            </small>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="cus-notif__foot">
-                    <button
-                      type="button"
-                      className="cus-notif__view-all-btn"
-                      onClick={() => {
-                        setOpen(false);
-                        navigate('/customer/notifications');
-                      }}
-                    >
-                      <span>Xem tất cả thông báo ({notifications.length})</span>
-                      <Icon name="chevron" className="cus-notif__chevron-right" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Menu người dùng / Tài khoản */}
-            <div className="cus-user-wrap" ref={userMenuRef}>
-              <button
-                type="button"
-                className="cus-user-widget"
-                onClick={() => { setUserMenuOpen((v) => !v); setOpen(false); }}
-                aria-label="Menu tài khoản"
-                aria-expanded={userMenuOpen}
-              >
-                <span className="cus-avatar">{profile.initials}</span>
-                <span className="cus-user-name">{profile.name}</span>
-                <Icon name="chevron" className="cus-user-chevron" />
-              </button>
-
-              {userMenuOpen && (
-                <div className="cus-user-menu" role="menu">
-                  <div className="cus-user-menu__header">
-                    <div className="cus-user-menu__avatar">{profile.initials}</div>
-                    <div className="cus-user-menu__info">
-                      <b>{profile.name}</b>
-                      <span>{profile.company || 'Tài khoản khách hàng'}</span>
-                      <small>{profile.email}</small>
-                    </div>
-                  </div>
-                  <div className="cus-user-menu__divider" />
-                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/profile'); }}>
-                    <Icon name="user" /> Hồ sơ của tôi
-                  </button>
-                  <div className="cus-user-menu__divider" />
-                  <button type="button" className="cus-user-menu__item cus-user-menu__logout" onClick={handleLogout}>
-                    <Icon name="logout" /> Đăng xuất
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-        <nav className="cus-mobile-nav">
-          {NAV.map(([to, label]) => <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>)}
-        </nav>
-        <main className={`cus-view${narrow ? ' cus-view--narrow' : ''}`}>{children}</main>
-      </div>
-
-      {toast && <div className="cus-toast" role="status" key={toast.id}>{toast.message}</div>}
-    </div>
+    <DashboardLayout
+      title={title}
+      brandTitle="CBN Transport"
+      brandLink="/customer/home"
+      roleLabel="Cổng khách hàng"
+      roleDescription={profile.company || 'Chủ ngựa & Doanh nghiệp đua'}
+      userName={profile.name}
+      userRoleLabel="Khách hàng"
+      userInitials={initials}
+      menu={menu}
+      notifications={formattedNotifs}
+      unreadNotificationsCount={stats.unread}
+      notificationsPath="/customer/notifications"
+      onNotificationClick={(item) => actions.markNotificationRead(item.id)}
+      onReadAllNotifications={handleReadAll}
+      userProfilePath="/customer/profile"
+      onLogout={handleLogout}
+      toast={toast}
+      onClearToast={() => actions.clearToast()}
+      narrow={narrow}
+    >
+      {children}
+    </DashboardLayout>
   );
 };
 

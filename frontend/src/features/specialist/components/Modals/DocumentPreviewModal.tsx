@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import type { CustomerDoc, SpecTrip, TripDocument } from '../../types';
 import { fmtDate, horseName } from '../../hooks/specialistRules';
 import { TripStatusBadge } from '../TripStatusBadge/TripStatusBadge';
-import { useAuthFile } from '../../../../shared/api/useAuthFileUrl';
+import { useAuthFile } from '../../../../shared/api/core/useAuthFileUrl';
 import './Modals.css';
 
 interface DocumentPreviewModalProps {
